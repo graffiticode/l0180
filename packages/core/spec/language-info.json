@@ -1,0 +1,39 @@
+{
+  "id": "0180",
+  "description": "Authors web-based assessment items — quizzes, tests, practice questions and self-checks that render and score in a browser with no assessment platform behind them. Produces a choice interaction (single-select multiple choice, multi-select, or true/false) with per-option points, weighted answers, penalized distractors, optional shuffling, and an answer key kept separate from the presentation so a graded delivery can withhold it. This is the general-purpose assessment language: use it whenever the request is a quiz, test or practice question and no particular vendor or platform is named.",
+  "supported_item_types": [
+    "choice"
+  ],
+  "example_prompts": [
+    {
+      "prompt": "A multiple-choice question asking what 2 + 2 is, with options 3, 4 and 5, where 4 is correct.",
+      "produces": "choice",
+      "notes": "The canonical single-select item — one correct option worth the default 1 point, two plain distractors."
+    },
+    {
+      "prompt": "Which planet is closest to the Sun? Mercury is right and worth 2 points; penalize 'The Moon' by a point.",
+      "produces": "choice",
+      "notes": "Exercises weighted scoring and a penalized distractor — assess [correct points 2] alongside assess [points -1]."
+    },
+    {
+      "prompt": "Select all the prime numbers from 2, 4, 5, 9 and 11 — 2, 5 and 11 are correct. Shuffle the options.",
+      "produces": "choice",
+      "notes": "Multi-select: raises max-choices, marks three options correct, and randomizes presentation order."
+    },
+    {
+      "prompt": "True or false: the Pacific is the largest ocean. True is correct.",
+      "produces": "choice",
+      "notes": "True/false is a two-option choice item — there is no separate word for it."
+    },
+    {
+      "prompt": "Ask which of four animals is a mammal — blue whale, great white shark, sea turtle, octopus — and give the options readable ids.",
+      "produces": "choice",
+      "notes": "Covers authored option ids, which override the derived A, B, C… when something else must reference an option."
+    },
+    {
+      "prompt": "An ungraded poll asking which topic students found hardest: fractions, decimals or percentages.",
+      "produces": "choice",
+      "notes": "An item with no assess anywhere compiles to an unscored interaction — it collects a response without grading it."
+    }
+  ]
+}

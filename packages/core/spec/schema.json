@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "L0180",
+  "title": "L0180",
+  "description": "A compiled L0180 assessment item: the interaction a candidate sees, and the answer key that scores it. The two are siblings so a graded delivery can withhold `validation` and score on the server.",
+  "type": "object",
+  "required": ["interaction"],
+  "properties": {
+    "interaction": {
+      "description": "Everything the candidate sees. Safe to send to a browser.",
+      "type": "object",
+      "required": ["type", "options"],
+      "properties": {
+        "type": { "description": "Which interaction this is.", "type": "string", "enum": ["choice"] },
+        "prompt": { "description": "The question stem.", "type": "string" },
+        "minChoices": { "description": "Fewest options the candidate may select.", "type": "integer", "minimum": 0 },
+        "maxChoices": { "description": "Most options the candidate may select. 1 is single-select.", "type": "integer", "minimum": 1 },
+        "shuffle": { "description": "Present the options in random order.", "type": "boolean" },
+        "options": {
+          "description": "The options offered, in authored order.",
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["id", "text"],
+            "properties": {
+              "id": { "description": "Identifier, derived as A, B, C… unless authored.", "type": "string" },
+              "text": { "description": "The option's visible text.", "type": "string" }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "validation": {
+      "description": "The answer key. Withheld when the item is delivered graded.",
+      "type": "object",
+      "required": ["points", "options"],
+      "properties": {
+        "points": {
+          "description": "The maximum achievable — the sum of the correct options only, so a penalty cannot move it.",
+          "type": "number"
+        },
+        "options": {
+          "description": "Scoring per option id. Only assessed options appear.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["points"],
+            "properties": {
+              "correct": { "description": "Present and true when this option is a right answer.", "type": "boolean" },
+              "points": { "description": "What selecting this option is worth. Negative penalizes.", "type": "number" }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "response": {
+      "description": "The candidate's selected option ids, attached by the delivery loop rather than the author.",
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
+}

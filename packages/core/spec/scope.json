@@ -1,0 +1,21 @@
+{
+  "id": "0180",
+  "summary": "General-purpose web-based assessment items — quizzes, tests and practice questions that render and score in a browser with no assessment platform behind them.",
+  "in_scope": [
+    "Multiple choice — a stem and options, one correct answer",
+    "Multi-select (\"select all that apply\") via max-choices, with several correct options",
+    "True/false items",
+    "Per-option points, weighted answers, and partial credit",
+    "Penalized distractors (an option that costs a point when selected)",
+    "Shuffled option order, and author-named option ids",
+    "Unscored polls — an item that collects a response without grading it"
+  ],
+  "out_of_scope": [
+    "Interaction types other than choice — text entry, ordering, matching, classification, hot text, hotspot and sliders are not implemented yet",
+    "Multi-part items such as cloze passages with several blanks — one interaction per program",
+    "Test packages, sections, navigation and sequencing — L0180 authors single items",
+    "Rubric-scored prose or any free-text judgement; scoring is exact matching against a key",
+    "Delivery policy — timing, attempt limits, feedback timing, gradebooks",
+    "Vendor-specific formats — name the vendor and use that vendor's dialect instead"
+  ]
+}
