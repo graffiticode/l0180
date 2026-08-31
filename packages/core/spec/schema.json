@@ -4,39 +4,210 @@
   "title": "L0180",
   "description": "A compiled L0180 assessment item: the interaction a candidate sees, and the answer key that scores it. The two are siblings so a graded delivery can withhold `validation` and score on the server.",
   "type": "object",
-  "required": ["interaction"],
+  "required": [
+    "interaction"
+  ],
   "properties": {
     "interaction": {
       "description": "Everything the candidate sees. Safe to send to a browser.",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/choiceInteraction"
+        },
+        {
+          "title": "Multi-part item",
+          "description": "An optional stimulus plus one or more interactions scored together.",
+          "type": "object",
+          "required": [
+            "type",
+            "parts"
+          ],
+          "properties": {
+            "type": {
+              "const": "item"
+            },
+            "stimulus": {
+              "description": "The passage the parts are about.",
+              "type": "object",
+              "required": [
+                "paragraphs"
+              ],
+              "properties": {
+                "title": {
+                  "type": "string"
+                },
+                "paragraphs": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "id",
+                      "text"
+                    ],
+                    "properties": {
+                      "id": {
+                        "description": "Addressable paragraph id: p1, p2, …",
+                        "type": "string"
+                      },
+                      "text": {
+                        "description": "One paragraph of the stimulus.",
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "additionalProperties": false
+            },
+            "parts": {
+              "description": "The interactions, in presentation order. Each carries its own id.",
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "allOf": [
+                  {
+                    "$ref": "#/$defs/choiceInteraction"
+                  }
+                ],
+                "required": [
+                  "id"
+                ]
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "validation": {
+      "description": "The answer key. Withheld when the item is delivered graded.",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/choiceValidation"
+        },
+        {
+          "title": "Item answer key",
+          "type": "object",
+          "required": [
+            "points",
+            "scoring",
+            "parts"
+          ],
+          "properties": {
+            "points": {
+              "description": "What a fully correct response earns. Under conjunctive scoring this is the item's own points, not the sum of its parts.",
+              "type": "number"
+            },
+            "scoring": {
+              "description": "additive sums the parts; conjunctive awards points only when every part is fully correct.",
+              "type": "string",
+              "enum": [
+                "additive",
+                "conjunctive"
+              ]
+            },
+            "parts": {
+              "description": "Per-part answer key, keyed by part id as the response is.",
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/$defs/choiceValidation"
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "response": {
+      "description": "The candidate's response, attached by the delivery loop rather than the author. A list of option ids for a bare interaction; keyed by part id for a multi-part item.",
+      "oneOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "choiceInteraction": {
+      "description": "Everything the candidate sees. Safe to send to a browser.",
       "type": "object",
-      "required": ["type", "options"],
+      "required": [
+        "type",
+        "options"
+      ],
       "properties": {
-        "type": { "description": "Which interaction this is.", "type": "string", "enum": ["choice"] },
-        "prompt": { "description": "The question stem.", "type": "string" },
-        "minChoices": { "description": "Fewest options the candidate may select.", "type": "integer", "minimum": 0 },
-        "maxChoices": { "description": "Most options the candidate may select. 1 is single-select.", "type": "integer", "minimum": 1 },
-        "shuffle": { "description": "Present the options in random order.", "type": "boolean" },
+        "type": {
+          "description": "Which interaction this is.",
+          "type": "string",
+          "enum": [
+            "choice"
+          ]
+        },
+        "prompt": {
+          "description": "The question stem.",
+          "type": "string"
+        },
+        "minChoices": {
+          "description": "Fewest options the candidate may select.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "maxChoices": {
+          "description": "Most options the candidate may select. 1 is single-select.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "shuffle": {
+          "description": "Present the options in random order.",
+          "type": "boolean"
+        },
         "options": {
           "description": "The options offered, in authored order.",
           "type": "array",
           "minItems": 1,
           "items": {
             "type": "object",
-            "required": ["id", "text"],
+            "required": [
+              "id",
+              "text"
+            ],
             "properties": {
-              "id": { "description": "Identifier, derived as A, B, C… unless authored.", "type": "string" },
-              "text": { "description": "The option's visible text.", "type": "string" }
+              "id": {
+                "description": "Identifier, derived as A, B, C… unless authored.",
+                "type": "string"
+              },
+              "text": {
+                "description": "The option's visible text.",
+                "type": "string"
+              }
             },
             "additionalProperties": false
           }
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "title": "Choice interaction"
     },
-    "validation": {
-      "description": "The answer key. Withheld when the item is delivered graded.",
+    "choiceValidation": {
       "type": "object",
-      "required": ["points", "options"],
+      "required": [
+        "points",
+        "options"
+      ],
       "properties": {
         "points": {
           "description": "The maximum achievable — the sum of the correct options only, so a penalty cannot move it.",
@@ -47,21 +218,25 @@
           "type": "object",
           "additionalProperties": {
             "type": "object",
-            "required": ["points"],
+            "required": [
+              "points"
+            ],
             "properties": {
-              "correct": { "description": "Present and true when this option is a right answer.", "type": "boolean" },
-              "points": { "description": "What selecting this option is worth. Negative penalizes.", "type": "number" }
+              "correct": {
+                "description": "Present and true when this option is a right answer.",
+                "type": "boolean"
+              },
+              "points": {
+                "description": "What selecting this option is worth. Negative penalizes.",
+                "type": "number"
+              }
             },
             "additionalProperties": false
           }
         }
       },
-      "additionalProperties": false
-    },
-    "response": {
-      "description": "The candidate's selected option ids, attached by the delivery loop rather than the author.",
-      "type": "array",
-      "items": { "type": "string" }
+      "additionalProperties": false,
+      "title": "Choice answer key"
     }
   }
 }

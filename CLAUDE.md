@@ -55,8 +55,8 @@ Three workspaces on the published `@graffiticode/l0000` (^0.2.0) and `@graffitic
 `packages/core/src/attributes.ts` holds one row per word. The lexicon entry, the Checker method
 and the Transformer method are all generated from it, arity included, so a word can never be
 declared with one arity and handled with another. **Never hand-write an attribute handler.**
-Only containers (`CHOICE`, `OPTIONS`) and `PROG` are written out, because each has a second
-argument role or an assembly step the table cannot express.
+Only containers (`ITEM`, `PARTS`, `CHOICE`, `OPTIONS`) and `PROG` are written out, because each
+has a second argument role or an assembly step the table cannot express.
 
 The style is attribute lists, per `console/docs/language-authoring-style.md` — the canonical
 spec for authoring a Graffiticode dialect. Read it before adding vocabulary.
@@ -87,6 +87,38 @@ fix is a regression even when the program still errors.
 
 Everything else takes exactly one argument. Keep that set small and stated in
 `spec/instructions.md`.
+
+### The item wrapper, and why conjunctive scoring exists
+
+A bare interaction is a whole program. `item` wraps one or more of them with an optional
+`stimulus`, and its `scoring` decides how they combine. `additive` sums the parts.
+**`conjunctive` awards the item's points only when every part is fully correct** — the shape a
+two-part evidence question needs, where naming the right idea while citing the wrong line
+earns zero rather than half. That is the requirement L0175's EBSR imposes, and it is why the
+wrapper is not just a container.
+
+Two consequences worth keeping:
+
+- A conjunctive item refuses to compile if any part is unscoreable, because "every part
+  correct" is meaningless over a part that cannot be correct.
+- `points` is rejected on an additive item. The item is already worth the sum of its parts, so
+  an authored figure would be a second, disagreeing answer to what a correct response earns.
+
+Part ids are numeric (`"1"`, `"2"`) and option ids are letters, deliberately: the response is
+keyed by part id, and a part could otherwise be mistaken for an option. `ItemView` passes each
+part only its own slice and merges on the way back up, so a part component is identical
+standing alone or nested.
+
+Only the item reports a score — parts render with `showResult={false}`. A per-part "Correct"
+while a conjunctive item earns nothing is actively misleading. Option-level ✓/✗ still show.
+
+### Every choice needs its own radio group
+
+`ChoiceItem` takes its group name from `useId()`. A fixed name put both parts of a two-part
+item into one native radio group, where the browser enforces mutual exclusion across the whole
+group — answering Part B silently unchecked Part A. Unit tests cannot see this; it took
+rendering a real two-part item to catch. Any future interaction using radios needs the same
+treatment.
 
 ### Scoring
 
@@ -147,16 +179,20 @@ Overview, not the JSON — `language-info.json` must not carry that key itself.
 2. Add the container's allowed set to `validAttributes`, block levels included.
 3. Write the container's Transformer method; assemble `interaction` and `validation`.
 4. Add a scorer case, keeping the module DOM-free.
-5. Add a renderer and register it in `Form.tsx`'s `RENDERERS` map.
+5. Add a renderer and register it in the `RENDERERS` map in `interactions.tsx` — not in
+   `Form.tsx`, which only chooses between an item and a bare interaction.
 6. Document it in `spec/instructions.md` and `spec/spec.md` with a compiling example, add
    prompts to `examples.md` as a new numbered category, and extend `supported_item_types`.
 
 ## Not built yet
 
 Every interaction type but `choice` — text entry, ordering, matching, classification, hot text,
-hotspot, sliders. Multi-part items (there is no item wrapper; a bare `choice` is a whole
-program). QTI export, which the `interaction`/`validation` split is deliberately shaped to
-allow later.
+hotspot, sliders. QTI export, which the `interaction`/`validation` split is deliberately shaped
+to allow later.
+
+The L0175 conformance requirements still open (see the plan): exact-set multi-select scoring,
+hottext at word and sentence granularity, select-exactly-N-from-a-valid-superset, rubric-scored
+constructed response, and per-option rationale.
 
 ## Related repos
 

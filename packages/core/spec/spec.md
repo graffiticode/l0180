@@ -39,6 +39,12 @@ Two words depart from that, both deliberately:
 
 | Function | Signature | Description |
 | :------- | :-------- | :---------- |
+| `item` | `<list: record>` | An item: a stimulus and one or more parts |
+| `parts` | `<list record: record>` | The interactions an item is made of |
+| `stimulus` | `<list: record>` | The passage the parts are about |
+| `title` | `<string: record>` | The stimulus's title |
+| `paragraphs` | `<list: record>` | The stimulus text, one string per paragraph |
+| `scoring` | `<string: record>` | How parts combine — additive or conjunctive |
 | `choice` | `<list: record>` | A choice interaction |
 | `options` | `<list record: record>` | The options offered |
 | `prompt` | `<string: record>` | The question stem |
@@ -50,6 +56,52 @@ Two words depart from that, both deliberately:
 | `shuffle` | `<boolean: record>` | Randomize option order |
 | `min-choices` | `<number: record>` | Fewest options selectable |
 | `max-choices` | `<number: record>` | Most options selectable |
+
+### item
+
+A stimulus and one or more parts, scored together. A bare interaction is already a complete
+program, so reach for `item` when the question needs a passage, or when one question has
+several parts answered together.
+
+`scoring` decides how the parts combine. `additive` (the default) sums them. `conjunctive`
+awards the item's points only when every part is fully correct and nothing otherwise, which
+is what a two-part evidence question means by "one point" — naming the right idea while
+citing the wrong line earns zero, not half. A conjunctive item is worth 1 unless `points`
+says otherwise, and every part must be scoreable.
+
+```
+item [
+  stimulus [
+    title "The Loose Board"
+    paragraphs [
+      "Nina had walked past the crooked porch a hundred times."
+      "Then she knelt down and set the first nail without anyone asking her to."
+    ]
+  ]
+  scoring "conjunctive"
+  parts [
+    choice [
+      prompt "What can the reader conclude about Nina?"
+      options [
+        [ text "She takes care of a problem on her own." assess [ correct ] ]
+        [ text "She is afraid of her neighbours." ]
+      ] {}
+    ]
+    choice [
+      prompt "Which line best supports your answer to Part A?"
+      options [
+        [ text "Nina had walked past the crooked porch a hundred times." ]
+        [ text "Then she knelt down and set the first nail." assess [ correct ] ]
+      ] {}
+    ]
+  ] {}
+]..
+```
+
+### stimulus
+
+The passage the item's parts are about. Paragraphs are addressed `p1`, `p2`, … and are
+numbered for the reader, so a stem can refer to them by line.
 
 ### choice
 

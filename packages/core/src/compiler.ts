@@ -50,6 +50,8 @@ for (const [name, meta] of Object.entries(attributeFields)) {
 }
 Checker.prototype.CHOICE = checkChild;
 Checker.prototype.OPTIONS = checkBoth;
+Checker.prototype.ITEM = checkChild;
+Checker.prototype.PARTS = checkBoth;
 
 /* -------------------------------------------------------------- Transformer */
 
@@ -225,6 +227,119 @@ Transformer.prototype.CHOICE = function (this: any, node: any, options: any, res
           options: withIds.map(({ id, text }) => ({ id, text: text !== undefined ? text : "" })),
         },
         validation: { points, options: validationOptions },
+      });
+    } catch (e: any) {
+      resume(err.concat(String((e && e.message) || e)), {});
+    }
+  });
+};
+
+/**
+ * A member list of interactions. Its elements are whole interaction values — each already a
+ * `{interaction, validation}` pair — rather than attribute lists, so nothing is merged here;
+ * ITEM composes them.
+ */
+Transformer.prototype.PARTS = function (this: any, node: any, options: any, resume: any) {
+  this.visit(node.elts[0], options, (e0: any, v0: any) => {
+    this.visit(node.elts[1], options, (e1: any, v1: any) => {
+      const err = ([] as any[]).concat(e0 || [], e1 || []);
+      const raw = toPlainObject(v0);
+      if (!Array.isArray(raw) || !raw.length) {
+        resume(
+          err.concat("parts: expected at least one interaction, e.g. parts [ choice [ ... ] ] {}."),
+          {},
+        );
+        return;
+      }
+      const bad = raw.findIndex((p: any) => !p || typeof p !== "object" || !p.interaction);
+      if (bad >= 0) {
+        resume(
+          err.concat(
+            `parts: entry ${bad + 1} is not an interaction. Each part is a whole interaction, ` +
+              "e.g. parts [ choice [ ... ] hottext [ ... ] ] {}.",
+          ),
+          {},
+        );
+        return;
+      }
+      resume(err, { ...(toPlainObject(v1) || {}), parts: raw });
+    });
+  });
+};
+
+/**
+ * An item: an optional stimulus plus one or more interactions scored together.
+ *
+ * Two scoring modes, and the difference is the whole reason the wrapper exists.
+ * `additive` (the default) sums the parts, so the item is worth what its parts are worth.
+ * `conjunctive` awards the item's points only when EVERY part is fully correct and nothing
+ * otherwise — the shape a two-part evidence item needs, where picking the right claim while
+ * citing the wrong line earns zero rather than half.
+ */
+Transformer.prototype.ITEM = function (this: any, node: any, options: any, resume: any) {
+  this.visit(node.elts[0], options, (e0: any, v0: any) => {
+    const err = ([] as any[]).concat(e0 || []);
+    try {
+      const attrs = mergeAttributes(toPlainObject(v0), "item");
+      assertKnownAttributes("item", attrs);
+
+      const parts: any[] = attrs.parts || [];
+      if (!parts.length) {
+        throw new Error("item: needs at least one part, e.g. parts [ choice [ ... ] ] {}.");
+      }
+
+      const scoring = attrs.scoring !== undefined ? attrs.scoring : "additive";
+      if (attrs.points !== undefined && scoring !== "conjunctive") {
+        throw new Error(
+          "item: `points` is only meaningful with `scoring \"conjunctive\"`. With additive " +
+            "scoring the item is worth the sum of its parts, so setting it here would be a " +
+            "second, disagreeing answer to what a correct response earns.",
+        );
+      }
+
+      // Ids are 1-based and stable, and the response is keyed by them. Deliberately numeric so
+      // a part id can never be mistaken for an option id, which is a letter.
+      const ids = parts.map((_, i) => String(i + 1));
+      const partValidation: Record<string, any> = {};
+      let summed = 0;
+      parts.forEach((p, i) => {
+        const v = p.validation || { points: 0, options: {} };
+        partValidation[ids[i]] = v;
+        summed += typeof v.points === "number" ? v.points : 0;
+      });
+
+      if (scoring === "conjunctive") {
+        const unscored = ids.filter((id) => !(partValidation[id]?.points > 0));
+        if (unscored.length) {
+          throw new Error(
+            `item: conjunctive scoring needs every part to be scoreable, but part ` +
+              `${unscored.join(", ")} earns nothing. Mark a correct answer in it, or use the ` +
+              "default additive scoring.",
+          );
+        }
+      }
+
+      const points = scoring === "conjunctive" ? (attrs.points !== undefined ? attrs.points : 1) : summed;
+
+      const stimulus = attrs.stimulus
+        ? {
+            ...(attrs.stimulus.title !== undefined ? { title: attrs.stimulus.title } : {}),
+            // Paragraphs are addressed p1, p2, … so a later span-selecting interaction can
+            // point into the stimulus and have the reference survive into `validation`.
+            paragraphs: (attrs.stimulus.paragraphs || []).map((text: string, i: number) => ({
+              id: `p${i + 1}`,
+              text,
+            })),
+          }
+        : undefined;
+
+      resume(err, {
+        interaction: {
+          type: "item",
+          ...(stimulus ? { stimulus } : {}),
+          parts: parts.map((p, i) => ({ id: ids[i], ...p.interaction })),
+        },
+        validation: { points, scoring, parts: partValidation },
       });
     } catch (e: any) {
       resume(err.concat(String((e && e.message) || e)), {});

@@ -36,6 +36,16 @@ export interface OptionOutcome {
   correct: boolean;
 }
 
+/** How an item's parts combine into its score. */
+export type ScoringMode = "additive" | "conjunctive";
+
+/** The answer key of a multi-part item. */
+export interface ItemValidation {
+  points: number;
+  scoring: ScoringMode;
+  parts: Record<string, Validation>;
+}
+
 export interface Score {
   /** Points earned, floored at zero — see `rawPoints`. */
   points: number;
@@ -52,8 +62,10 @@ export interface Score {
   maxPoints: number;
   /** Earned everything available. False for an unscored item, which has nothing to earn. */
   correct: boolean;
-  /** Per option, keyed as `validation.options` is. */
-  options: Record<string, OptionOutcome>;
+  /** Per option, keyed as `validation.options` is. Present for a choice. */
+  options?: Record<string, OptionOutcome>;
+  /** Per part, keyed as `validation.parts` is. Present for a multi-part item. */
+  parts?: Record<string, Score>;
 }
 
 /**
@@ -98,4 +110,60 @@ export function scoreChoice({
 
   const points = Math.max(0, rawPoints);
   return { points, rawPoints, maxPoints, correct: maxPoints > 0 && points >= maxPoints, options };
+}
+
+/**
+ * Score a multi-part item. The response is keyed by part id, as `validation.parts` is.
+ *
+ * `conjunctive` is the mode the wrapper exists for: the item's points are earned only when
+ * EVERY part is fully correct, and nothing otherwise. Picking the right claim while citing the
+ * wrong line scores zero, not half — which is what a two-part evidence item means by "one
+ * point". `additive` simply sums the parts.
+ */
+export function scoreItem({
+  response,
+  validation,
+}: {
+  response: unknown;
+  validation: ItemValidation | null | undefined;
+}): Score {
+  const key = validation?.parts || {};
+  const mode: ScoringMode = validation?.scoring === "conjunctive" ? "conjunctive" : "additive";
+  const maxPoints = typeof validation?.points === "number" ? validation.points : 0;
+  const given = response !== null && typeof response === "object" ? (response as any) : {};
+
+  const parts: Record<string, Score> = {};
+  let summed = 0;
+  let everyPartCorrect = true;
+  for (const id of Object.keys(key)) {
+    const s = scoreChoice({ response: given[id], validation: key[id] });
+    parts[id] = s;
+    summed += s.points;
+    if (!s.correct) everyPartCorrect = false;
+  }
+
+  const hasParts = Object.keys(key).length > 0;
+  if (mode === "conjunctive") {
+    const earned = hasParts && everyPartCorrect ? maxPoints : 0;
+    return { points: earned, rawPoints: earned, maxPoints, correct: hasParts && everyPartCorrect, parts };
+  }
+  const points = Math.max(0, summed);
+  return { points, rawPoints: summed, maxPoints, correct: maxPoints > 0 && points >= maxPoints, parts };
+}
+
+/**
+ * Score whatever a compiled item turns out to be. This is the entry point a host should use;
+ * `scoreChoice` and `scoreItem` are the cases behind it.
+ */
+export function scoreInteraction({
+  interaction,
+  validation,
+  response,
+}: {
+  interaction: { type?: string } | null | undefined;
+  validation: any;
+  response: unknown;
+}): Score {
+  if (interaction?.type === "item") return scoreItem({ response, validation });
+  return scoreChoice({ response, validation });
 }

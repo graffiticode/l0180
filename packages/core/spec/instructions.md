@@ -27,6 +27,12 @@ to configure: `options [...] {}`. Every other word here takes exactly one argume
 
 | Function | Signature | Description |
 | :------- | :-------- | :---------- |
+| `item` | `<list: record>` | An item: an optional stimulus and one or more parts scored together |
+| `parts` | `<list record: record>` | The interactions an item is made of, in order |
+| `stimulus` | `<list: record>` | The passage the item's parts are about |
+| `title` | `<string: record>` | The stimulus's title |
+| `paragraphs` | `<list: record>` | The stimulus text, one string per paragraph |
+| `scoring` | `<string: record>` | How parts combine: `additive` (default) or `conjunctive` |
 | `choice` | `<list: record>` | A choice interaction: a stem and options to select from |
 | `options` | `<list record: record>` | The options offered, each an attribute list |
 | `prompt` | `<string: record>` | The question stem shown to the candidate |
@@ -43,6 +49,8 @@ to configure: `options [...] {}`. Every other word here takes exactly one argume
 
 | Container | Takes |
 | :-------- | :---- |
+| `item` | stimulus, scoring, points, parts |
+| `stimulus` | title, paragraphs |
 | `choice` | prompt, shuffle, min-choices, max-choices, options |
 | an option | id, text, assess |
 | `assess` | correct, points |
@@ -61,6 +69,74 @@ silent no-op.
 The maximum sums only the options marked `correct`, so a penalty can never move the ceiling.
 An item's score is floored at zero — penalties cannot drive it negative and subtract from
 other items in an activity. An item with no `assess` anywhere is unscored, which is valid.
+
+## Items with a passage, or with more than one part
+
+A bare `choice` is a complete program. Wrap it in an `item` when the question needs a passage
+to read, or when one question has several parts answered together.
+
+`scoring` decides how the parts combine. `additive` (the default) sums them, so the item is
+worth what its parts are worth. **`conjunctive` awards the item's points only when every part
+is fully correct, and nothing otherwise** — a two-part evidence question where naming the
+right idea but citing the wrong line earns zero, not half. A conjunctive item is worth 1
+point unless `points` says otherwise, and every one of its parts must be scoreable.
+
+Paragraphs are numbered for the reader, so a stem can refer to them ("Which line…").
+
+### A two-part item over a passage
+
+```
+item [
+  stimulus [
+    title "The Loose Board"
+    paragraphs [
+      "Nina had walked past the crooked porch a hundred times."
+      "On Saturday she stopped, because someone had left a hammer on the step."
+      "Then she knelt down and set the first nail without anyone asking her to."
+    ]
+  ]
+  scoring "conjunctive"
+  parts [
+    choice [
+      prompt "What can the reader conclude about Nina?"
+      options [
+        [ text "She takes care of a problem on her own." assess [ correct ] ]
+        [ text "She is afraid of her neighbours." ]
+        [ text "She wants to be paid for her work." ]
+      ] {}
+    ]
+    choice [
+      prompt "Which line best supports your answer to Part A?"
+      options [
+        [ text "Nina had walked past the crooked porch a hundred times." ]
+        [ text "Then she knelt down and set the first nail without anyone asking her to." assess [ correct ] ]
+      ] {}
+    ]
+  ] {}
+]..
+```
+
+### A single question about a passage
+
+```
+item [
+  stimulus [
+    paragraphs [
+      "Honeybees live together in large groups called colonies."
+      "Every bee in a colony does a job that helps the group survive."
+    ]
+  ]
+  parts [
+    choice [
+      prompt "Which sentence best states the central idea?"
+      options [
+        [ text "Every bee in a colony does a job that helps the group survive." assess [ correct ] ]
+        [ text "Honeybees live in large groups." ]
+      ] {}
+    ]
+  ] {}
+]..
+```
 
 ## L0180 Examples
 

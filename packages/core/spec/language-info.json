@@ -1,8 +1,9 @@
 {
   "id": "0180",
-  "description": "Authors web-based assessment items — quizzes, tests, practice questions and self-checks that render and score in a browser with no assessment platform behind them. Produces a choice interaction (single-select multiple choice, multi-select, or true/false) with per-option points, weighted answers, penalized distractors, optional shuffling, and an answer key kept separate from the presentation so a graded delivery can withhold it. This is the general-purpose assessment language: use it whenever the request is a quiz, test or practice question and no particular vendor or platform is named.",
+  "description": "Authors web-based assessment items — quizzes, tests, practice questions and self-checks that render and score in a browser with no assessment platform behind them. Produces a choice interaction (single-select multiple choice, multi-select, or true/false), optionally wrapped in a multi-part item with a reading passage and conjunctive scoring, with per-option points, weighted answers, penalized distractors, optional shuffling, and an answer key kept separate from the presentation so a graded delivery can withhold it. This is the general-purpose assessment language: use it whenever the request is a quiz, test or practice question and no particular vendor or platform is named.",
   "supported_item_types": [
-    "choice"
+    "choice",
+    "item"
   ],
   "example_prompts": [
     {
@@ -34,6 +35,11 @@
       "prompt": "An ungraded poll asking which topic students found hardest: fractions, decimals or percentages.",
       "produces": "choice",
       "notes": "An item with no assess anywhere compiles to an unscored interaction — it collects a response without grading it."
+    },
+    {
+      "prompt": "A two-part reading question about a short passage: first ask what the reader can conclude about the character, then ask which line supports that answer. Both parts must be right for the point.",
+      "produces": "item",
+      "notes": "Exercises the item wrapper — a stimulus with numbered paragraphs, two choice parts, and conjunctive scoring where a right claim with the wrong evidence earns zero."
     }
   ]
 }

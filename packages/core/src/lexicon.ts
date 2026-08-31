@@ -36,6 +36,18 @@ const attributeWords = Object.fromEntries(
  * that sometimes takes the slot is a rule the generator has to remember rather than apply.
  */
 const containers = {
+  item: fn(
+    "ITEM",
+    1,
+    "<list: record>",
+    "An item: an optional stimulus and one or more interactions scored together.",
+  ),
+  parts: fn(
+    "PARTS",
+    2,
+    "<list record: record>",
+    "The interactions an item is made of, in the order they are presented.",
+  ),
   choice: fn(
     "CHOICE",
     1,

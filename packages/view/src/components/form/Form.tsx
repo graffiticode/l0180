@@ -13,13 +13,9 @@
  */
 import "../../index.css";
 import type { FormProps, CompileError } from "@graffiticode/l0000-view";
-import { ChoiceItem } from "./ChoiceItem";
+import { InteractionView } from "./interactions";
+import { ItemView } from "./ItemView";
 import { ErrorList } from "./itemKit";
-
-/** Interaction types this build can render, and the component that renders each. */
-const RENDERERS: Record<string, typeof ChoiceItem> = {
-  choice: ChoiceItem,
-};
 
 export const Form = ({ state }: FormProps) => {
   const errors: CompileError[] = state.errors ?? [];
@@ -32,28 +28,27 @@ export const Form = ({ state }: FormProps) => {
       // Nothing compiled yet, or a program that produced something other than an item.
       return <pre className="text-xs text-zinc-500">{JSON.stringify(data, null, 2)}</pre>;
     }
-    const Renderer = RENDERERS[interaction.type];
-    if (!Renderer) {
-      // A newer item than this renderer knows about. Say so plainly rather than rendering a
-      // blank card that looks like a broken item.
+    const respond = (response: unknown) =>
+      state.apply({ type: "response", args: { response } });
+
+    // A multi-part item owns its own parts and their response keying; anything else is a bare
+    // interaction and goes straight to the registry.
+    if (interaction.type === "item") {
       return (
-        <ErrorList
-          errors={[
-            {
-              message:
-                `This build cannot render a "${interaction.type}" interaction. ` +
-                `It knows: ${Object.keys(RENDERERS).join(", ")}.`,
-            },
-          ]}
+        <ItemView
+          interaction={interaction}
+          validation={data.validation}
+          response={data.response}
+          respond={respond}
         />
       );
     }
     return (
-      <Renderer
+      <InteractionView
         interaction={interaction}
         validation={data.validation}
         response={data.response}
-        respond={(response) => state.apply({ type: "response", args: { response } })}
+        respond={respond}
       />
     );
   };

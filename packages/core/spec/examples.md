@@ -1,9 +1,9 @@
 <!-- SPDX-License-Identifier: CC-BY-4.0 -->
 # L0180 RAG Training Examples
 
-60 example prompts for training a RAG model on L0180, the web-based assessment language —
+68 example prompts for training a RAG model on L0180, the web-based assessment language —
 covering multiple choice, true/false, multi-select, weighted scoring, penalized distractors,
-presentation options, and unscored polls.
+presentation options, unscored polls, and multi-part items over a reading passage.
 
 Each numbered line is a prompt in the author's own voice. Prompts describe WHAT to build,
 never how to write it: an author asks for a question, not for a `choice [...]` program. When
@@ -89,3 +89,14 @@ L0180 grows further interaction types, this file grows categories with them.
 58. Ask students how confident they feel about the material — very, somewhat, or not at all — without scoring it.
 59. A poll collecting which project theme the class would prefer, with four options and no right answer.
 60. Ask which day suits the review session best, as an unscored question.
+
+## Category 8: Passages and Multi-Part Items (61–68)
+
+61. A two-part reading question about a short passage: first what the reader can conclude about the character, then which line supports that answer. Both parts must be right for the point.
+62. Give students a paragraph about honeybees and ask which sentence best states the central idea.
+63. A reading item with a four-paragraph passage about a girl fixing a neighbour's porch, asking what it shows about her character.
+64. Two questions about the same passage on the water cycle, each worth its own point.
+65. An evidence-based question where part A asks for the author's purpose and part B asks which sentence shows it — award nothing unless both are right.
+66. A passage titled "How a Honeybee Colony Works" followed by a multiple-choice question about the main idea.
+67. A two-part item about a short informational text where the first part is worth 2 points and the second is worth 1.
+68. Show a numbered passage and ask which line best supports the claim that the narrator regrets her decision.

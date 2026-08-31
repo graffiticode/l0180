@@ -14,6 +14,7 @@
 import { test, describe, expect } from "vitest";
 import { readFileSync } from "fs";
 import { parser } from "@graffiticode/parser";
+import { lexicon as base } from "@graffiticode/l0000";
 import { compiler, lexicon } from "./index.js";
 
 /** Files whose fenced blocks are programs. examples.md holds prompts and is checked separately. */
@@ -36,7 +37,7 @@ function blocks(path: string): string[] {
 }
 
 /** A fenced block that is a program, rather than a table row or a fragment. */
-const isProgram = (src: string): boolean => !!src && /^\s*choice\s*\[/.test(src);
+const isProgram = (src: string): boolean => !!src && /^\s*(choice|item)\s*\[/.test(src);
 
 async function compileSrc(src: string) {
   const code: any = await parser.parse(180, src, lexicon);
@@ -93,9 +94,9 @@ describe("spec and lexicon agree", () => {
     return [...out];
   }
 
-  const ours = Object.keys(lexicon).filter(
-    (w) => !["print", "get", "set", "nth", "data", "use", "json", "range"].includes(w),
-  );
+  // The base language documents its own vocabulary; ours is whatever L0180 added on top of it.
+  // Derived rather than listed, so adding a word cannot silently escape the documentation gate.
+  const dialect = Object.keys(lexicon).filter((w) => !(w in base));
 
   test("every word documented in spec/ exists in the lexicon", () => {
     for (const f of SPEC_FILES) {
@@ -106,14 +107,9 @@ describe("spec and lexicon agree", () => {
   });
 
   test("every L0180 word is documented in instructions.md", () => {
-    // The base language documents its own vocabulary; only this dialect's words are ours.
-    const dialect = ["choice", "options", "prompt", "text", "id", "assess", "correct", "points", "shuffle", "min-choices", "max-choices"];
     const documented = documentedWords("spec/instructions.md");
-    for (const w of dialect) {
-      expect(documented, `\`${w}\` is in the lexicon but undocumented`).toContain(w);
-    }
-    // ...and nothing is documented that we then failed to add.
-    expect(dialect.filter((w) => !ours.includes(w))).toEqual([]);
+    const undocumented = dialect.filter((w) => !documented.includes(w));
+    expect(undocumented, `in the lexicon but undocumented: ${undocumented.join(", ")}`).toEqual([]);
   });
 
   test("the signature in the docs matches the one in the lexicon", () => {

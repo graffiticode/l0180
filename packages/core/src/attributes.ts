@@ -21,7 +21,9 @@ export interface AttributeMeta {
   /** `object` merges the word's attribute list into one object. Absent means pass the value through. */
   shape?: "object";
   /** Type asserted before the value is used. Checked in the Transformer, never the Checker — see below. */
-  expects?: "string" | "number" | "boolean";
+  expects?: "string" | "number" | "boolean" | "strings";
+  /** Closed set of legal values, for a word whose value names a mode. */
+  oneOf?: readonly string[];
   /**
    * Arity 0: the word stands alone and its presence IS its value.
    *
@@ -38,7 +40,30 @@ export interface AttributeMeta {
  * One row per word. The key is the AST tag (the Transformer method name); the source spelling
  * is the key lowercased with underscores as dashes, so MIN_CHOICES is written `min-choices`.
  */
+/** The scoring modes an item may declare. */
+export const SCORING_MODES = ["additive", "conjunctive"] as const;
+
 export const attributeFields: Record<string, AttributeMeta> = {
+  // Item-level
+  STIMULUS: {
+    field: "stimulus",
+    shape: "object",
+    description: "The passage or source material the item's parts are about.",
+  },
+  TITLE: { field: "title", expects: "string", description: "The stimulus's title." },
+  PARAGRAPHS: {
+    field: "paragraphs",
+    expects: "strings",
+    description: "The stimulus text, one string per paragraph. Addressable as p1, p2, …",
+  },
+  SCORING: {
+    field: "scoring",
+    expects: "string",
+    oneOf: SCORING_MODES,
+    description:
+      "How an item's parts combine: `additive` sums them (default), `conjunctive` awards the item only if every part is fully correct.",
+  },
+
   // Interaction-level
   PROMPT: {
     field: "prompt",
@@ -88,8 +113,11 @@ export const attributeFields: Record<string, AttributeMeta> = {
 };
 
 /** The signature string the generated spec renders, derived so it cannot drift from the row. */
-export const typeOf = (meta: AttributeMeta): string =>
-  meta.flag ? "<: record>" : meta.shape === "object" ? "<list: record>" : `<${meta.expects || "any"}: record>`;
+export const typeOf = (meta: AttributeMeta): string => {
+  if (meta.flag) return "<: record>";
+  if (meta.shape === "object" || meta.expects === "strings") return "<list: record>";
+  return `<${meta.expects || "any"}: record>`;
+};
 
 /**
  * Which words each container accepts, in source spelling.
@@ -103,6 +131,8 @@ export const typeOf = (meta: AttributeMeta): string =>
  * container for this purpose and its contents are checked under that name.
  */
 export const validAttributes: Record<string, string[]> = {
+  item: ["stimulus", "scoring", "points", "parts"],
+  stimulus: ["title", "paragraphs"],
   choice: ["prompt", "shuffle", "min-choices", "max-choices", "options"],
   option: ["id", "text", "assess"],
   assess: ["correct", "points"],
@@ -165,6 +195,16 @@ export function checkValue(name: string, meta: AttributeMeta, raw: any): string 
     }
     return null;
   }
+  if (meta.expects === "strings") {
+    if (!Array.isArray(raw) || !raw.length) {
+      return `${word}: expected a list of strings, e.g. ${word} ["First." "Second."].`;
+    }
+    const bad = raw.findIndex((s) => typeof s !== "string" || !s.trim());
+    if (bad >= 0) {
+      return `${word}: entry ${bad + 1} is ${showValue(raw[bad])}; every entry must be a non-empty string.`;
+    }
+    return null;
+  }
   if (!meta.expects) return null;
   const actual = typeof raw;
   if (meta.expects === "number" && (actual !== "number" || !Number.isFinite(raw))) {
@@ -175,6 +215,11 @@ export function checkValue(name: string, meta: AttributeMeta, raw: any): string 
   }
   if (meta.expects === "boolean" && actual !== "boolean") {
     return `${word}: expected true or false, got ${showValue(raw)}.`;
+  }
+  // A closed set is checked here rather than in the Checker for the same reason every other
+  // value check is: Checker.LIST would only ever reach the first element of a list.
+  if (meta.oneOf && !meta.oneOf.includes(raw)) {
+    return `${word}: ${showValue(raw)} is not a ${word} mode. It takes: ${meta.oneOf.join(", ")}.`;
   }
   return null;
 }
@@ -211,7 +256,9 @@ const fieldToWord: Record<string, string> = Object.entries(attributeFields).redu
     acc[meta.field] = wordOf(name);
     return acc;
   },
-  { options: "options" },
+  // Container words are not rows in the table, but they must still be nameable when a
+  // container rejects one of them.
+  { options: "options", parts: "parts" },
 );
 const fieldWord = (field: string): string => fieldToWord[field] || field;
 
