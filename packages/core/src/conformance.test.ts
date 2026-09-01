@@ -270,14 +270,48 @@ describe("hot-text, word granularity — one click, 1 point or 0", () => {
   });
 });
 
-describe("what L0175 still asks for that L0180 cannot express", () => {
-  // Stated as a passing test rather than a failing one, so the suite reports the real boundary
-  // instead of a permanent red mark. When the word lands this fails, which is the reminder to
-  // bring its conformance cases in above.
-  test("short-text has no vocabulary yet", () => {
-    expect(
-      lexicon["extended-text"],
-      "extended-text landed — add its conformance cases",
-    ).toBeUndefined();
+describe("short-text — hand-scored against the rubric, never auto-scored", () => {
+  // L0175's SCORING says "0-2 points; hand-scored against the rubric", and its scope.json puts
+  // auto-scoring of short-text explicitly out of scope. The conformance requirement is therefore
+  // that L0180 does NOT score it either — and does not report zero as though it had.
+  const SRC = `
+    extended-text [
+      prompt "What inference can be made about Mara? Explain using key details from the passage."
+      rubric [
+        [ score 2 descriptor "Makes a valid inference and cites two supporting details." ]
+        [ score 1 descriptor "Makes a valid inference with one detail, or a partial inference." ]
+        [ score 0 descriptor "No valid inference, or no support from the text." ]
+      ] {}
+      exemplar "Mara is absorbed by the tide pool — she ignores the picnic and does not turn around."
+    ]
+  `;
+
+  test("a response is held pending, not marked", async () => {
+    const score = await scorer(SRC);
+    const s = score("Mara cares more about the tide pool than the picnic.");
+    expect(s).toMatchObject({ points: 0, maxPoints: 2, correct: false, pending: true });
+  });
+
+  test("the 0-2 rubric reaches delivery, highest band first", async () => {
+    const { validation } = await compile(SRC);
+    expect(validation.responseProcessing).toBe("human");
+    expect(validation.rubric.map((b: any) => b.score)).toEqual([2, 1, 0]);
+    expect(validation.points).toBe(2);
+  });
+
+  test("the rubric and exemplar are withheld from the presentation", async () => {
+    const { interaction } = await compile(SRC);
+    expect(JSON.stringify(interaction)).not.toContain("supporting details");
+    expect(JSON.stringify(interaction)).not.toContain("absorbed");
+  });
+});
+
+describe("every L0175 delivered item type is now expressible", () => {
+  test("nothing is left on the list", () => {
+    // multiple-choice, multi-select, ebsr, hot-text (three shapes) and short-text all have
+    // conformance cases above. If a new L0175 item type appears, this is where it lands.
+    for (const word of ["choice", "hottext", "extended-text", "item"]) {
+      expect(lexicon[word], `${word} is missing from the lexicon`).toBeDefined();
+    }
   });
 });

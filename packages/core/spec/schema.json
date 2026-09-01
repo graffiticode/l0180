@@ -11,6 +11,7 @@
       "oneOf": [
         { "$ref": "#/$defs/choiceInteraction" },
         { "$ref": "#/$defs/hottextInteraction" },
+        { "$ref": "#/$defs/extendedTextInteraction" },
         { "$ref": "#/$defs/itemInteraction" }
       ]
     },
@@ -129,6 +130,21 @@
       },
       "additionalProperties": false
     },
+    "extendedTextInteraction": {
+      "title": "Extended-text interaction",
+      "description": "A written response. Nothing scores it here — a person marks it against the rubric in `validation`, which is why its key is responseProcessing \"human\" rather than an unscored key.",
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "id": {
+          "description": "Present only when this interaction is a part of an item, where it keys the response.",
+          "type": "string"
+        },
+        "type": { "const": "extended-text" },
+        "prompt": { "description": "The question stem.", "type": "string" }
+      },
+      "additionalProperties": false
+    },
     "itemInteraction": {
       "title": "Multi-part item",
       "description": "An optional stimulus plus one or more interactions presented and scored together.",
@@ -168,7 +184,8 @@
               {
                 "oneOf": [
                   { "$ref": "#/$defs/choiceInteraction" },
-                  { "$ref": "#/$defs/hottextInteraction" }
+                  { "$ref": "#/$defs/hottextInteraction" },
+                  { "$ref": "#/$defs/extendedTextInteraction" }
                 ]
               },
               { "required": ["id"] }
@@ -186,7 +203,7 @@
       "properties": {
         "responseProcessing": {
           "description": "map_response scores each selected option and sums; match_correct awards the points for exactly the correct set and nothing otherwise.",
-          "enum": ["map_response", "match_correct"]
+          "enum": ["map_response", "match_correct", "human"]
         },
         "points": {
           "description": "The maximum achievable. Under map_response, the sum of the correct options only, so a penalty cannot move it.",
@@ -225,6 +242,24 @@
           "description": "Why an option is wrong, keyed by option id. Shown only once that option is selected, so it never reveals an unpicked answer.",
           "type": "object",
           "additionalProperties": { "type": "string" }
+        },
+        "rubric": {
+          "description": "human only: the bands a person marks the response against, highest first.",
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "object",
+            "required": ["score", "descriptor"],
+            "properties": {
+              "score": { "description": "What this band earns.", "type": "number" },
+              "descriptor": { "description": "What a response has to do to earn it.", "type": "string" }
+            },
+            "additionalProperties": false
+          }
+        },
+        "exemplar": {
+          "description": "human only: a response that would earn full marks.",
+          "type": "string"
         }
       },
       "additionalProperties": false,
@@ -244,6 +279,23 @@
           "then": {
             "required": ["correctResponse"],
             "not": { "anyOf": [{ "required": ["mapping"] }, { "required": ["upperBound"] }] }
+          }
+        },
+        {
+          "if": {
+            "properties": { "responseProcessing": { "const": "human" } },
+            "required": ["responseProcessing"]
+          },
+          "then": {
+            "required": ["rubric"],
+            "not": {
+              "anyOf": [
+                { "required": ["mapping"] },
+                { "required": ["correctResponse"] },
+                { "required": ["upperBound"] },
+                { "required": ["feedback"] }
+              ]
+            }
           }
         }
       ]

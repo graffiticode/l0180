@@ -47,6 +47,11 @@ Two words depart from that, both deliberately:
 | `scoring` | `<string: record>` | How parts combine — additive or conjunctive |
 | `choice` | `<list: record>` | A choice interaction |
 | `hottext` | `<list: record>` | A hottext interaction: clickable sentences or words |
+| `extended-text` | `<list: record>` | A written response, marked by a person |
+| `rubric` | `<list record: record>` | The bands a written response is marked against |
+| `score` | `<number: record>` | What a band earns |
+| `descriptor` | `<string: record>` | What earns that band |
+| `exemplar` | `<string: record>` | A response that would earn full marks |
 | `selections` | `<list record: record>` | The places a hottext can select |
 | `quote` | `<string: record>` | The text a selection names |
 | `granularity` | `<string: record>` | What is clickable — sentence or word |
@@ -229,6 +234,24 @@ hottext [
     [ quote "Workers gather nectar." assess [ correct ] ]
     [ quote "Guard bees defend the hive." assess [ correct ] ]
   ] {}
+]..
+```
+
+### extended-text
+
+A written response. Nothing here scores it: the key says `responseProcessing "human"` and
+carries the rubric a person marks against, and the item reports its score as pending rather
+than as zero. Needs at least two rubric bands; the item is worth the top one.
+
+```
+extended-text [
+  prompt "What inference can be made about Mara? Explain using key details from the passage."
+  rubric [
+    [ score 2 descriptor "Makes a valid inference and cites two supporting details." ]
+    [ score 1 descriptor "Makes a valid inference with one detail." ]
+    [ score 0 descriptor "No valid inference, or no support from the text." ]
+  ] {}
+  exemplar "Mara is absorbed by the tide pool — she ignores the picnic and does not turn around."
 ]..
 ```
 

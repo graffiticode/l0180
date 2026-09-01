@@ -86,11 +86,15 @@ names, so an exporter is a serializer rather than a translation.
 | R5 | Hottext, sentence granularity, selected within the stimulus | hottext | **done** |
 | R6 | Hottext, word granularity, single selection | hottext | **done** |
 | R7 | Select exactly N from a valid superset | hottext | **done** |
-| R8 | Rubric-scored constructed response, not auto-scored | extended-text | missing |
+| R8 | Rubric-scored constructed response, not auto-scored | extended-text | **done** |
 | R9 | Per-option rationale carried through to delivery | choice | **done** `634938f` |
 
-L0175 item types covered end to end: `multiple-choice`, `multi-select`, `ebsr`, and all three
-`hot-text` shapes. Missing: `short-text`.
+**R1–R9 are complete.** Every L0175 item type is expressible and scores identically:
+`multiple-choice`, `multi-select`, `ebsr`, all three `hot-text` shapes, and `short-text`.
+
+What "scores identically" means for `short-text` is that L0180 does *not* score it either —
+L0175's scope.json puts auto-scoring of written responses explicitly out of scope, and the
+conformance case asserts the response comes back pending rather than marked.
 
 ### Two conclusions the original design got wrong
 
@@ -150,28 +154,22 @@ rather than something a matcher tolerates:
   L0175 calls that acceptable; in the Grade-5 literary prose T4 and T2 use, dialogue is
   constant. A run starting lowercase is a continuation, so it rejoins.
 
-### `extended-text` — R8
+### `extended-text` — R8 — built
 
-New arity-1 container, a `rubric` member list of bands (`score`, `descriptor`), and
-`exemplar`.
+`responseProcessing: "human"`, a `rubric` of at least two bands, and an optional `exemplar`.
+The item is worth its top band. Built as designed; three things are worth knowing.
 
-```
-extended-text [
-  prompt "What inference can be made about Mara? Use details from the passage."
-  rubric [ [ score 2 descriptor "…" ] [ score 1 descriptor "…" ] [ score 0 descriptor "…" ] ] {}
-  exemplar "…"
-]
-```
-```
-interaction: { type: "extended-text", prompt }
-validation:  { responseProcessing: "human", points: 2, rubric: [...], exemplar: "…" }
-```
-
-`"human"` is **not** an unscored poll (`points: 0`, no `responseProcessing`), and the
-difference has to reach the scorer: `Score` needs a `pending` flag so an item containing a
-human-scored part reports its auto-scored subtotal rather than zero-as-if-earned. A `human`
-part inside a `conjunctive` item is a compile error, consistent with the existing rule that
-every part of a conjunctive item must be scoreable.
+1. **`human` is not `points: 0`.** An unscored poll has nothing to earn; this has points nobody
+   has awarded yet. `Score.pending` is the difference, and collapsing them would tell a
+   candidate they scored zero on work no one has read. An item holding a written part reports
+   its other parts' points, flags `pending`, and is never `correct`.
+2. **`conjunctive` refuses a written part** at compile time — "every part correct" is
+   undecidable over one — so it belongs in an additive item, where the rest still scores. The
+   scorer handles `pending` under conjunctive anyway rather than reporting a confident zero.
+3. **The renderer keeps local state**, uniquely. Every other interaction is fully controlled,
+   which is cheap because a click is discrete; a textarea reporting each keystroke would
+   recompile per character. The draft commits on blur, and a ref guards the effect that adopts
+   an externally changed response so a fresh compile cannot clobber live typing.
 
 ### The schema, now that parts are heterogeneous
 

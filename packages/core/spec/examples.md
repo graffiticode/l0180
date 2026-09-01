@@ -1,10 +1,11 @@
 <!-- SPDX-License-Identifier: CC-BY-4.0 -->
 # L0180 RAG Training Examples
 
-88 example prompts for training a RAG model on L0180, the web-based assessment language —
+94 example prompts for training a RAG model on L0180, the web-based assessment language —
 covering multiple choice, true/false, multi-select, exact-set scoring, weighted scoring,
 penalized distractors, presentation options, unscored polls, per-option rationale, clicking
-sentences and words inside a passage, and multi-part items over a reading passage.
+sentences and words inside a passage, written responses marked against a rubric, and
+multi-part items over a reading passage.
 
 Each numbered line is a prompt in the author's own voice. Prompts describe WHAT to build,
 never how to write it: an author asks for a question, not for a `choice [...]` program. When
@@ -133,3 +134,12 @@ L0180 grows further interaction types, this file grows categories with them.
 86. A vocabulary item where the student clicks the word in the sentence that means "very tiring", with two other candidate words offered.
 87. Show a sentence about a ship and ask the student to click the word that means the front of the boat, explaining why each other choice is wrong.
 88. Click the word in this sentence that means the opposite of "ancient".
+
+## Category 13: Written Responses (89-94)
+
+89. After a short story about a girl at a tide pool, ask what inference the reader can make and have the student explain it using details from the text. Mark it out of 2.
+90. A constructed-response question about the central idea of an informational passage, with a 0-1-2 rubric and a model answer.
+91. Ask students to summarize a key event from the passage in a few sentences, scored by a teacher against a rubric.
+92. A two-part item where the first part is multiple choice about the author's purpose and the second asks the student to explain their answer in writing.
+93. Explain why the narrator changes her mind, citing two details. Give the rubric bands for full, partial and no credit.
+94. A written response asking how the two characters' points of view differ, worth 3 points, with a description of what earns each score.

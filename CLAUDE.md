@@ -255,8 +255,7 @@ Overview, not the JSON — `language-info.json` must not carry that key itself.
 ## L0175 conformance
 
 **`L0175-CONFORMANCE.md` at the repo root is the design record** — the QTI ontology and where
-it came from, the R1–R9 requirement set with its status, and the unbuilt design for
-`extended-text`. Read it before adding one. What follows is the summary.
+it came from, and the R1–R9 requirement set, now complete. What follows is the summary.
 
 L0175 is a *content* language — it composes the passage, the claims and the error-typed
 distractors. L0180 delivers the result, and the bar is that any item an L0175 spec describes is
@@ -266,12 +265,27 @@ program per delivered shape and asserts the scorer against L0175's own `SCORING`
 because L0175's own coverage check substring-matches string literals — an EBSR item collapsed
 into a single choice passes it.
 
-Covered: `multiple-choice`, `multi-select` (exact-set), `ebsr`, and all three `hot-text` shapes
-— two-part sentence, single-part sentence, and click-the-word. Still missing:
+**Every L0175 item type is covered**: `multiple-choice`, `multi-select` (exact-set), `ebsr`,
+all three `hot-text` shapes, and `short-text`. `conformance.test.ts` asserts each against
+L0175's rules, and its last test lists the words that must exist — the place a new L0175 item
+type would land.
 
-- **`extended-text`** — rubric-scored constructed response, `responseProcessing: "human"`,
-  distinct from an unscored poll. The scorer will need a `pending` state so a human-scored part
-  is not reported as zero earned.
+### `human` is not "unscored", and the difference is a lie if collapsed
+
+An unscored poll has nothing to earn (`points: 0`). An `extended-text` has points that nobody
+has awarded yet. Reporting the second as `0 / 2` would tell a candidate they earned nothing on
+work no one has read, so `Score.pending` keeps them apart: an item holding a written part
+reports what its other parts earned, says the rest is pending, and is never `correct`.
+
+`conjunctive` refuses a written part at compile time — "every part correct" cannot be decided
+over one — so a written response belongs in an additive item, where the rest still scores.
+
+### `ExtendedTextItem` is the one renderer with state of its own
+
+Every other interaction is fully controlled, because a click is discrete: report it, read the
+model back, one recompile. A textarea doing that would recompile per keystroke. So the draft is
+local and commits on **blur**, and a `useRef` guards the effect that adopts an externally
+changed response so a fresh compile never clobbers live typing.
 
 ### A hottext resolves in two phases, and that is not optional
 
@@ -301,8 +315,8 @@ so the candidate would watch a selection vanish for no stated reason.
 
 ## Not built yet
 
-Every interaction type but `choice` and `hottext` — text entry, ordering, matching,
-classification, hotspot, sliders. QTI export, which the `interaction`/`validation` split is deliberately shaped
+Inline text entry, ordering, matching, classification, hotspot, sliders — none has an L0175
+driver. QTI export, which the `interaction`/`validation` split is deliberately shaped
 to allow later; now that the compiled shape carries QTI's own field names, that is a serializer
 rather than a translation.
 

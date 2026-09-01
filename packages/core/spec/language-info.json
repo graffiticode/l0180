@@ -1,9 +1,10 @@
 {
   "id": "0180",
-  "description": "Authors web-based assessment items — quizzes, tests, practice questions and self-checks that render and score in a browser with no assessment platform behind them. Produces a choice interaction (single-select multiple choice, multi-select, or true/false) or a hottext interaction (clicking a sentence or a word inside the passage itself), optionally wrapped in a multi-part item with a reading passage and conjunctive scoring, with per-option points, weighted answers, penalized distractors, exact-set scoring for a \"choose exactly these\" question, a rationale explaining each wrong answer, optional shuffling, and an answer key kept separate from the presentation so a graded delivery can withhold it. This is the general-purpose assessment language: use it whenever the request is a quiz, test or practice question and no particular vendor or platform is named.",
+  "description": "Authors web-based assessment items — quizzes, tests, practice questions and self-checks that render and score in a browser with no assessment platform behind them. Produces a choice interaction (single-select multiple choice, multi-select, or true/false) a hottext interaction (clicking a sentence or a word inside the passage itself), or an extended-text interaction (a written response collected and held for a person to mark against a rubric), optionally wrapped in a multi-part item with a reading passage and conjunctive scoring, with per-option points, weighted answers, penalized distractors, exact-set scoring for a \"choose exactly these\" question, a rationale explaining each wrong answer, optional shuffling, and an answer key kept separate from the presentation so a graded delivery can withhold it. This is the general-purpose assessment language: use it whenever the request is a quiz, test or practice question and no particular vendor or platform is named.",
   "supported_item_types": [
     "choice",
     "hottext",
+    "extended-text",
     "item"
   ],
   "example_prompts": [
@@ -66,6 +67,11 @@
       "prompt": "Read the sentence \"The aqueduct carried water across long distances\" and click the word that means a channel that carries water.",
       "produces": "hottext",
       "notes": "granularity \"word\" with its own text. Only the words a selection names are clickable, so the distractor words are authored rather than guessed."
+    },
+    {
+      "prompt": "After a short passage, ask what inference the reader can make about the character and have the student explain it using details from the text, marked out of 2.",
+      "produces": "extended-text",
+      "notes": "Written response. Nothing scores it in the browser - the key is responseProcessing \"human\" and carries the rubric a person marks against, so the item reports its score as pending rather than as zero."
     }
   ]
 }

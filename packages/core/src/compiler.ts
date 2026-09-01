@@ -55,6 +55,8 @@ Checker.prototype.CHOICE = checkChild;
 Checker.prototype.OPTIONS = checkBoth;
 Checker.prototype.HOTTEXT = checkChild;
 Checker.prototype.SELECTIONS = checkBoth;
+Checker.prototype.EXTENDED_TEXT = checkChild;
+Checker.prototype.RUBRIC = checkBoth;
 Checker.prototype.ITEM = checkChild;
 Checker.prototype.PARTS = checkBoth;
 
@@ -293,6 +295,106 @@ Transformer.prototype.HOTTEXT = function (this: any, node: any, options: any, re
         throw new Error("hottext: `text` is empty, so there is nothing to select.");
       }
       resume(err, assembleHottext(attrs, units, "hottext"));
+    } catch (e: any) {
+      resume(err.concat(String((e && e.message) || e)), {});
+    }
+  });
+};
+
+/**
+ * A member list of rubric bands — the same shape as OPTIONS and SELECTIONS.
+ */
+Transformer.prototype.RUBRIC = function (this: any, node: any, options: any, resume: any) {
+  this.visit(node.elts[0], options, (e0: any, v0: any) => {
+    this.visit(node.elts[1], options, (e1: any, v1: any) => {
+      const err = ([] as any[]).concat(e0 || [], e1 || []);
+      const raw = toPlainObject(v0);
+      if (!Array.isArray(raw)) {
+        resume(
+          err.concat('rubric: expected a list of bands, e.g. rubric [[score 2 descriptor "…"]] {}.'),
+          {},
+        );
+        return;
+      }
+      try {
+        const bands = raw.map((entry: any, i: number) => {
+          const band = mergeAttributes(entry, `band ${i + 1}`);
+          assertKnownAttributes("band", band);
+          return band;
+        });
+        resume(err, { ...(toPlainObject(v1) || {}), rubric: bands });
+      } catch (e: any) {
+        resume(err.concat(String((e && e.message) || e)), {});
+      }
+    });
+  });
+};
+
+/**
+ * A written response, scored by a person against a rubric.
+ *
+ * `responseProcessing: "human"` is the third template, and it is NOT the same as an unscored
+ * poll. A poll has nothing to earn (`points: 0`); this has points that simply cannot be
+ * awarded here. The scorer keeps them apart with `Score.pending`, so a written answer is never
+ * reported as zero earned.
+ */
+Transformer.prototype.EXTENDED_TEXT = function (this: any, node: any, options: any, resume: any) {
+  this.visit(node.elts[0], options, (e0: any, v0: any) => {
+    const err = ([] as any[]).concat(e0 || []);
+    try {
+      const attrs = mergeAttributes(toPlainObject(v0), "extended-text");
+      assertKnownAttributes("extended-text", attrs);
+
+      const bands: any[] = attrs.rubric || [];
+      if (bands.length < 2) {
+        throw new Error(
+          "extended-text: needs a rubric of at least two bands, e.g. " +
+            'rubric [[score 2 descriptor "…"] [score 0 descriptor "…"]] {}. ' +
+            "A written response is scored by a person, and the rubric is what they score against.",
+        );
+      }
+      const seen = new Map<number, number>();
+      for (const [i, band] of bands.entries()) {
+        if (typeof band.score !== "number") {
+          throw new Error(`band ${i + 1}: needs a \`score\`, e.g. [ score 2 descriptor "…" ].`);
+        }
+        if (typeof band.descriptor !== "string" || !band.descriptor.trim()) {
+          throw new Error(
+            `band ${i + 1}: needs a \`descriptor\` saying what earns ${band.score}. ` +
+              "A bare score tells the person marking it nothing.",
+          );
+        }
+        const prior = seen.get(band.score);
+        if (prior !== undefined) {
+          throw new Error(`band ${i + 1}: score ${band.score} is already band ${prior}. Each band scores differently.`);
+        }
+        seen.set(band.score, i + 1);
+      }
+
+      const points = Math.max(...bands.map((b) => b.score));
+      if (points <= 0) {
+        throw new Error(
+          "extended-text: no band earns anything, so the response cannot be scored. " +
+            "Give the top band a score above zero.",
+        );
+      }
+
+      resume(err, {
+        interaction: {
+          type: "extended-text",
+          ...(attrs.prompt !== undefined ? { prompt: attrs.prompt } : {}),
+        },
+        validation: {
+          responseProcessing: "human",
+          points,
+          // Ordered high to low, which is how a rubric is read.
+          rubric: bands
+            .slice()
+            .sort((a, b) => b.score - a.score)
+            .map((b) => ({ score: b.score, descriptor: b.descriptor })),
+          ...(attrs.exemplar !== undefined ? { exemplar: attrs.exemplar } : {}),
+        },
+      });
     } catch (e: any) {
       resume(err.concat(String((e && e.message) || e)), {});
     }
@@ -567,6 +669,14 @@ Transformer.prototype.ITEM = function (this: any, node: any, options: any, resum
       });
 
       if (scoring === "conjunctive") {
+        const human = ids.filter((id) => partValidation[id]?.responseProcessing === "human");
+        if (human.length) {
+          throw new Error(
+            `item: conjunctive scoring needs every part to be scoreable, but part ${human.join(", ")} ` +
+              "is a written response scored by a person. Use the default additive scoring, so the " +
+              "rest of the item scores while that part waits to be marked.",
+          );
+        }
         const unscored = ids.filter((id) => !(partValidation[id]?.points > 0));
         if (unscored.length) {
           throw new Error(

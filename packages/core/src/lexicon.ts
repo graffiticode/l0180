@@ -72,6 +72,18 @@ const containers = {
     "<list record: record>",
     "The places a hottext interaction can select, each named by a quote.",
   ),
+  "extended-text": fn(
+    "EXTENDED_TEXT",
+    1,
+    "<list: record>",
+    "An extended-text interaction: a written response, scored by a person against a rubric.",
+  ),
+  rubric: fn(
+    "RUBRIC",
+    2,
+    "<list record: record>",
+    "The bands a written response is scored against, each an attribute list.",
+  ),
 };
 
 export const lexicon = mergeLexicon(

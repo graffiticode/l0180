@@ -106,3 +106,39 @@ describe("robustness", () => {
     expect(s.points).toBe(0);
   });
 });
+
+describe("a written part is pending, never zero earned", () => {
+  /** A choice worth 1 plus a written response worth 2 — L0175's short-text beside an MC. */
+  const MIXED: any = {
+    points: 3,
+    scoring: "additive",
+    parts: {
+      "1": { responseProcessing: "map_response", points: 1, mapping: { A: { correct: true, points: 1 } } },
+      "2": {
+        responseProcessing: "human",
+        points: 2,
+        rubric: [
+          { score: 2, descriptor: "Full." },
+          { score: 0, descriptor: "None." },
+        ],
+      },
+    },
+  };
+
+  test("the item reports what the other parts earned and flags the rest", () => {
+    const s = scoreItem({ response: { "1": ["A"], "2": "Mara is absorbed." }, validation: MIXED });
+    expect(s).toMatchObject({ points: 1, maxPoints: 3, pending: true });
+    expect(s.parts["2"]).toMatchObject({ points: 0, maxPoints: 2, pending: true });
+  });
+
+  test("it is never `correct`, however well the auto-scored parts went", () => {
+    // Nobody has read the written part, so claiming the item is fully correct would be a lie.
+    const s = scoreItem({ response: { "1": ["A"], "2": "Anything." }, validation: MIXED });
+    expect(s.correct).toBe(false);
+  });
+
+  test("a wrong choice still scores as wrong alongside it", () => {
+    const s = scoreItem({ response: { "1": ["B"], "2": "Anything." }, validation: MIXED });
+    expect(s).toMatchObject({ points: 0, pending: true, correct: false });
+  });
+});

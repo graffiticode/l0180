@@ -4,7 +4,7 @@
  * a browser dependency it must not have.
  */
 import { test, describe, expect } from "vitest";
-import { correctIds, scoreChoice, selectedIds, type Validation } from "./score.js";
+import { correctIds, scoreChoice, scoreHuman, selectedIds, type Validation } from "./score.js";
 
 /** The validation half of the compiled example in core's choice.test.ts. */
 const VALIDATION: Validation = {
@@ -183,5 +183,29 @@ describe("selectedIds", () => {
 
   test("de-duplicates and drops non-strings", () => {
     expect(selectedIds(["B", "B", 3, null, "C"])).toEqual(["B", "C"]);
+  });
+});
+
+describe("scoreHuman", () => {
+  const WRITTEN: Validation = {
+    responseProcessing: "human",
+    points: 2,
+    rubric: [
+      { score: 2, descriptor: "Full." },
+      { score: 0, descriptor: "None." },
+    ],
+  };
+
+  test("reports the points as available, not as earned", () => {
+    const s = scoreHuman({ validation: WRITTEN });
+    expect(s).toMatchObject({ points: 0, maxPoints: 2, correct: false, pending: true });
+  });
+
+  test("an unscored item is a different thing entirely", () => {
+    // Both earn nothing. Only one of them has anything to earn, and `pending` is the difference.
+    const unscored = scoreChoice({ response: [], validation: { points: 0, mapping: {} } });
+    expect(unscored.pending).toBeUndefined();
+    expect(unscored.maxPoints).toBe(0);
+    expect(scoreHuman({ validation: WRITTEN }).maxPoints).toBe(2);
   });
 });

@@ -52,7 +52,10 @@ export function ItemView({
   const gradable = !!validation && (validation.points ?? 0) > 0;
   const answered = parts.every((p: any) => {
     const r = given[p.id];
-    return Array.isArray(r) ? r.length > 0 : r !== undefined && r !== null;
+    if (Array.isArray(r)) return r.length > 0;
+    // A written response that is only whitespace has not been answered.
+    if (typeof r === "string") return r.trim().length > 0;
+    return r !== undefined && r !== null;
   });
   const score = gradable && answered ? scoreItem({ response: given, validation }) : null;
 
@@ -115,7 +118,16 @@ export function ItemView({
         </section>
       ))}
 
-      {score && (
+      {score && score.pending && (
+        <div
+          role="status"
+          className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-900"
+        >
+          {`${score.points} / ${score.maxPoints} so far — the written part is marked by your teacher.`}
+        </div>
+      )}
+
+      {score && !score.pending && (
         <ResultBanner correct={score.correct}>
           {score.correct
             ? `Correct — ${score.points} / ${score.maxPoints} ${score.maxPoints === 1 ? "point" : "points"}.`

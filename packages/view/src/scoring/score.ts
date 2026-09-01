@@ -28,8 +28,12 @@ export interface OptionValidation {
  * all-or-nothing against the correct set. They are alternatives, and so are the fields that
  * serve them: a `map_response` key carries `mapping`, a `match_correct` key carries
  * `correctResponse`, and neither carries the other.
+ *
+ * `human` means nothing here can score it — a written response marked by a person against a
+ * rubric. It is NOT an unscored item: an unscored item has nothing to earn, this has points
+ * that cannot be awarded yet, which is the difference `Score.pending` carries.
  */
-export type ResponseProcessing = "map_response" | "match_correct";
+export type ResponseProcessing = "map_response" | "match_correct" | "human";
 
 /** The answer key half of a compiled item. */
 export interface Validation {
@@ -50,6 +54,10 @@ export interface Validation {
   correctResponse?: string[];
   /** Why an option is right or wrong, keyed as the options are. Shown once it is selected. */
   feedback?: Record<string, string>;
+  /** `human` only: the bands a person marks the response against, highest first. */
+  rubric?: { score: number; descriptor: string }[];
+  /** `human` only: a response that would earn full marks. */
+  exemplar?: string;
 }
 
 /**
@@ -98,6 +106,14 @@ export interface Score {
   maxPoints: number;
   /** Earned everything available. False for an unscored item, which has nothing to earn. */
   correct: boolean;
+  /**
+   * True when some of this score is waiting on a person.
+   *
+   * A written response cannot be marked here, so reporting 0 would be a lie — the candidate
+   * would be told they earned nothing when nobody has looked yet. An item holding one reports
+   * what its other parts earned and says the rest is pending.
+   */
+  pending?: boolean;
   /** Per option, keyed as `validation.options` is. Present for a choice. */
   options?: Record<string, OptionOutcome>;
   /** Per part, keyed as `validation.parts` is. Present for a multi-part item. */
@@ -169,6 +185,23 @@ export function scoreChoice({
 }
 
 /**
+ * A written response: nothing here can score it.
+ *
+ * The points are real and are reported as the maximum, so a host can show "0 / 2, pending"
+ * rather than pretending there was nothing to earn.
+ */
+export function scoreHuman({ validation }: { validation: Validation | null | undefined }): Score {
+  const maxPoints = typeof validation?.points === "number" ? validation.points : 0;
+  return { points: 0, rawPoints: 0, maxPoints, correct: false, pending: true };
+}
+
+/** Score one interaction's response, whichever template its key declares. */
+function scorePart(response: unknown, validation: Validation | null | undefined): Score {
+  if (validation?.responseProcessing === "human") return scoreHuman({ validation });
+  return scoreChoice({ response, validation });
+}
+
+/**
  * Score a multi-part item. The response is keyed by part id, as `validation.parts` is.
  *
  * `conjunctive` is the mode the wrapper exists for: the item's points are earned only when
@@ -191,20 +224,41 @@ export function scoreItem({
   const parts: Record<string, Score> = {};
   let summed = 0;
   let everyPartCorrect = true;
+  let pending = false;
   for (const id of Object.keys(key)) {
-    const s = scoreChoice({ response: given[id], validation: key[id] });
+    const s = scorePart(given[id], key[id]);
     parts[id] = s;
     summed += s.points;
+    if (s.pending) pending = true;
     if (!s.correct) everyPartCorrect = false;
   }
 
   const hasParts = Object.keys(key).length > 0;
+  const settled = hasParts && everyPartCorrect && !pending;
   if (mode === "conjunctive") {
-    const earned = hasParts && everyPartCorrect ? maxPoints : 0;
-    return { points: earned, rawPoints: earned, maxPoints, correct: hasParts && everyPartCorrect, parts };
+    // A human-scored part is refused inside a conjunctive item at compile time, since "every
+    // part correct" is unknowable over one. Handled anyway rather than reporting a confident
+    // zero if one ever arrives.
+    const earned = settled ? maxPoints : 0;
+    return {
+      points: earned,
+      rawPoints: earned,
+      maxPoints,
+      correct: settled,
+      ...(pending ? { pending: true } : {}),
+      parts,
+    };
   }
   const points = Math.max(0, summed);
-  return { points, rawPoints: summed, maxPoints, correct: maxPoints > 0 && points >= maxPoints, parts };
+  return {
+    points,
+    rawPoints: summed,
+    maxPoints,
+    // An item waiting on a person has not earned everything, whatever its other parts did.
+    correct: !pending && maxPoints > 0 && points >= maxPoints,
+    ...(pending ? { pending: true } : {}),
+    parts,
+  };
 }
 
 /**
@@ -221,5 +275,5 @@ export function scoreInteraction({
   response: unknown;
 }): Score {
   if (interaction?.type === "item") return scoreItem({ response, validation });
-  return scoreChoice({ response, validation });
+  return scorePart(response, validation);
 }

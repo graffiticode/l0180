@@ -35,6 +35,11 @@ to configure: `options [...] {}`. Every other word here takes exactly one argume
 | `scoring` | `<string: record>` | How parts combine: `additive` (default) or `conjunctive` |
 | `choice` | `<list: record>` | A choice interaction: a stem and options to select from |
 | `hottext` | `<list: record>` | A hottext interaction: a passage with clickable sentences or words |
+| `extended-text` | `<list: record>` | A written response, marked by a person against a rubric |
+| `rubric` | `<list record: record>` | The bands a written response is marked against |
+| `score` | `<number: record>` | What a band of the rubric earns |
+| `descriptor` | `<string: record>` | What a response must do to earn that band |
+| `exemplar` | `<string: record>` | A response that would earn full marks |
 | `selections` | `<list record: record>` | The places a hottext can select, each named by a quote |
 | `quote` | `<string: record>` | The text a selection names, copied from the passage |
 | `granularity` | `<string: record>` | What is clickable: `sentence` (default) or `word` |
@@ -62,6 +67,8 @@ to configure: `options [...] {}`. Every other word here takes exactly one argume
 | `choice` | prompt, shuffle, min-choices, max-choices, response-processing, upper-bound, options |
 | `hottext` | prompt, text, within, granularity, min-choices, max-choices, response-processing, upper-bound, selections |
 | `selection` | quote, assess |
+| `extended-text` | prompt, rubric, exemplar |
+| `band` | score, descriptor |
 | an option | id, text, assess |
 | `assess` | correct, points, rationale |
 
@@ -216,6 +223,32 @@ hottext [
 
 Only the three named words are clickable. A wrong candidate needs no `assess` at all; give it
 one with a `rationale` to explain the mistake back.
+
+## A written response
+
+`extended-text` collects writing and does **not** score it. Nothing in a browser can judge an
+inference, so the compiled key says `responseProcessing "human"` and carries the `rubric` a
+person marks against. The candidate is told the answer is saved and how many points are
+available — never that they scored zero, which is what an unscored item would mean.
+
+A `rubric` needs at least two bands, each with a `score` and a `descriptor`. The item is worth
+its top band. `exemplar` is optional: a response that would earn full marks.
+
+```
+extended-text [
+  prompt "What inference can be made about Mara? Explain using key details from the passage."
+  rubric [
+    [ score 2 descriptor "Makes a valid inference and cites two supporting details." ]
+    [ score 1 descriptor "Makes a valid inference with one detail, or a partial inference." ]
+    [ score 0 descriptor "No valid inference, or no support from the text." ]
+  ] {}
+  exemplar "Mara is absorbed by the tide pool — she ignores the picnic and does not turn around."
+]..
+```
+
+A written part belongs in an **additive** item, so the rest of it scores while that part waits
+to be marked. `conjunctive` is refused with one, because "every part correct" cannot be decided
+over a part nothing here can mark.
 
 ## Items with a passage, or with more than one part
 
