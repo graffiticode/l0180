@@ -252,6 +252,10 @@ Overview, not the JSON — `language-info.json` must not carry that key itself.
 
 ## L0175 conformance
 
+**`L0175-CONFORMANCE.md` at the repo root is the design record** — the QTI ontology and where
+it came from, the R1–R9 requirement set with its status, and the full unbuilt design for
+`hottext` and `extended-text`. Read it before adding either. What follows is the summary.
+
 L0175 is a *content* language — it composes the passage, the claims and the error-typed
 distractors. L0180 delivers the result, and the bar is that any item an L0175 spec describes is
 expressible here and **scores identically**. `conformance.test.ts` is that gate: it compiles a
