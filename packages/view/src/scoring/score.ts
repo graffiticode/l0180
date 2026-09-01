@@ -21,11 +21,40 @@ export interface OptionValidation {
   points: number;
 }
 
+/**
+ * QTI's response-processing templates, and the only thing that decides how a response scores.
+ *
+ * `map_response` maps each selected identifier to a score and sums them. `match_correct` is
+ * all-or-nothing against the correct set. They are alternatives, and so are the fields that
+ * serve them: a `map_response` key carries `mapping`, a `match_correct` key carries
+ * `correctResponse`, and neither carries the other.
+ */
+export type ResponseProcessing = "map_response" | "match_correct";
+
 /** The answer key half of a compiled item. */
 export interface Validation {
-  /** The maximum achievable — the sum of the `correct` options only. */
+  /** Which template scores this response. Absent means `map_response`, the historical default. */
+  responseProcessing?: ResponseProcessing;
+  /** The maximum achievable. Under `map_response`, the sum of the `correct` options only. */
   points: number;
-  options: Record<string, OptionValidation>;
+  /** `map_response` only: what each identifier is worth. */
+  mapping?: Record<string, OptionValidation>;
+  /** `match_correct` only: the set that must be selected exactly. */
+  correctResponse?: string[];
+  /** Why an option is right or wrong, keyed as the options are. Shown once it is selected. */
+  feedback?: Record<string, string>;
+}
+
+/**
+ * The correct identifiers, whichever template is in force.
+ *
+ * Exported so the renderer's ✓/✗ and the scorer cannot disagree about which options are right —
+ * they read the same function rather than each reaching into the key's shape.
+ */
+export function correctIds(validation: Validation | null | undefined): string[] {
+  if (validation?.correctResponse) return validation.correctResponse.slice();
+  const mapping = validation?.mapping || {};
+  return Object.keys(mapping).filter((id) => mapping[id]?.correct === true);
 }
 
 /** What one option contributed to the result. */
@@ -94,10 +123,26 @@ export function scoreChoice({
   response: unknown;
   validation: Validation | null | undefined;
 }): Score {
-  const key = validation?.options || {};
   const maxPoints = typeof validation?.points === "number" ? validation.points : 0;
   const selected = selectedIds(response);
 
+  if (validation?.responseProcessing === "match_correct") {
+    const wanted = validation.correctResponse || [];
+    // Every correct option and nothing else. A subset and a superset both score zero — partial
+    // credit is precisely what this template exists to refuse.
+    const exact =
+      wanted.length > 0 &&
+      selected.length === wanted.length &&
+      wanted.every((id) => selected.includes(id));
+    const options: Record<string, OptionOutcome> = {};
+    for (const id of new Set([...wanted, ...selected])) {
+      options[id] = { selected: selected.includes(id), points: 0, correct: wanted.includes(id) };
+    }
+    const earned = exact ? maxPoints : 0;
+    return { points: earned, rawPoints: earned, maxPoints, correct: exact, options };
+  }
+
+  const key = validation?.mapping || {};
   const options: Record<string, OptionOutcome> = {};
   let rawPoints = 0;
   for (const id of Object.keys(key)) {

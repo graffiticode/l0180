@@ -4,12 +4,12 @@
  * a browser dependency it must not have.
  */
 import { test, describe, expect } from "vitest";
-import { scoreChoice, selectedIds, type Validation } from "./score.js";
+import { correctIds, scoreChoice, selectedIds, type Validation } from "./score.js";
 
 /** The validation half of the compiled example in core's choice.test.ts. */
 const VALIDATION: Validation = {
   points: 2,
-  options: { B: { correct: true, points: 2 }, C: { points: -1 } },
+  mapping: { B: { correct: true, points: 2 }, C: { points: -1 } },
 };
 
 describe("scoreChoice", () => {
@@ -26,7 +26,7 @@ describe("scoreChoice", () => {
   });
 
   test("a penalty option subtracts", () => {
-    const s = scoreChoice({ response: ["C"], validation: { points: 5, options: VALIDATION.options } });
+    const s = scoreChoice({ response: ["C"], validation: { points: 5, mapping: VALIDATION.mapping } });
     expect(s.rawPoints).toBe(-1);
   });
 
@@ -45,7 +45,7 @@ describe("scoreChoice", () => {
   test("the ceiling is unreachable by any response other than the correct set", () => {
     const multi: Validation = {
       points: 3,
-      options: { A: { correct: true, points: 1 }, C: { correct: true, points: 2 }, D: { points: -1 } },
+      mapping: { A: { correct: true, points: 1 }, C: { correct: true, points: 2 }, D: { points: -1 } },
     };
     const everything = scoreChoice({ response: ["A", "C", "D"], validation: multi });
     expect(everything.points).toBeLessThan(multi.points);
@@ -63,7 +63,7 @@ describe("scoreChoice", () => {
   });
 
   test("an unscored item is never `correct` — there is nothing to earn", () => {
-    const s = scoreChoice({ response: ["A"], validation: { points: 0, options: {} } });
+    const s = scoreChoice({ response: ["A"], validation: { points: 0, mapping: {} } });
     expect(s).toMatchObject({ points: 0, maxPoints: 0, correct: false });
   });
 
@@ -71,6 +71,71 @@ describe("scoreChoice", () => {
     expect(scoreChoice({ response: ["B"], validation: null }).points).toBe(0);
     expect(scoreChoice({ response: ["B"], validation: undefined }).maxPoints).toBe(0);
     expect(scoreChoice({ response: ["Z"], validation: VALIDATION }).points).toBe(0);
+  });
+});
+
+describe("scoreChoice under match_correct", () => {
+  /** "Choose the two sentences that belong in a summary" — L0175's multi-select shape. */
+  const EXACT: Validation = {
+    responseProcessing: "match_correct",
+    points: 1,
+    correctResponse: ["A", "B"],
+  };
+
+  test("exactly the correct set earns the point", () => {
+    const s = scoreChoice({ response: ["A", "B"], validation: EXACT });
+    expect(s).toMatchObject({ points: 1, maxPoints: 1, correct: true });
+  });
+
+  test("order does not matter", () => {
+    expect(scoreChoice({ response: ["B", "A"], validation: EXACT }).correct).toBe(true);
+  });
+
+  test("a SUBSET earns nothing — this is the whole point of the template", () => {
+    // Under map_response this same response would have earned half. Naming the template is
+    // what makes the difference visible instead of silent.
+    const s = scoreChoice({ response: ["A"], validation: EXACT });
+    expect(s).toMatchObject({ points: 0, correct: false });
+  });
+
+  test("a SUPERSET earns nothing either", () => {
+    const s = scoreChoice({ response: ["A", "B", "C"], validation: EXACT });
+    expect(s).toMatchObject({ points: 0, correct: false });
+  });
+
+  test("an empty response earns nothing", () => {
+    expect(scoreChoice({ response: [], validation: EXACT }).correct).toBe(false);
+  });
+
+  test("reports per-option outcomes over the correct set and whatever was picked", () => {
+    const s = scoreChoice({ response: ["A", "C"], validation: EXACT });
+    expect(s.options).toEqual({
+      A: { selected: true, points: 0, correct: true },
+      B: { selected: false, points: 0, correct: true },
+      C: { selected: true, points: 0, correct: false },
+    });
+  });
+
+  test("an empty correct set can never be satisfied", () => {
+    const s = scoreChoice({
+      response: [],
+      validation: { responseProcessing: "match_correct", points: 1, correctResponse: [] },
+    });
+    expect(s.correct).toBe(false);
+  });
+});
+
+describe("correctIds", () => {
+  test("reads either template, so the renderer and the scorer cannot disagree", () => {
+    expect(correctIds(VALIDATION)).toEqual(["B"]);
+    expect(
+      correctIds({ responseProcessing: "match_correct", points: 1, correctResponse: ["A", "B"] }),
+    ).toEqual(["A", "B"]);
+  });
+
+  test("is empty for an unscored item or a missing key", () => {
+    expect(correctIds({ points: 0, mapping: {} })).toEqual([]);
+    expect(correctIds(null)).toEqual([]);
   });
 });
 

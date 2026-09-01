@@ -11,8 +11,8 @@ const CONJUNCTIVE: ItemValidation = {
   points: 1,
   scoring: "conjunctive",
   parts: {
-    "1": { points: 1, options: { A: { correct: true, points: 1 } } },
-    "2": { points: 1, options: { B: { correct: true, points: 1 } } },
+    "1": { points: 1, mapping: { A: { correct: true, points: 1 } } },
+    "2": { points: 1, mapping: { B: { correct: true, points: 1 } } },
   },
 };
 
@@ -20,8 +20,8 @@ const ADDITIVE: ItemValidation = {
   points: 3,
   scoring: "additive",
   parts: {
-    "1": { points: 1, options: { A: { correct: true, points: 1 } } },
-    "2": { points: 2, options: { B: { correct: true, points: 2 } } },
+    "1": { points: 1, mapping: { A: { correct: true, points: 1 } } },
+    "2": { points: 2, mapping: { B: { correct: true, points: 2 } } },
   },
 };
 
@@ -84,7 +84,7 @@ describe("scoreInteraction dispatch", () => {
   test("routes a bare interaction to the choice scorer", () => {
     const s = scoreInteraction({
       interaction: { type: "choice" },
-      validation: { points: 2, options: { B: { correct: true, points: 2 } } },
+      validation: { points: 2, mapping: { B: { correct: true, points: 2 } } },
       response: ["B"],
     });
     expect(s).toMatchObject({ points: 2, correct: true });

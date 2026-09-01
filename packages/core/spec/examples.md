@@ -1,9 +1,10 @@
 <!-- SPDX-License-Identifier: CC-BY-4.0 -->
 # L0180 RAG Training Examples
 
-68 example prompts for training a RAG model on L0180, the web-based assessment language —
-covering multiple choice, true/false, multi-select, weighted scoring, penalized distractors,
-presentation options, unscored polls, and multi-part items over a reading passage.
+78 example prompts for training a RAG model on L0180, the web-based assessment language —
+covering multiple choice, true/false, multi-select, exact-set scoring, weighted scoring,
+penalized distractors, presentation options, unscored polls, per-option rationale, and
+multi-part items over a reading passage.
 
 Each numbered line is a prompt in the author's own voice. Prompts describe WHAT to build,
 never how to write it: an author asks for a question, not for a `choice [...]` program. When
@@ -100,3 +101,19 @@ L0180 grows further interaction types, this file grows categories with them.
 66. A passage titled "How a Honeybee Colony Works" followed by a multiple-choice question about the main idea.
 67. A two-part item about a short informational text where the first part is worth 2 points and the second is worth 1.
 68. Show a numbered passage and ask which line best supports the claim that the narrator regrets her decision.
+
+## Category 9: Exact-Set Scoring (69–74)
+
+69. Choose the two sentences that belong in a summary of the passage — both must be right, or the answer scores nothing.
+70. A select-all-that-apply question about the causes of the American Revolution where picking only some of the correct answers earns no credit.
+71. Ask which three of these six items are mammals, awarding the point only for exactly the right set.
+72. A question about the water cycle asking students to select both processes that return water to the atmosphere — all or nothing.
+73. Which two of these five sentences state opinions rather than facts? Score it as exactly right or wrong, with no partial credit.
+74. Pick the two steps that belong in the procedure. A student who picks one correct step and one wrong step scores zero.
+
+## Category 10: Rationales for Wrong Answers (75–78)
+
+75. A multiple-choice question about a character's motivation where each wrong option explains why it is wrong once the student picks it.
+76. Ask which gas plants absorb during photosynthesis, and explain to a student who chooses oxygen why that is the gas plants release instead.
+77. A fractions question where each distractor names the specific mistake a student who picked it probably made.
+78. Which sentence best states the central idea? Give a short explanation for each incorrect choice, shown only after it is selected.

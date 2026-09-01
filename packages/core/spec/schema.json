@@ -38,6 +38,10 @@
         },
         "type": { "const": "choice" },
         "prompt": { "description": "The question stem.", "type": "string" },
+        "cardinality": {
+          "description": "QTI cardinality, derived from maxChoices: one selection or several.",
+          "enum": ["single", "multiple"]
+        },
         "minChoices": {
           "description": "Fewest options the candidate may select.",
           "type": "integer",
@@ -112,15 +116,20 @@
     },
     "choiceValidation": {
       "title": "Choice answer key",
+      "description": "The response-processing template decides the shape: map_response carries `mapping`, match_correct carries `correctResponse`. They are alternatives, never both.",
       "type": "object",
-      "required": ["points", "options"],
+      "required": ["responseProcessing", "points"],
       "properties": {
+        "responseProcessing": {
+          "description": "map_response scores each selected option and sums; match_correct awards the points for exactly the correct set and nothing otherwise.",
+          "enum": ["map_response", "match_correct"]
+        },
         "points": {
-          "description": "The maximum achievable — the sum of the correct options only, so a penalty cannot move it.",
+          "description": "The maximum achievable. Under map_response, the sum of the correct options only, so a penalty cannot move it.",
           "type": "number"
         },
-        "options": {
-          "description": "Scoring per option id. Only assessed options appear.",
+        "mapping": {
+          "description": "map_response only: scoring per option id. Only scored options appear.",
           "type": "object",
           "additionalProperties": {
             "type": "object",
@@ -137,9 +146,36 @@
             },
             "additionalProperties": false
           }
+        },
+        "correctResponse": {
+          "description": "match_correct only: the option ids that must all be selected, and no others.",
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string" }
+        },
+        "feedback": {
+          "description": "Why an option is wrong, keyed by option id. Shown only once that option is selected, so it never reveals an unpicked answer.",
+          "type": "object",
+          "additionalProperties": { "type": "string" }
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": { "responseProcessing": { "const": "map_response" } },
+            "required": ["responseProcessing"]
+          },
+          "then": { "required": ["mapping"], "not": { "required": ["correctResponse"] } }
+        },
+        {
+          "if": {
+            "properties": { "responseProcessing": { "const": "match_correct" } },
+            "required": ["responseProcessing"]
+          },
+          "then": { "required": ["correctResponse"], "not": { "required": ["mapping"] } }
+        }
+      ]
     },
     "itemValidation": {
       "title": "Item answer key",

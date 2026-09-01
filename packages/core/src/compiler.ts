@@ -16,6 +16,7 @@ import {
   assertKnownAttributes,
   checkValue,
   mergeAttributes,
+  templateId,
   toPlainObject,
   wordOf,
 } from "./attributes.js";
@@ -174,36 +175,74 @@ Transformer.prototype.CHOICE = function (this: any, node: any, options: any, res
         return { ...opt, id };
       });
 
-      const validationOptions: Record<string, any> = {};
+      // QTI's two response-processing templates. `map-response` scores each selected option
+      // and sums; `match-correct` is all-or-nothing against the correct set. Which one is in
+      // force decides the SHAPE of `validation` — mapping and correctResponse are alternatives
+      // in QTI and stay alternatives here, so no field's meaning depends on another's presence.
+      const template = attrs.responseProcessing !== undefined ? attrs.responseProcessing : "map-response";
+      const exactSet = template === "match-correct";
+
+      const mapping: Record<string, any> = {};
+      const correctResponse: string[] = [];
+      const feedback: Record<string, string> = {};
       let points = 0;
       let assessed = 0;
-      let correctCount = 0;
       for (const opt of withIds) {
         const assess = opt.assess;
         if (assess === undefined) continue;
         assessed += 1;
         const isCorrect = assess.correct === true;
         const hasPoints = typeof assess.points === "number";
-        if (!isCorrect && !hasPoints) {
+        const hasRationale = typeof assess.rationale === "string";
+        if (!isCorrect && !hasPoints && !hasRationale) {
           throw new Error(
-            `option "${opt.id}": assess must say what it asserts — \`correct\`, \`points\`, or both. ` +
-              "`assess [correct]` marks the answer; `assess [points -1]` penalizes a distractor.",
+            `option "${opt.id}": assess must say what it asserts — \`correct\`, \`points\`, or ` +
+              "`rationale`. `assess [correct]` marks the answer; `assess [points -1]` penalizes a " +
+              "distractor; `assess [rationale \"…\"]` explains one.",
           );
         }
+        // Rationale is feedback, not scoring — QTI keeps them apart, and it has to survive under
+        // `match-correct`, where there is no mapping to hang it on.
+        if (hasRationale) feedback[opt.id] = assess.rationale;
+        if (isCorrect) correctResponse.push(opt.id);
+
+        if (exactSet) {
+          // Per-option points under an all-or-nothing template would be a second, disagreeing
+          // answer to what a correct response earns — the same reason `points` is refused on an
+          // additive item. Refuse it rather than accept it and ignore it.
+          if (hasPoints) {
+            throw new Error(
+              `option "${opt.id}": \`points\` is not meaningful under ` +
+                '`response-processing "match-correct"`, which awards the item\'s points for exactly ' +
+                "the correct set and nothing otherwise. Remove `points`, or use the default " +
+                '`response-processing "map-response"` to score each option.',
+            );
+          }
+          continue;
+        }
+        if (!isCorrect && !hasPoints) continue; // rationale alone asserts nothing about scoring
         // `correct` with no `points` is worth 1. A penalty carries its own negative points.
         const value = hasPoints ? assess.points : 1;
-        validationOptions[opt.id] = isCorrect ? { correct: true, points: value } : { points: value };
-        if (isCorrect) {
-          correctCount += 1;
-          points += value;
-        }
+        mapping[opt.id] = isCorrect ? { correct: true, points: value } : { points: value };
+        if (isCorrect) points += value;
       }
+      const correctCount = correctResponse.length;
       if (assessed > 0 && correctCount === 0) {
         throw new Error(
           "choice: no option is marked `correct`, so the item cannot be scored. " +
             "Add `assess [correct]` to the right answer, or remove every `assess` for an unscored item.",
         );
       }
+      if (exactSet && correctCount === 0) {
+        throw new Error(
+          'choice: `response-processing "match-correct"` scores against the correct set, but no ' +
+            "option is marked `correct`. Add `assess [correct]` to every option that belongs in " +
+            "the answer.",
+        );
+      }
+      // Under match-correct the item is worth one point for the whole set, not the sum of its
+      // options — there are no per-option points to sum.
+      if (exactSet) points = 1;
 
       const maxChoices = attrs.maxChoices !== undefined ? attrs.maxChoices : 1;
       const minChoices = attrs.minChoices !== undefined ? attrs.minChoices : 0;
@@ -221,12 +260,20 @@ Transformer.prototype.CHOICE = function (this: any, node: any, options: any, res
         interaction: {
           type: "choice",
           ...(attrs.prompt !== undefined ? { prompt: attrs.prompt } : {}),
+          // QTI's cardinality, derived rather than authored: max-choices already says it, and
+          // two words for one fact is two words to disagree.
+          cardinality: maxChoices > 1 ? "multiple" : "single",
           minChoices,
           maxChoices,
           shuffle: attrs.shuffle !== undefined ? attrs.shuffle : false,
           options: withIds.map(({ id, text }) => ({ id, text: text !== undefined ? text : "" })),
         },
-        validation: { points, options: validationOptions },
+        validation: {
+          responseProcessing: templateId(template),
+          points,
+          ...(exactSet ? { correctResponse } : { mapping }),
+          ...(Object.keys(feedback).length ? { feedback } : {}),
+        },
       });
     } catch (e: any) {
       resume(err.concat(String((e && e.message) || e)), {});

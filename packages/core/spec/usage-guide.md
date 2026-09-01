@@ -13,7 +13,7 @@ A compiled item has two halves, deliberately separate. `interaction` is everythi
 
 When composing a request, name the question type first, then the stem, then the options, then which option or options are right. Say what an option is worth only if it is not worth one point — per-option scoring is the default, so partial credit needs no special request. Mention "select all that apply" or a number of answers when you want a multi-select item, and say so explicitly if you want the options shuffled.
 
-In scope: choice interactions — single-select multiple choice, multi-select, and true/false — with per-option points, weighted answers, penalized distractors, shuffled options, and unscored polls; and multi-part items over a reading passage, scored additively or conjunctively. Out of scope: other interaction types (text entry, ordering, matching, classification, hot text and the rest are not implemented yet), test and section wrappers, rubric-scored prose, media beyond passage and option text, and delivery concerns such as timing, attempts and gradebooks.
+In scope: choice interactions — single-select multiple choice, multi-select, and true/false — with per-option points, weighted answers, penalized distractors, shuffled options, unscored polls, exact-set scoring for a "choose exactly these" question, and a rationale on a distractor explaining why it is wrong; and multi-part items over a reading passage, scored additively or conjunctively. Out of scope: other interaction types (text entry, ordering, matching, classification, hot text and the rest are not implemented yet), test and section wrappers, rubric-scored prose, media beyond passage and option text, and delivery concerns such as timing, attempts and gradebooks.
 
 ## Writing a request
 
@@ -21,6 +21,8 @@ In scope: choice interactions — single-select multiple choice, multi-select, a
 - List every option, and say which is correct. Distractors need no annotation.
 - State points only when an option is not worth 1.
 - Say "select all that apply", or give a number, for a multi-select item.
+- Say whether a multi-select gives partial credit. Per-option scoring is the default; ask for all-or-nothing when the question means "exactly these".
+- Give a rationale for a distractor when you want the item to explain the mistake back.
 - Mention shuffling explicitly; options keep their authored order otherwise.
 
 ## Vocabulary Cues
@@ -30,6 +32,8 @@ Say this to get that:
 - **Multiple choice** — `choice [prompt "…" options [[text "A"] [text "B" assess [correct]]] {}]`. The default: one right answer, one point.
 - **True/false** — the same shape with two options. There is no separate word for it.
 - **Select all that apply** — adds `max-choices N`, and more than one option carries `assess [correct]`.
+- **Exactly these, no partial credit** — `response-processing "match-correct"`, with `min-choices` and `max-choices` both set to the number wanted. Every correct option and nothing else earns the point; a subset or a superset earns zero. This is what "choose the two sentences that belong in a summary" means.
+- **Why a wrong answer is wrong** — `assess [rationale "…"]` on the distractor. It scores nothing on its own and is shown only after the candidate picks that option.
 - **Worth N points** — `assess [correct points N]`. Only needed when N is not 1.
 - **Penalty for a distractor** — `assess [points -1]` with no `correct`. Selecting it subtracts.
 - **Shuffled options** — `shuffle true`.
@@ -48,6 +52,8 @@ Say this to get that:
 - *"True or false: the Pacific is the largest ocean. True is correct."* → `choice`
 - *"Ask which of four animals is a mammal — blue whale, great white shark, sea turtle, octopus — and give the options readable ids."* → `choice`
 - *"An ungraded poll asking which topic students found hardest: fractions, decimals or percentages."* → `choice`
+- *"Choose the two sentences that belong in a summary of the passage — all or nothing, no partial credit."* → `choice`
+- *"Which gas do plants absorb? Explain to a student who picks oxygen why that is the gas plants release."* → `choice`
 - *"A two-part reading question about a short passage: first what the reader can conclude, then which line supports it. Both parts must be right for the point."* → `item`
 
 ## Out of Scope
@@ -56,4 +62,5 @@ Say this to get that:
 - **Cloze passages** — an item can hold several parts, but a blank *inside* running text needs an inline interaction, which does not exist yet.
 - **Tests and sections** — L0180 authors single items, not test packages, navigation or sequencing.
 - **Rubric-scored prose** — nothing here scores free text against a rubric; scoring is exact matching against an answer key.
+- **Hot text** — clicking a word or sentence inside a passage is not built yet. A question that asks the candidate to select text should not be answered with a choice item listing the sentences as options.
 - **Delivery policy** — timing, attempt limits, feedback timing, and gradebooks belong to the host, not the item.

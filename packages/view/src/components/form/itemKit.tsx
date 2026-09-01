@@ -33,6 +33,7 @@ export function OptionRow({
   onSelect,
   feedback,
   correct,
+  rationale,
   children,
 }: {
   name: string;
@@ -43,6 +44,14 @@ export function OptionRow({
   /** Show the outcome of this row. False while the item is unanswered or ungraded. */
   feedback?: boolean;
   correct?: boolean;
+  /**
+   * Why this option is wrong, shown only once the candidate has chosen it.
+   *
+   * Distractor rationale, as L0175 authors it: it explains a mistake the learner just made.
+   * Tied to the wrong-and-selected state for the same reason `feedback` is — a rationale on an
+   * untouched row would say which options had been considered worth explaining.
+   */
+  rationale?: string;
   children: ReactNode;
 }) {
   const marked = !!feedback && selected;
@@ -51,7 +60,7 @@ export function OptionRow({
   return (
     <label
       className={cx(
-        "flex items-start gap-2 rounded-md border px-3 py-2 text-sm cursor-pointer transition",
+        "flex flex-wrap items-start gap-2 rounded-md border px-3 py-2 text-sm cursor-pointer transition",
         "focus-within:ring-2 focus-within:ring-offset-1 focus-within:ring-blue-500",
         right
           ? "border-green-400 bg-green-50"
@@ -73,6 +82,9 @@ export function OptionRow({
       <span className="flex-1 text-zinc-900">{children}</span>
       {right && <span aria-hidden="true">✓</span>}
       {wrong && <span aria-hidden="true">✗</span>}
+      {wrong && rationale && (
+        <p className="w-full basis-full m-0 pl-6 text-xs text-red-800">{rationale}</p>
+      )}
     </label>
   );
 }

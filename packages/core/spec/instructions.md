@@ -41,9 +41,11 @@ to configure: `options [...] {}`. Every other word here takes exactly one argume
 | `assess` | `<list: record>` | Scoring for an option. Its presence turns scoring on |
 | `correct` | `<: record>` | Marks an option as a right answer. Takes no value |
 | `points` | `<number: record>` | What an option is worth. Defaults to 1 with `correct` |
+| `rationale` | `<string: record>` | Why an option is wrong. Shown once the candidate picks it |
 | `shuffle` | `<boolean: record>` | Present the options in random order. Defaults to false |
 | `min-choices` | `<number: record>` | Fewest options selectable. Defaults to 0 |
 | `max-choices` | `<number: record>` | Most options selectable. Defaults to 1 (single-select) |
+| `response-processing` | `<string: record>` | How the response scores: `map-response` (default) or `match-correct` |
 
 ## Which words each container takes
 
@@ -51,24 +53,59 @@ to configure: `options [...] {}`. Every other word here takes exactly one argume
 | :-------- | :---- |
 | `item` | stimulus, scoring, points, parts |
 | `stimulus` | title, paragraphs |
-| `choice` | prompt, shuffle, min-choices, max-choices, options |
+| `choice` | prompt, shuffle, min-choices, max-choices, response-processing, options |
 | an option | id, text, assess |
-| `assess` | correct, points |
+| `assess` | correct, points, rationale |
 
 A word written in the wrong container is a compile error naming where it belongs, not a
 silent no-op.
 
 ## Scoring
 
-`assess` must say what it asserts — `correct`, `points`, or both:
+`assess` must say what it asserts — `correct`, `points`, or `rationale`:
 
 - `assess [correct]` — a right answer, worth 1 point.
 - `assess [correct points 2]` — a right answer, worth 2.
 - `assess [points -1]` — a **penalty**: selecting this distractor costs a point.
+- `assess [rationale "…"]` — why this distractor is wrong. It changes no score.
 
 The maximum sums only the options marked `correct`, so a penalty can never move the ceiling.
 An item's score is floored at zero — penalties cannot drive it negative and subtract from
 other items in an activity. An item with no `assess` anywhere is unscored, which is valid.
+
+A rationale compiles into `validation`, never `interaction`, so a graded delivery withholds
+it. The renderer shows it against an option only after the candidate selects that option — it
+never reveals an answer they did not touch.
+
+## Exactly these, and nothing else
+
+`response-processing` names which rule turns a response into a score:
+
+- **`map-response`** (the default) scores each selected option and sums them — per-option
+  points, weighted answers, partial credit and penalties.
+- **`match-correct`** awards the point for every `correct` option and nothing else. A subset
+  scores zero and so does a superset.
+
+Reach for `match-correct` when the question means "exactly these" — "choose the two sentences
+that belong in a summary". Set `min-choices` and `max-choices` to the number wanted so the
+candidate is told how many to pick. Per-option `points` is refused under `match-correct`: the
+item is already worth one point for the whole set, so a per-option figure would be a second,
+disagreeing answer.
+
+```
+choice [
+  prompt "Choose the two sentences that belong in a summary of the passage."
+  response-processing "match-correct"
+  min-choices 2
+  max-choices 2
+  options [
+    [ text "Bees live together in colonies." assess [ correct ] ]
+    [ text "Every bee does a job that helps the group survive." assess [ correct ] ]
+    [ text "Some bees are yellow and black." ]
+    [ text "A hive can be kept in a wooden box." ]
+  ] {}
+]..
+```
 
 ## Items with a passage, or with more than one part
 
@@ -193,6 +230,21 @@ choice [
   options [
     [ id "whale" text "Blue whale" assess [ correct ] ]
     [ id "shark" text "Great white shark" ]
+  ] {}
+]..
+```
+
+### A distractor that explains itself
+
+```
+choice [
+  prompt "What can the reader conclude about Mara?"
+  options [
+    [ text "She is absorbed by the tide pool." assess [ correct ] ]
+    [ text "She is angry at her brother."
+      assess [ rationale "Not turning around shows absorption, not anger." ] ]
+    [ text "She is bored by the beach."
+      assess [ rationale "She stays at the pool by choice, which is not boredom." ] ]
   ] {}
 ]..
 ```

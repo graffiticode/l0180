@@ -6,13 +6,17 @@
     "Multi-select (\"select all that apply\") via max-choices, with several correct options",
     "True/false items",
     "Per-option points, weighted answers, and partial credit",
+    "Exact-set scoring via response-processing \"match-correct\" — every correct option and nothing else, or zero",
     "Penalized distractors (an option that costs a point when selected)",
+    "A rationale on an option, shown once the candidate selects it and withheld from the presentation",
     "Shuffled option order, and author-named option ids",
-    "Unscored polls — an item that collects a response without grading it"
+    "Unscored polls — an item that collects a response without grading it",
+    "Multi-part items over a reading passage with numbered paragraphs, scored additively or conjunctively (both parts right for the point)"
   ],
   "out_of_scope": [
     "Interaction types other than choice — text entry, ordering, matching, classification, hot text, hotspot and sliders are not implemented yet",
-    "Multi-part items such as cloze passages with several blanks — one interaction per program",
+    "Hot text — selecting a word or sentence inside the passage itself, at any granularity",
+    "Cloze passages — a blank inside running text needs an inline interaction, which does not exist yet",
     "Test packages, sections, navigation and sequencing — L0180 authors single items",
     "Rubric-scored prose or any free-text judgement; scoring is exact matching against a key",
     "Delivery policy — timing, attempt limits, feedback timing, gradebooks",

@@ -53,9 +53,11 @@ Two words depart from that, both deliberately:
 | `assess` | `<list: record>` | Scoring for an option |
 | `correct` | `<: record>` | Marks a right answer |
 | `points` | `<number: record>` | What an option is worth |
+| `rationale` | `<string: record>` | Why an option is wrong, shown once it is picked |
 | `shuffle` | `<boolean: record>` | Randomize option order |
 | `min-choices` | `<number: record>` | Fewest options selectable |
 | `max-choices` | `<number: record>` | Most options selectable |
+| `response-processing` | `<string: record>` | How the response scores — map-response or match-correct |
 
 ### item
 
@@ -151,6 +153,53 @@ choice [
 `assess [points -1]` is a penalty: no `correct`, so selecting it subtracts. The maximum sums
 only the `correct` options — a penalty cannot move the ceiling, and an item's score is
 floored at zero rather than going negative.
+
+### rationale
+
+Why an option is wrong. It rides in `assess` and compiles into `validation`, not
+`interaction`, so a graded delivery withholds it; the renderer shows it against an option
+only once the candidate has selected that option, so it never reveals an untouched answer.
+`assess [rationale "…"]` on its own is valid — explaining a distractor asserts something real
+without changing what it scores.
+
+```
+choice [
+  prompt "What can the reader conclude about Mara?"
+  options [
+    [ text "She is absorbed by the tide pool." assess [ correct ] ]
+    [ text "She is angry at her brother."
+      assess [ rationale "Not turning around shows absorption, not anger." ] ]
+  ] {}
+]..
+```
+
+### response-processing
+
+Which rule turns a response into a score. Two templates, named for QTI's own:
+
+- **`map-response`** (the default) scores each selected option and sums them. This is
+  per-option scoring: weighted answers, partial credit and penalties all live here.
+- **`match-correct`** is all-or-nothing — every `correct` option and nothing else earns the
+  point; a subset or a superset earns zero.
+
+Choose `match-correct` when the question means "exactly these", as a select-the-two-sentences
+item does. Per-option `points` is a compile error under it, because the item is already worth
+one point for the whole set.
+
+```
+choice [
+  prompt "Choose the two sentences that belong in a summary of the passage."
+  response-processing "match-correct"
+  min-choices 2
+  max-choices 2
+  options [
+    [ text "Bees live together in colonies." assess [ correct ] ]
+    [ text "Every bee does a job that helps the group survive." assess [ correct ] ]
+    [ text "Some bees are yellow and black." ]
+    [ text "A hive can be kept in a wooden box." ]
+  ] {}
+]..
+```
 
 ### max-choices
 

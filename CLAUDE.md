@@ -30,15 +30,21 @@ npm run start      # the built API server
 npm test           # core + view suites
 npm run lint       # ESLint over the monorepo
 npm run gcp:deploy # Cloud Run as l0180, us-central1, port 50180
+
+npm run -w packages/view dev   # the /form embed app on Vite alone, no API, no auth
 ```
+
+`view dev` is the fast loop for renderer work: it builds `embed/` against `src/` directly, so
+a component change is visible without a compile round trip through the API.
 
 `npm run assemble` wipes and repopulates `packages/api/static/` from `core/dist/static` and
 `view/dist-embed`. It is not incremental — a stale file cannot survive it, which is the point.
 
-Tests are Vitest, colocated as `*.test.ts`. Run one with
-`npm run -w packages/core test -- -t "the starter template compiles"`. **They must run with
-`packages/core` as the cwd**, which the workspace script does: `docs.test.ts` reads `spec/*` by
-relative path.
+Tests are Vitest, colocated as `*.test.ts`, and there is no root Vitest config — each
+workspace runs its own. Run one with
+`npm run -w packages/core test -- -t "the starter template compiles"` (or `-w packages/view`).
+**The core suite must run with `packages/core` as the cwd**, which the workspace script does:
+`docs.test.ts` reads `spec/*` by relative path.
 
 ## Architecture
 
@@ -47,7 +53,13 @@ Three workspaces on the published `@graffiticode/l0000` (^0.2.0) and `@graffitic
 - **`packages/core`** (`@graffiticode/l0180`) — the language. `attributes.ts` is the vocabulary
   as data; `lexicon.ts` and `compiler.ts` both generate from it; `spec/` is what agents read.
 - **`packages/api`** (`@graffiticode/api-l0180`, private) — Express: `POST /compile`,
-  `GET /form`, a health check at `/`, and the assembled static assets mounted before auth.
+  `GET /form`, a health check at `/`, and the assembled static assets. Two placements are
+  load-bearing: the static mount comes **before** the auth middleware, so `lexicon.json`,
+  `schema.json`, `instructions.md` and friends need no token; and a
+  `Cross-Origin-Resource-Policy: cross-origin` header goes out on everything, without which
+  COEP-isolated hosts (the claude.ai and chatgpt.com widget iframes) block the `/form` frame
+  outright. `GET /lexicon.js` is a hand-registered alias serving `lexicon.json` for the
+  still-deployed console; no such file is emitted.
 - **`packages/view`** (`@graffiticode/l0180-view`) — the `Form` and the scorer.
 
 ### The attribute table drives everything
@@ -77,16 +89,18 @@ option. It takes: id, text, assess. `correct` belongs inside `assess`." The test
 that message text, not merely that compilation failed, because a message that stops naming the
 fix is a regression even when the program still errors.
 
-### Two words break the arity-1 rule, deliberately
+### Three words break the arity-1 rule, deliberately
 
 - **`correct` is arity 0.** `assess [correct points 2]` folds to `[{correct: true},
   {points: 2}]` and merges. At arity 1 it would swallow `{points: 2}` as its argument and
   silently lose the score.
-- **`options` is arity 2** — a member list: homogeneous children plus its own configuration
-  record, written `{}` when empty.
+- **`options` and `parts` are arity 2** — member lists: homogeneous children plus the
+  container's own configuration record, written `{}` when empty. Every member list added later
+  takes the same shape, so the generator applies one rule rather than memorizing exceptions.
 
 Everything else takes exactly one argument. Keep that set small and stated in
-`spec/instructions.md`.
+`spec/instructions.md` — whose "Writing an attribute" preamble still names only `options`, and
+should name `parts` too.
 
 ### The item wrapper, and why conjunctive scoring exists
 
@@ -120,16 +134,42 @@ group — answering Part B silently unchecked Part A. Unit tests cannot see this
 rendering a real two-part item to catch. Any future interaction using radios needs the same
 treatment.
 
+### Two response-processing templates, named for QTI's
+
+`validation.responseProcessing` decides how a response scores, and it decides the SHAPE of the
+key. QTI treats `correctResponse` and `mapping` as alternatives; so do we, so no field's
+meaning depends on another field's presence.
+
+- **`map_response`** (the default) carries `mapping` — per option, `{correct?, points}`. Score
+  is the sum of the selected options' points.
+- **`match_correct`** carries `correctResponse` — the set that must be selected exactly. A
+  subset scores zero and so does a superset. Per-option `points` is a compile error under it.
+
+This pair is why exact-set scoring was never the conflict it was long taken for. Per-option
+points and all-or-nothing are not competing models of the same thing; they are QTI's two
+standard templates, and the language names which is in force rather than picking a winner.
+
+Read the correct set through `correctIds(validation)` rather than reaching into either field —
+the renderer's ✓/✗ and the scorer must not be able to disagree.
+
+`validation.feedback` is a third, separate map: option id → rationale. Separate because QTI
+keeps feedback apart from scoring, and because it has to work under `match_correct`, where
+there is no `mapping` to hang it on. It is in `validation`, so a graded delivery withholds it,
+and the renderer shows it only under an option the candidate actually selected.
+
 ### Scoring
 
 `packages/view/src/scoring/` has **no React and no DOM anywhere in its import graph**, because
 the same module has to run server-side to score without shipping the key to the browser. L0166
-exported its scorer from the same entry as its Form and could not be loaded in bare Node.
+exported its scorer from the same entry as its Form and could not be loaded in bare Node. It
+has no imports at all, which is what lets `conformance.test.ts` over in `packages/core` import
+it by relative path and score what it just compiled.
 
-Points resolve at compile time, so the scorer does arithmetic and nothing else.
-`validation.points` sums only the `correct` options — a penalty must not be able to move the
-ceiling, or a fully correct response could never equal it. An item's score is floored at zero;
-`Score.rawPoints` carries the unclamped sum for a host that wants signed item scores.
+Points resolve at compile time, so the scorer does arithmetic and nothing else. Under
+`map_response`, `validation.points` sums only the `correct` options — a penalty must not be
+able to move the ceiling, or a fully correct response could never equal it. An item's score is
+floored at zero; `Score.rawPoints` carries the unclamped sum for a host that wants signed item
+scores.
 
 ### PROG spreads `data` first, unlike L0179
 
@@ -163,11 +203,30 @@ class; a new component tree that wants borders must sit inside it.
 
 ## Spec is tested, not decorative
 
-`docs.test.ts` compiles every fenced program in `spec/spec.md` and `spec/instructions.md`, plus
-`spec/template.gc`; checks that every documented word exists in the lexicon with the signature
-the docs claim; and checks `examples.md`'s numbering is internally coherent. A wrong example is
+`docs.test.ts` is the gate on `spec/`, and it checks five separate things. A wrong example is
 not a documentation nit — the generator writes from `instructions.md` and retrieves from
 `examples.md`, so it is reproduced verbatim into generated programs.
+
+- Every fenced program in `spec/spec.md` and `spec/instructions.md`, plus `spec/template.gc`,
+  **compiles** — not merely parses. A stale example parses fine and dies in the builder, which
+  is exactly how one survives behind a parse-only guard.
+- Every documented word exists in the lexicon with the signature the docs claim, and every
+  L0180 word (derived as `lexicon` minus L0000's) is documented. Adding a word cannot escape
+  the documentation gate by being left out of a list.
+- **`spec/schema.json` is validated against real compiled output** — every spec program's
+  result, plus both interaction shapes and both response shapes. It is draft 2020-12, so the
+  test imports `ajv/dist/2020.js`; the hoisted ajv 6 cannot read it. Nothing checked the schema
+  against reality until an item shipped whose `parts` carried an `id` the schema forbade.
+- The `## Which words each container takes` table in `instructions.md` must equal
+  `validAttributes` exactly, container for container. If they disagree the docs teach a program
+  the compiler refuses.
+- `examples.md`'s numbering is coherent: prompts run `1..N` with no gaps, category ranges tile
+  the whole list in order, and the count stated in the preamble is the count present.
+
+**`spec/scope.json` is the one spec file nothing tests.** It is copied verbatim by
+`build-static.js` and has already drifted: its `out_of_scope` still claims "Multi-part items …
+one interaction per program", which the `item` wrapper made false. Re-read it whenever the
+language gains a capability.
 
 `spec/usage-guide.md`'s `## Overview` section is extracted into `dist/static/language-info.json`
 as `authoring_guide`, and the build **fails** if it is missing or under 100 chars. Edit the
@@ -181,18 +240,49 @@ Overview, not the JSON — `language-info.json` must not carry that key itself.
 4. Add a scorer case, keeping the module DOM-free.
 5. Add a renderer and register it in the `RENDERERS` map in `interactions.tsx` — not in
    `Form.tsx`, which only chooses between an item and a bare interaction.
-6. Document it in `spec/instructions.md` and `spec/spec.md` with a compiling example, add
-   prompts to `examples.md` as a new numbered category, and extend `supported_item_types`.
+6. Extend `spec/schema.json` — a `$defs` entry plus the `oneOf` in `interaction` and
+   `validation`. `docs.test.ts` validates every spec program's output against it, so a new
+   type fails the suite until the schema knows it.
+7. Document it in `spec/instructions.md` (the Functions signature table **and** the container
+   table — both are asserted) and in `spec/spec.md`, each with a compiling example.
+8. Add prompts to `examples.md` as a new numbered category, updating the range in the category
+   header and the count in the preamble.
+9. Extend `supported_item_types` in `spec/language-info.json`, and revisit `spec/scope.json` —
+   the type is probably listed there as out of scope.
+
+## L0175 conformance
+
+L0175 is a *content* language — it composes the passage, the claims and the error-typed
+distractors. L0180 delivers the result, and the bar is that any item an L0175 spec describes is
+expressible here and **scores identically**. `conformance.test.ts` is that gate: it compiles a
+program per delivered shape and asserts the scorer against L0175's own `SCORING` map
+(`l0175/packages/core/src/compiler.ts:1257-1263`). It asserts on behaviour rather than shape
+because L0175's own coverage check substring-matches string literals — an EBSR item collapsed
+into a single choice passes it.
+
+Covered: `multiple-choice`, `multi-select` (exact-set), `ebsr`. Still missing, each needing a
+new interaction rather than more of `choice`:
+
+- **`hottext`** — clicking a sentence or a word inside the stimulus. Needs sentence
+  segmentation (port `splitSentences` and its abbreviation list from L0175), `"<pId>.<n>"`
+  addressing to match L0175's line references, and QTI's `mapping@upper-bound` for
+  select-exactly-N-from-a-valid-superset. That last one is a hottext requirement, not a choice
+  one: L0175 computes `selectCount` as `valid - 1` for hot text but as the plain count of
+  correct options for choice.
+- **`extended-text`** — rubric-scored constructed response, `responseProcessing: "human"`,
+  distinct from an unscored poll. The scorer will need a `pending` state so a human-scored part
+  is not reported as zero earned.
+
+When either lands, `schema.json`'s `itemInteraction.parts` must stop being
+`allOf: [choiceInteraction]` — today an item can only hold choice parts, so a new part type
+fails the schema gate before it fails anything else.
 
 ## Not built yet
 
 Every interaction type but `choice` — text entry, ordering, matching, classification, hot text,
 hotspot, sliders. QTI export, which the `interaction`/`validation` split is deliberately shaped
-to allow later.
-
-The L0175 conformance requirements still open (see the plan): exact-set multi-select scoring,
-hottext at word and sentence granularity, select-exactly-N-from-a-valid-superset, rubric-scored
-constructed response, and per-option rationale.
+to allow later; now that the compiled shape carries QTI's own field names, that is a serializer
+rather than a translation.
 
 ## Related repos
 

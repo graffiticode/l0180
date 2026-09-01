@@ -43,6 +43,21 @@ export interface AttributeMeta {
 /** The scoring modes an item may declare. */
 export const SCORING_MODES = ["additive", "conjunctive"] as const;
 
+/**
+ * The response-processing templates a choice may declare, named for QTI's own.
+ *
+ * `map-response` scores each selected option and sums — the per-option model. `match-correct`
+ * is all-or-nothing against the correct set: every correct option and nothing else, or zero.
+ *
+ * These are QTI's two standard templates, not competing models, which is why a choice names
+ * the one in force rather than the language picking a winner. Exact-set scoring was long read
+ * as a conflict with per-option points; it is the other template.
+ */
+export const RESPONSE_PROCESSING_TEMPLATES = ["map-response", "match-correct"] as const;
+
+/** Authored spelling -> the QTI template identifier emitted in `validation`. */
+export const templateId = (word: string): string => word.replace(/-/g, "_");
+
 export const attributeFields: Record<string, AttributeMeta> = {
   // Item-level
   STIMULUS: {
@@ -85,6 +100,13 @@ export const attributeFields: Record<string, AttributeMeta> = {
     expects: "number",
     description: "Most options the candidate may select. Defaults to 1, which is single-select.",
   },
+  RESPONSE_PROCESSING: {
+    field: "responseProcessing",
+    expects: "string",
+    oneOf: RESPONSE_PROCESSING_TEMPLATES,
+    description:
+      "How the response is scored: `map-response` scores each option and sums them (default), `match-correct` awards the points only for exactly the correct set.",
+  },
 
   // Option-level
   ID: {
@@ -110,6 +132,12 @@ export const attributeFields: Record<string, AttributeMeta> = {
     expects: "number",
     description: "What this option is worth. Defaults to 1 with `correct`; negative penalizes.",
   },
+  RATIONALE: {
+    field: "rationale",
+    expects: "string",
+    description:
+      "Why this option is right or wrong. Shown against it once the candidate has selected it.",
+  },
 };
 
 /** The signature string the generated spec renders, derived so it cannot drift from the row. */
@@ -133,9 +161,9 @@ export const typeOf = (meta: AttributeMeta): string => {
 export const validAttributes: Record<string, string[]> = {
   item: ["stimulus", "scoring", "points", "parts"],
   stimulus: ["title", "paragraphs"],
-  choice: ["prompt", "shuffle", "min-choices", "max-choices", "options"],
+  choice: ["prompt", "shuffle", "min-choices", "max-choices", "response-processing", "options"],
   option: ["id", "text", "assess"],
-  assess: ["correct", "points"],
+  assess: ["correct", "points", "rationale"],
 };
 
 /** Source spelling for a tag, so an error names the word the author wrote. */

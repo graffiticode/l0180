@@ -55,6 +55,7 @@ describe("interaction", () => {
     expect(interaction).toEqual({
       type: "choice",
       prompt: "What is 2 + 2?",
+      cardinality: "single",
       minChoices: 0,
       maxChoices: 1,
       shuffle: false,
@@ -93,7 +94,8 @@ describe("validation", () => {
     const { validation } = await compile(BASIC);
     expect(validation).toEqual({
       points: 2,
-      options: { B: { correct: true, points: 2 }, C: { points: -1 } },
+      responseProcessing: "map_response",
+      mapping: { B: { correct: true, points: 2 }, C: { points: -1 } },
     });
   });
 
@@ -101,7 +103,11 @@ describe("validation", () => {
     const { validation } = await compile(`
       choice [ options [ [ text "a" ] [ text "b" assess [ correct ] ] ] {} ]
     `);
-    expect(validation).toEqual({ points: 1, options: { B: { correct: true, points: 1 } } });
+    expect(validation).toEqual({
+      responseProcessing: "map_response",
+      points: 1,
+      mapping: { B: { correct: true, points: 1 } },
+    });
   });
 
   test("a penalty cannot move the ceiling", async () => {
@@ -125,7 +131,7 @@ describe("validation", () => {
 
   test("an item with no assess anywhere is unscored rather than an error", async () => {
     const { validation } = await compile(`choice [ options [ [ text "a" ] [ text "b" ] ] {} ]`);
-    expect(validation).toEqual({ points: 0, options: {} });
+    expect(validation).toEqual({ responseProcessing: "map_response", points: 0, mapping: {} });
   });
 
   test("multi-select sums every correct option", async () => {
@@ -149,7 +155,7 @@ describe("errors name the fix, not just the fault", () => {
   test("assess that asserts nothing", async () => {
     const msg = await errorOf(`choice [ options [ [ text "a" assess [] ] ] {} ]`);
     expect(msg).toContain("assess must say what it asserts");
-    expect(msg).toContain("`correct`, `points`, or both");
+    expect(msg).toContain("`correct`, `points`, or `rationale`");
   });
 
   test("assessed options but none correct", async () => {
@@ -167,7 +173,7 @@ describe("errors name the fix, not just the fault", () => {
   test("an option attribute written on choice lists the legal set", async () => {
     const msg = await errorOf(`choice [ text "oops" options [ [ text "a" ] ] {} ]`);
     expect(msg).toContain("is not an attribute of choice");
-    expect(msg).toContain("prompt, shuffle, min-choices, max-choices, options");
+    expect(msg).toContain("prompt, shuffle, min-choices, max-choices, response-processing, options");
   });
 
   test("more correct options than max-choices allows", async () => {
@@ -203,6 +209,128 @@ describe("errors name the fix, not just the fault", () => {
     expect(await errorOf(`choice [ shuffle "yes" options [ [ text "a" ] ] {} ]`)).toContain(
       "shuffle: expected true or false",
     );
+  });
+});
+
+describe("response-processing: the two QTI templates", () => {
+  const EXACT = `
+    choice [
+      prompt "Choose the two sentences that belong in a summary."
+      response-processing "match-correct"
+      min-choices 2
+      max-choices 2
+      options [
+        [ text "Bees live together in colonies." assess [ correct ] ]
+        [ text "Every bee does a job." assess [ correct ] ]
+        [ text "Some bees are yellow and black." ]
+        [ text "A hive can be kept in a box." ]
+      ] {}
+    ]
+  `;
+
+  test("defaults to map-response, so nothing already authored changes", async () => {
+    const { validation } = await compile(BASIC);
+    expect(validation.responseProcessing).toBe("map_response");
+  });
+
+  test("match-correct carries the correct set and NO mapping", async () => {
+    // The two are alternatives in QTI and stay alternatives here: per-option points have no
+    // meaning under an all-or-nothing template, so the field is absent rather than ignored.
+    const { validation } = await compile(EXACT);
+    expect(validation).toEqual({
+      responseProcessing: "match_correct",
+      points: 1,
+      correctResponse: ["A", "B"],
+    });
+    expect(validation.mapping).toBeUndefined();
+  });
+
+  test("the correct set is still absent from the half that ships to the browser", async () => {
+    const { interaction } = await compile(EXACT);
+    expect(JSON.stringify(interaction)).not.toContain("correct");
+  });
+
+  test("cardinality is derived from max-choices", async () => {
+    const single = await compile(BASIC);
+    expect(single.interaction.cardinality).toBe("single");
+    const multi = await compile(EXACT);
+    expect(multi.interaction.cardinality).toBe("multiple");
+  });
+
+  test("per-option points under match-correct is refused, not ignored", async () => {
+    const msg = await errorOf(EXACT.replace("[ correct ]", "[ correct points 2 ]"));
+    expect(msg).toContain("`points` is not meaningful under");
+    expect(msg).toContain('response-processing "match-correct"');
+    expect(msg).toContain('response-processing "map-response"');
+  });
+
+  test("match-correct with nothing marked correct names the fix", async () => {
+    const msg = await errorOf(`
+      choice [ response-processing "match-correct" options [ [ text "a" ] [ text "b" ] ] {} ]
+    `);
+    expect(msg).toContain("scores against the correct set");
+    expect(msg).toContain("assess [correct]");
+  });
+
+  test("an unknown template names the legal set", async () => {
+    const msg = await errorOf(`
+      choice [ response-processing "exact" options [ [ text "a" assess [ correct ] ] ] {} ]
+    `);
+    expect(msg).toContain("is not a response-processing mode");
+    expect(msg).toContain("map-response, match-correct");
+  });
+});
+
+describe("rationale", () => {
+  const WITH_RATIONALE = `
+    choice [
+      prompt "What can the reader conclude about Mara?"
+      options [
+        [ text "She is absorbed by the tide pool." assess [ correct ] ]
+        [ text "She is angry at her brother."
+          assess [ rationale "Not turning around shows absorption, not anger." ] ]
+      ] {}
+    ]
+  `;
+
+  test("rides in validation, keyed by option id", async () => {
+    const { validation } = await compile(WITH_RATIONALE);
+    expect(validation.feedback).toEqual({
+      B: "Not turning around shows absorption, not anger.",
+    });
+  });
+
+  test("never reaches interaction — a graded delivery withholds it", async () => {
+    const { interaction } = await compile(WITH_RATIONALE);
+    expect(JSON.stringify(interaction)).not.toContain("absorption");
+  });
+
+  test("asserts nothing about scoring on its own", async () => {
+    const { validation } = await compile(WITH_RATIONALE);
+    // B carries a rationale but no points, so it is not in the mapping and not in the ceiling.
+    expect(validation.mapping).toEqual({ A: { correct: true, points: 1 } });
+    expect(validation.points).toBe(1);
+  });
+
+  test("works under match-correct too, where there is no mapping to hang it on", async () => {
+    const { validation } = await compile(`
+      choice [
+        response-processing "match-correct"
+        max-choices 2
+        options [
+          [ text "a" assess [ correct ] ]
+          [ text "b" assess [ correct ] ]
+          [ text "c" assess [ rationale "Off topic." ] ]
+        ] {}
+      ]
+    `);
+    expect(validation.correctResponse).toEqual(["A", "B"]);
+    expect(validation.feedback).toEqual({ C: "Off topic." });
+  });
+
+  test("is absent entirely when nothing carries one", async () => {
+    const { validation } = await compile(BASIC);
+    expect(validation.feedback).toBeUndefined();
   });
 });
 

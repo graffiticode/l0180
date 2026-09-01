@@ -112,8 +112,16 @@ describe("scoring modes", () => {
     expect(validation.scoring).toBe("conjunctive");
     expect(validation.points).toBe(1);
     // ...while each part still carries its own key, which is what the scorer walks.
-    expect(validation.parts["1"]).toEqual({ points: 1, options: { A: { correct: true, points: 1 } } });
-    expect(validation.parts["2"]).toEqual({ points: 1, options: { B: { correct: true, points: 1 } } });
+    expect(validation.parts["1"]).toEqual({
+      responseProcessing: "map_response",
+      points: 1,
+      mapping: { A: { correct: true, points: 1 } },
+    });
+    expect(validation.parts["2"]).toEqual({
+      responseProcessing: "map_response",
+      points: 1,
+      mapping: { B: { correct: true, points: 1 } },
+    });
   });
 
   test("conjunctive takes an authored points override", async () => {

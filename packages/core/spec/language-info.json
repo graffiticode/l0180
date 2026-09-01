@@ -1,6 +1,6 @@
 {
   "id": "0180",
-  "description": "Authors web-based assessment items — quizzes, tests, practice questions and self-checks that render and score in a browser with no assessment platform behind them. Produces a choice interaction (single-select multiple choice, multi-select, or true/false), optionally wrapped in a multi-part item with a reading passage and conjunctive scoring, with per-option points, weighted answers, penalized distractors, optional shuffling, and an answer key kept separate from the presentation so a graded delivery can withhold it. This is the general-purpose assessment language: use it whenever the request is a quiz, test or practice question and no particular vendor or platform is named.",
+  "description": "Authors web-based assessment items — quizzes, tests, practice questions and self-checks that render and score in a browser with no assessment platform behind them. Produces a choice interaction (single-select multiple choice, multi-select, or true/false), optionally wrapped in a multi-part item with a reading passage and conjunctive scoring, with per-option points, weighted answers, penalized distractors, exact-set scoring for a \"choose exactly these\" question, a rationale explaining each wrong answer, optional shuffling, and an answer key kept separate from the presentation so a graded delivery can withhold it. This is the general-purpose assessment language: use it whenever the request is a quiz, test or practice question and no particular vendor or platform is named.",
   "supported_item_types": [
     "choice",
     "item"
@@ -40,6 +40,16 @@
       "prompt": "A two-part reading question about a short passage: first ask what the reader can conclude about the character, then ask which line supports that answer. Both parts must be right for the point.",
       "produces": "item",
       "notes": "Exercises the item wrapper — a stimulus with numbered paragraphs, two choice parts, and conjunctive scoring where a right claim with the wrong evidence earns zero."
+    },
+    {
+      "prompt": "Choose the two sentences that belong in a summary of the passage — all or nothing, no partial credit.",
+      "produces": "choice",
+      "notes": "Exact-set scoring: response-processing \"match-correct\" awards the point only for every correct option and nothing else, so a subset scores zero rather than half."
+    },
+    {
+      "prompt": "Which gas do plants absorb during photosynthesis? Explain to a student who picks oxygen why that is the gas plants release instead.",
+      "produces": "choice",
+      "notes": "Per-option rationale — assess [rationale \"…\"] on a distractor. It scores nothing, rides in validation rather than interaction, and shows only once that option is selected."
     }
   ]
 }
