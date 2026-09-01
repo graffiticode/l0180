@@ -20,6 +20,8 @@ import {
   toPlainObject,
   wordOf,
 } from "./attributes.js";
+import { resolveSelections, sentenceUnits, wordUnits } from "./hottext.js";
+import type { Paragraph, Unit } from "./hottext.js";
 
 /* ------------------------------------------------------------------ Checker */
 
@@ -51,6 +53,8 @@ for (const [name, meta] of Object.entries(attributeFields)) {
 }
 Checker.prototype.CHOICE = checkChild;
 Checker.prototype.OPTIONS = checkBoth;
+Checker.prototype.HOTTEXT = checkChild;
+Checker.prototype.SELECTIONS = checkBoth;
 Checker.prototype.ITEM = checkChild;
 Checker.prototype.PARTS = checkBoth;
 
@@ -136,6 +140,162 @@ Transformer.prototype.OPTIONS = function (this: any, node: any, options: any, re
         resume(err.concat(String((e && e.message) || e)), {});
       }
     });
+  });
+};
+
+/**
+ * A member list of selections — the same shape as OPTIONS, and merged the same way.
+ */
+Transformer.prototype.SELECTIONS = function (this: any, node: any, options: any, resume: any) {
+  this.visit(node.elts[0], options, (e0: any, v0: any) => {
+    this.visit(node.elts[1], options, (e1: any, v1: any) => {
+      const err = ([] as any[]).concat(e0 || [], e1 || []);
+      const raw = toPlainObject(v0);
+      if (!Array.isArray(raw)) {
+        resume(
+          err.concat('selections: expected a list of selections, e.g. selections [[quote "…" assess [correct]]] {}.'),
+          {},
+        );
+        return;
+      }
+      try {
+        const sels = raw.map((entry: any, i: number) => {
+          const sel = mergeAttributes(entry, `selection ${i + 1}`);
+          assertKnownAttributes("selection", sel);
+          return sel;
+        });
+        resume(err, { ...(toPlainObject(v1) || {}), selections: sels });
+      } catch (e: any) {
+        resume(err.concat(String((e && e.message) || e)), {});
+      }
+    });
+  });
+};
+
+/**
+ * Assemble a hottext once its units are known.
+ *
+ * Shared because the units come from two places: an interaction carrying its own `text` has
+ * them immediately, while one selecting `within "stimulus"` cannot — children transform before
+ * parents, so the stimulus does not exist when HOTTEXT runs, and ITEM finishes those.
+ */
+function assembleHottext(attrs: any, units: Unit[], where: string) {
+  const { mapping, feedback, correctIds } = resolveSelections(units, attrs.selections, where);
+
+  const template = attrs.responseProcessing !== undefined ? attrs.responseProcessing : "map-response";
+  const exactSet = template === "match-correct";
+  const scored = Object.keys(mapping).length > 0;
+  if (scored && !correctIds.length) {
+    throw new Error(
+      `${where}: no selection is marked \`correct\`, so the item cannot be scored. ` +
+        "Add `assess [correct]` to the right one, or remove every `assess` for an unscored item.",
+    );
+  }
+  if (exactSet && !correctIds.length) {
+    throw new Error(
+      `${where}: \`response-processing "match-correct"\` scores against the correct set, but no ` +
+        "selection is marked `correct`.",
+    );
+  }
+
+  // Each correct selection is worth its points; `upper-bound` caps the total, which is how
+  // "click any three of these five" is expressed — QTI's mapping@upper-bound.
+  const sum = correctIds.reduce((n, id) => n + (mapping[id]?.points ?? 0), 0);
+  const bounded = attrs.upperBound !== undefined;
+  const upperBound = bounded ? attrs.upperBound : sum;
+  if (bounded && attrs.upperBound > sum) {
+    throw new Error(
+      `${where}: upper-bound is ${attrs.upperBound} but the correct selections are only worth ${sum}. ` +
+        "Lower `upper-bound`, or mark more selections correct.",
+    );
+  }
+
+  // How many to click follows from the ceiling: all the correct ones, or the bounded count.
+  const maxChoices =
+    attrs.maxChoices !== undefined ? attrs.maxChoices : bounded ? attrs.upperBound : correctIds.length || 1;
+  const minChoices = attrs.minChoices !== undefined ? attrs.minChoices : maxChoices;
+  if (minChoices > maxChoices) {
+    throw new Error(`${where}: min-choices (${minChoices}) is greater than max-choices (${maxChoices}).`);
+  }
+  if (!bounded && correctIds.length > maxChoices) {
+    throw new Error(
+      `${where}: ${correctIds.length} selections are marked \`correct\` but max-choices is ${maxChoices}. ` +
+        "Raise `max-choices`, or set `upper-bound` to ask for that many of them.",
+    );
+  }
+
+  return {
+    interaction: {
+      type: "hottext",
+      ...(attrs.prompt !== undefined ? { prompt: attrs.prompt } : {}),
+      granularity: attrs.granularity !== undefined ? attrs.granularity : "sentence",
+      cardinality: maxChoices > 1 ? "multiple" : "single",
+      minChoices,
+      maxChoices,
+      units,
+    },
+    validation: {
+      responseProcessing: templateId(template),
+      points: exactSet ? 1 : Math.min(sum, upperBound),
+      ...(exactSet ? { correctResponse: correctIds } : { mapping }),
+      ...(bounded && !exactSet ? { upperBound } : {}),
+      ...(Object.keys(feedback).length ? { feedback } : {}),
+    },
+  };
+}
+
+/**
+ * A hottext interaction: a passage cut into clickable sentences or words.
+ *
+ * When it carries its own `text` it resolves here. When it says `within "stimulus"` it cannot —
+ * the stimulus is a sibling of `parts` inside `item`, and children transform first — so it
+ * emits a `pending` sibling that ITEM consumes. PROG rejects one that never got resolved.
+ */
+Transformer.prototype.HOTTEXT = function (this: any, node: any, options: any, resume: any) {
+  this.visit(node.elts[0], options, (e0: any, v0: any) => {
+    const err = ([] as any[]).concat(e0 || []);
+    try {
+      const attrs = mergeAttributes(toPlainObject(v0), "hottext");
+      assertKnownAttributes("hottext", attrs);
+
+      if (!Array.isArray(attrs.selections) || !attrs.selections.length) {
+        throw new Error(
+          'hottext: needs at least one selection, e.g. selections [[quote "…" assess [correct]]] {}.',
+        );
+      }
+      const hasText = attrs.text !== undefined;
+      const hasWithin = attrs.within !== undefined;
+      if (hasText && hasWithin) {
+        throw new Error(
+          "hottext: takes `text` or `within`, not both. `text` gives it its own passage; " +
+            '`within "stimulus"` selects inside the item\'s passage.',
+        );
+      }
+      if (!hasText && !hasWithin) {
+        throw new Error(
+          "hottext: needs the text it selects within — either its own `text \"…\"`, or " +
+            '`within "stimulus"` to use the passage of the item it is a part of.',
+        );
+      }
+
+      if (hasWithin) {
+        // Deferred. ITEM has the stimulus and will finish this.
+        resume(err, { pending: { scope: attrs.within, attrs } });
+        return;
+      }
+
+      const granularity = attrs.granularity !== undefined ? attrs.granularity : "sentence";
+      const units =
+        granularity === "word"
+          ? wordUnits(attrs.text)
+          : sentenceUnits([{ id: "p1", text: attrs.text }]);
+      if (!units.length) {
+        throw new Error("hottext: `text` is empty, so there is nothing to select.");
+      }
+      resume(err, assembleHottext(attrs, units, "hottext"));
+    } catch (e: any) {
+      resume(err.concat(String((e && e.message) || e)), {});
+    }
   });
 };
 
@@ -243,10 +403,28 @@ Transformer.prototype.CHOICE = function (this: any, node: any, options: any, res
       // Under match-correct the item is worth one point for the whole set, not the sum of its
       // options — there are no per-option points to sum.
       if (exactSet) points = 1;
+      // `upper-bound` caps the mapping, which is how "any N of these" is said. Meaningless
+      // under match-correct, where the whole set is the answer.
+      const bounded = attrs.upperBound !== undefined && !exactSet;
+      if (attrs.upperBound !== undefined && exactSet) {
+        throw new Error(
+          'choice: `upper-bound` is not meaningful under `response-processing "match-correct"`, ' +
+            "which already requires exactly the correct set.",
+        );
+      }
+      if (bounded) {
+        if (attrs.upperBound > points) {
+          throw new Error(
+            `choice: upper-bound is ${attrs.upperBound} but the correct options are only worth ${points}. ` +
+              "Lower `upper-bound`, or mark more options correct.",
+          );
+        }
+        points = attrs.upperBound;
+      }
 
       const maxChoices = attrs.maxChoices !== undefined ? attrs.maxChoices : 1;
       const minChoices = attrs.minChoices !== undefined ? attrs.minChoices : 0;
-      if (correctCount > maxChoices) {
+      if (correctCount > maxChoices && !bounded) {
         throw new Error(
           `choice: ${correctCount} options are marked \`correct\` but max-choices is ${maxChoices}. ` +
             "Raise `max-choices` for a multi-select item, or mark fewer options correct.",
@@ -272,6 +450,7 @@ Transformer.prototype.CHOICE = function (this: any, node: any, options: any, res
           responseProcessing: templateId(template),
           points,
           ...(exactSet ? { correctResponse } : { mapping }),
+          ...(bounded ? { upperBound: attrs.upperBound } : {}),
           ...(Object.keys(feedback).length ? { feedback } : {}),
         },
       });
@@ -298,7 +477,7 @@ Transformer.prototype.PARTS = function (this: any, node: any, options: any, resu
         );
         return;
       }
-      const bad = raw.findIndex((p: any) => !p || typeof p !== "object" || !p.interaction);
+      const bad = raw.findIndex((p: any) => !p || typeof p !== "object" || !(p.interaction || p.pending));
       if (bad >= 0) {
         resume(
           err.concat(
@@ -334,6 +513,38 @@ Transformer.prototype.ITEM = function (this: any, node: any, options: any, resum
       if (!parts.length) {
         throw new Error("item: needs at least one part, e.g. parts [ choice [ ... ] ] {}.");
       }
+
+      // Paragraphs are addressed p1, p2, … and a hottext selecting `within "stimulus"` keys its
+      // units off them, so they are built before anything reads a part's validation.
+      const paragraphs: Paragraph[] = ((attrs.stimulus && attrs.stimulus.paragraphs) || []).map(
+        (text: string, i: number) => ({ id: `p${i + 1}`, text }),
+      );
+
+      // Finish the parts that could not finish themselves. Children transform before parents, so
+      // a `within "stimulus"` hottext reached here holding only its authored selections.
+      let owner = -1;
+      parts.forEach((part: any, i: number) => {
+        if (!part.pending) return;
+        if (!paragraphs.length) {
+          throw new Error(
+            `part ${i + 1}: hottext says \`within "stimulus"\` but the item has no stimulus. ` +
+              "Add `stimulus [ paragraphs [ … ] ]`, or give the hottext its own `text`.",
+          );
+        }
+        if (owner >= 0) {
+          throw new Error(
+            `part ${i + 1}: a second hottext selects \`within "stimulus"\`, but part ${owner + 1} ` +
+              "already does. One passage cannot be two interactions; give this one its own `text`.",
+          );
+        }
+        owner = i;
+        const a = part.pending.attrs;
+        const units =
+          a.granularity === "word"
+            ? wordUnits(paragraphs.map((p) => p.text).join(" "))
+            : sentenceUnits(paragraphs);
+        parts[i] = { ...assembleHottext(a, units, `part ${i + 1}`), within: "stimulus" };
+      });
 
       const scoring = attrs.scoring !== undefined ? attrs.scoring : "additive";
       if (attrs.points !== undefined && scoring !== "conjunctive") {
@@ -384,7 +595,7 @@ Transformer.prototype.ITEM = function (this: any, node: any, options: any, resum
         interaction: {
           type: "item",
           ...(stimulus ? { stimulus } : {}),
-          parts: parts.map((p, i) => ({ id: ids[i], ...p.interaction })),
+          parts: parts.map((p, i) => ({ id: ids[i], ...p.interaction, ...(p.within ? { within: p.within } : {}) })),
         },
         validation: { points, scoring, parts: partValidation },
       });
@@ -408,6 +619,16 @@ Transformer.prototype.PROG = function (this: any, node: any, options: any, resum
   this.visit(node.elts[0], options, (e0: any, v0: any) => {
     const data = options?.data || {};
     const val = v0.pop();
+    if (val && typeof val === "object" && (val as any).pending) {
+      resume(
+        ([] as any[]).concat(e0 || [], [
+          'hottext: `within "stimulus"` needs the hottext to be a part of an item that has one. ' +
+            "Wrap it in `item [ stimulus [ … ] parts [ … ] {} ]`, or give it its own `text`.",
+        ]),
+        {},
+      );
+      return;
+    }
     const isObject = typeof val === "object" && val !== null && !Array.isArray(val);
     resume(e0, isObject ? { ...data, ...val } : val);
   });

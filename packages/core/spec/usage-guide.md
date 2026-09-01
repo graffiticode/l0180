@@ -13,7 +13,7 @@ A compiled item has two halves, deliberately separate. `interaction` is everythi
 
 When composing a request, name the question type first, then the stem, then the options, then which option or options are right. Say what an option is worth only if it is not worth one point — per-option scoring is the default, so partial credit needs no special request. Mention "select all that apply" or a number of answers when you want a multi-select item, and say so explicitly if you want the options shuffled.
 
-In scope: choice interactions — single-select multiple choice, multi-select, and true/false — with per-option points, weighted answers, penalized distractors, shuffled options, unscored polls, exact-set scoring for a "choose exactly these" question, and a rationale on a distractor explaining why it is wrong; and multi-part items over a reading passage, scored additively or conjunctively. Out of scope: other interaction types (text entry, ordering, matching, classification, hot text and the rest are not implemented yet), test and section wrappers, rubric-scored prose, media beyond passage and option text, and delivery concerns such as timing, attempts and gradebooks.
+In scope: choice interactions — single-select multiple choice, multi-select, and true/false — with per-option points, weighted answers, penalized distractors, shuffled options, unscored polls, exact-set scoring for a "choose exactly these" question, and a rationale on a distractor explaining why it is wrong; hottext interactions, where the candidate clicks a sentence or a word inside the passage itself, including "click any three of these" and click-the-word vocabulary items; and multi-part items over a reading passage, scored additively or conjunctively. Out of scope: other interaction types (text entry, ordering, matching, classification, hot text and the rest are not implemented yet), test and section wrappers, rubric-scored prose, media beyond passage and option text, and delivery concerns such as timing, attempts and gradebooks.
 
 ## Writing a request
 
@@ -40,6 +40,9 @@ Say this to get that:
 - **A named option** — `id "…"` on the option. Ids are otherwise derived as A, B, C…
 - **An unscored poll** — omit `assess` everywhere. The item renders and collects but scores nothing.
 - **A passage to read** — `item [ stimulus [ title "…" paragraphs [ "…" "…" ] ] parts [ … ] {} ]`. Paragraphs are numbered for the reader, so a stem can refer to them by line.
+- **Click a sentence in the passage** — `hottext [ prompt "…" within "stimulus" selections [[quote "…" assess [correct]]] {} ]` as a part of an item. The passage renders once, at the top, with its sentences clickable.
+- **Click any N of several right sentences** — add `upper-bound N`. Without it every correct sentence must be clicked.
+- **Click the word** — `granularity "word"` with its own `text`. Only the words a selection names are clickable, so author the distractor words too.
 - **Two parts, both required** — `scoring "conjunctive"` on the item. Every part must be right for the point.
 - **Two parts, scored separately** — the default `additive`; the item is worth the sum of its parts.
 - **Program terminator** — every L0180 program ends with `..`.
@@ -55,12 +58,13 @@ Say this to get that:
 - *"Choose the two sentences that belong in a summary of the passage — all or nothing, no partial credit."* → `choice`
 - *"Which gas do plants absorb? Explain to a student who picks oxygen why that is the gas plants release."* → `choice`
 - *"A two-part reading question about a short passage: first what the reader can conclude, then which line supports it. Both parts must be right for the point."* → `item`
+- *"Show a passage and ask the student to click the sentence that best supports the inference."* → `hottext`
+- *"Read the sentence and click the word that means 'a channel that carries water'."* → `hottext`
 
 ## Out of Scope
 
-- **Other interaction types** — text entry, ordering, matching, classification, hot text, hotspot and sliders are not implemented yet. A request for one should not be answered with a choice item that approximates it.
+- **Other interaction types** — text entry, ordering, matching, classification, hotspot and sliders are not implemented yet. A request for one should not be answered with a choice item that approximates it.
 - **Cloze passages** — an item can hold several parts, but a blank *inside* running text needs an inline interaction, which does not exist yet.
 - **Tests and sections** — L0180 authors single items, not test packages, navigation or sequencing.
 - **Rubric-scored prose** — nothing here scores free text against a rubric; scoring is exact matching against an answer key.
-- **Hot text** — clicking a word or sentence inside a passage is not built yet. A question that asks the candidate to select text should not be answered with a choice item listing the sentences as options.
 - **Delivery policy** — timing, attempt limits, feedback timing, and gradebooks belong to the host, not the item.

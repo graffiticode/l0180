@@ -8,6 +8,7 @@
  */
 import type { Validation } from "../../scoring";
 import { ChoiceItem } from "./ChoiceItem";
+import { HottextItem } from "./HottextItem";
 import { ErrorList } from "./itemKit";
 
 export interface InteractionProps {
@@ -21,6 +22,7 @@ export interface InteractionProps {
 
 const RENDERERS: Record<string, (p: InteractionProps) => JSX.Element> = {
   choice: ChoiceItem as any,
+  hottext: HottextItem as any,
 };
 
 export function InteractionView(props: InteractionProps) {

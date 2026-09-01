@@ -55,6 +55,12 @@ export const SCORING_MODES = ["additive", "conjunctive"] as const;
  */
 export const RESPONSE_PROCESSING_TEMPLATES = ["map-response", "match-correct"] as const;
 
+/** How a hottext's text is cut into selectable units. */
+export const GRANULARITIES = ["sentence", "word"] as const;
+
+/** What a hottext may select within, when it does not carry its own text. */
+export const SELECTION_SCOPES = ["stimulus"] as const;
+
 /** Authored spelling -> the QTI template identifier emitted in `validation`. */
 export const templateId = (word: string): string => word.replace(/-/g, "_");
 
@@ -99,6 +105,30 @@ export const attributeFields: Record<string, AttributeMeta> = {
     field: "maxChoices",
     expects: "number",
     description: "Most options the candidate may select. Defaults to 1, which is single-select.",
+  },
+  GRANULARITY: {
+    field: "granularity",
+    expects: "string",
+    oneOf: GRANULARITIES,
+    description: "What a hottext makes clickable: whole `sentence`s, or single `word`s.",
+  },
+  WITHIN: {
+    field: "within",
+    expects: "string",
+    oneOf: SELECTION_SCOPES,
+    description:
+      "Select within the item's `stimulus` rather than the hottext's own text. One of `within` or `text` is required.",
+  },
+  QUOTE: {
+    field: "quote",
+    expects: "string",
+    description: "The text this selection names, copied from the passage.",
+  },
+  UPPER_BOUND: {
+    field: "upperBound",
+    expects: "number",
+    description:
+      "Most points the mapped selections can earn. Set it below the number of correct answers to ask for any N of them.",
   },
   RESPONSE_PROCESSING: {
     field: "responseProcessing",
@@ -161,7 +191,15 @@ export const typeOf = (meta: AttributeMeta): string => {
 export const validAttributes: Record<string, string[]> = {
   item: ["stimulus", "scoring", "points", "parts"],
   stimulus: ["title", "paragraphs"],
-  choice: ["prompt", "shuffle", "min-choices", "max-choices", "response-processing", "options"],
+  choice: [
+    "prompt", "shuffle", "min-choices", "max-choices",
+    "response-processing", "upper-bound", "options",
+  ],
+  hottext: [
+    "prompt", "text", "within", "granularity", "min-choices", "max-choices",
+    "response-processing", "upper-bound", "selections",
+  ],
+  selection: ["quote", "assess"],
   option: ["id", "text", "assess"],
   assess: ["correct", "points", "rationale"],
 };
@@ -286,7 +324,7 @@ const fieldToWord: Record<string, string> = Object.entries(attributeFields).redu
   },
   // Container words are not rows in the table, but they must still be nameable when a
   // container rejects one of them.
-  { options: "options", parts: "parts" },
+  { options: "options", parts: "parts", selections: "selections" },
 );
 const fieldWord = (field: string): string => fieldToWord[field] || field;
 

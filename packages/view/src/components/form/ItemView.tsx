@@ -11,6 +11,7 @@
  * nothing is not a thing a learner should be told.
  */
 import { InteractionView } from "./interactions";
+import { HottextPassage, HottextPrompt } from "./HottextItem";
 import { ResultBanner } from "./itemKit";
 import { scoreItem } from "../../scoring";
 import type { ItemValidation } from "../../scoring";
@@ -39,6 +40,10 @@ export function ItemView({
 }) {
   const parts = interaction.parts ?? [];
   const stimulus = interaction.stimulus;
+  // A hottext selecting `within "stimulus"` owns the passage: it renders in the stimulus slot,
+  // interactive, INSTEAD of the read-only copy. Rendering both would show the passage twice on
+  // one screen, which is only tolerable in L0175 because its two copies live in separate tabs.
+  const owner = parts.find((p: any) => p.type === "hottext" && p.within === "stimulus");
   const given = response !== null && typeof response === "object" ? (response as any) : {};
 
   const answerPart = (id: string, partResponse: unknown) =>
@@ -53,7 +58,19 @@ export function ItemView({
 
   return (
     <div className="flex flex-col gap-4">
-      {stimulus && (
+      {stimulus && owner && (
+        <div className="flex flex-col gap-2">
+          {stimulus.title && <h2 className="text-sm font-semibold text-zinc-900">{stimulus.title}</h2>}
+          <HottextPassage
+            interaction={owner}
+            validation={validation?.parts?.[owner.id]}
+            response={given[owner.id]}
+            respond={(r) => answerPart(owner.id, r)}
+          />
+        </div>
+      )}
+
+      {stimulus && !owner && (
         <div className="rounded-md border border-zinc-200 bg-zinc-50 p-3">
           {stimulus.title && (
             <h2 className="text-sm font-semibold text-zinc-900 mb-2">{stimulus.title}</h2>
@@ -77,13 +94,24 @@ export function ItemView({
               Part {String.fromCharCode(65 + i)}
             </h3>
           )}
-          <InteractionView
-            interaction={part}
-            validation={validation?.parts?.[part.id]}
-            response={given[part.id]}
-            respond={(r) => answerPart(part.id, r)}
-            showResult={false}
-          />
+          {part === owner ? (
+            // Its passage is already up in the stimulus slot; down here it is just the stem.
+            <HottextPrompt
+              interaction={part}
+              validation={validation?.parts?.[part.id]}
+              response={given[part.id]}
+              respond={(r) => answerPart(part.id, r)}
+              showResult={false}
+            />
+          ) : (
+            <InteractionView
+              interaction={part}
+              validation={validation?.parts?.[part.id]}
+              response={given[part.id]}
+              respond={(r) => answerPart(part.id, r)}
+              showResult={false}
+            />
+          )}
         </section>
       ))}
 

@@ -163,12 +163,118 @@ describe("ebsr — both parts correct = 1 point, otherwise 0", () => {
   });
 });
 
+describe("hot-text, sentence granularity — both parts correct = 1 point, otherwise 0", () => {
+  const SRC = `
+    item [
+      stimulus [
+        title "The Tide Pool"
+        paragraphs [
+          "Mara crouched at the edge of the tide pool, ignoring the picnic behind her."
+          "Her brother called twice. She did not turn around."
+        ]
+      ]
+      scoring "conjunctive"
+      parts [
+        choice [
+          prompt "Click on the statement that best describes Mara."
+          options [
+            [ text "She is absorbed by the tide pool." assess [ correct ] ]
+            [ text "She is angry at her brother." ]
+          ] {}
+        ]
+        hottext [
+          prompt "Click the sentence that best supports your answer to Part A."
+          within "stimulus"
+          selections [ [ quote "She did not turn around." assess [ correct ] ] ] {}
+        ]
+      ] {}
+    ]
+  `;
+
+  test("the right statement with the right sentence earns the point", async () => {
+    const score = await scorer(SRC);
+    expect(score({ "1": ["A"], "2": ["p2.2"] })).toMatchObject({ points: 1, maxPoints: 1, correct: true });
+  });
+
+  test("the right statement with the wrong sentence earns zero, not half", async () => {
+    const score = await scorer(SRC);
+    expect(score({ "1": ["A"], "2": ["p1.1"] })).toMatchObject({ points: 0, correct: false });
+    expect(score({ "1": ["B"], "2": ["p2.2"] })).toMatchObject({ points: 0, correct: false });
+    expect(score({ "1": ["A"] })).toMatchObject({ points: 0, correct: false });
+  });
+});
+
+describe("hot-text, select N from a valid superset", () => {
+  // L0175 asks for one fewer than the valid set, so any N of them is right. Wrapping the single
+  // interaction in a conjunctive item is what makes it worth one point rather than N, matching
+  // L0175's "1 point; otherwise 0".
+  const SRC = `
+    item [
+      stimulus [
+        paragraphs [
+          "Bees live in colonies. Every bee does a job. Workers gather nectar."
+          "Guard bees defend the entrance. The queen lays every egg."
+        ]
+      ]
+      scoring "conjunctive"
+      points 1
+      parts [
+        hottext [
+          prompt "Click the three sentences that show how the colony works together."
+          within "stimulus"
+          upper-bound 3
+          selections [
+            [ quote "Every bee does a job." assess [ correct ] ]
+            [ quote "Workers gather nectar." assess [ correct ] ]
+            [ quote "Guard bees defend the entrance." assess [ correct ] ]
+            [ quote "The queen lays every egg." assess [ correct ] ]
+          ] {}
+        ]
+      ] {}
+    ]
+  `;
+
+  test("any three of the four valid sentences earn the point", async () => {
+    const score = await scorer(SRC);
+    expect(score({ "1": ["p1.2", "p1.3", "p2.1"] })).toMatchObject({ points: 1, correct: true });
+    expect(score({ "1": ["p1.3", "p2.1", "p2.2"] })).toMatchObject({ points: 1, correct: true });
+  });
+
+  test("two of the four is not enough, and a wrong sentence spoils it", async () => {
+    const score = await scorer(SRC);
+    expect(score({ "1": ["p1.2", "p1.3"] })).toMatchObject({ points: 0, correct: false });
+    expect(score({ "1": ["p1.1", "p1.2", "p1.3"] })).toMatchObject({ points: 0, correct: false });
+  });
+});
+
+describe("hot-text, word granularity — one click, 1 point or 0", () => {
+  const SRC = `
+    hottext [
+      prompt "Read the sentence. Click the word that means a channel that carries water."
+      text "The aqueduct carried water across long distances."
+      granularity "word"
+      selections [
+        [ quote "aqueduct" assess [ correct ] ]
+        [ quote "water" assess [ rationale "Water is what it carries, not what the word means." ] ]
+        [ quote "distances" ]
+      ] {}
+    ]
+  `;
+
+  test("the right word earns the point; the other candidates earn nothing", async () => {
+    const score = await scorer(SRC);
+    expect(score(["w2"])).toMatchObject({ points: 1, maxPoints: 1, correct: true });
+    expect(score(["w4"])).toMatchObject({ points: 0, correct: false });
+    expect(score(["w7"])).toMatchObject({ points: 0, correct: false });
+    expect(score([])).toMatchObject({ points: 0, correct: false });
+  });
+});
+
 describe("what L0175 still asks for that L0180 cannot express", () => {
   // Stated as a passing test rather than a failing one, so the suite reports the real boundary
-  // instead of a permanent red mark. When either word lands this fails, which is the reminder
-  // to bring its conformance cases in above.
-  test("hot-text and short-text have no vocabulary yet", () => {
-    expect(lexicon["hottext"], "hottext landed — add its conformance cases").toBeUndefined();
+  // instead of a permanent red mark. When the word lands this fails, which is the reminder to
+  // bring its conformance cases in above.
+  test("short-text has no vocabulary yet", () => {
     expect(
       lexicon["extended-text"],
       "extended-text landed — add its conformance cases",

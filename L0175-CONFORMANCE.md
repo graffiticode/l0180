@@ -62,7 +62,7 @@ The mapping as built:
 | `cardinality` | `interaction.cardinality` — derived from `maxChoices`, never authored |
 | `responseProcessing` template | `validation.responseProcessing` |
 | `mapping` / `mapEntry` | `validation.mapping` |
-| `mapping@upper-bound` | `validation.upperBound` *(unbuilt — see R7)* |
+| `mapping@upper-bound` | `validation.upperBound` |
 | `correctResponse` | `validation.correctResponse` |
 | feedback keyed by identifier | `validation.feedback` |
 | `outcomeDeclaration` SCORE | `validation.points` |
@@ -83,14 +83,14 @@ names, so an exporter is a serializer rather than a translation.
 | R2 | Multi-select with exact-set scoring — all correct and nothing else, or zero | choice | **done** `634938f` |
 | R3 | Multi-part item, conjunctive scoring — every part right for one point | item | **done** `dbcbb79` |
 | R4 | Stimulus — a passage with addressable paragraphs/lines | item | **done** `dbcbb79` |
-| R5 | Hottext, sentence granularity, selected within the stimulus | hottext | missing |
-| R6 | Hottext, word granularity, single selection | hottext | missing |
-| R7 | Select exactly N from a valid superset | hottext | missing |
+| R5 | Hottext, sentence granularity, selected within the stimulus | hottext | **done** |
+| R6 | Hottext, word granularity, single selection | hottext | **done** |
+| R7 | Select exactly N from a valid superset | hottext | **done** |
 | R8 | Rubric-scored constructed response, not auto-scored | extended-text | missing |
 | R9 | Per-option rationale carried through to delivery | choice | **done** `634938f` |
 
-L0175 item types covered end to end: `multiple-choice`, `multi-select`, `ebsr`. Missing:
-`hot-text` (all three of its shapes) and `short-text`.
+L0175 item types covered end to end: `multiple-choice`, `multi-select`, `ebsr`, and all three
+`hot-text` shapes. Missing: `short-text`.
 
 ### Two conclusions the original design got wrong
 
@@ -114,65 +114,41 @@ R7 was also recorded as "does not fit the current model". It does: QTI's
 
 ---
 
-## 4. The unbuilt design
+## 4. The interactions
 
-### `hottext` — R5, R6, R7
+### `hottext` — R5, R6, R7 — built
 
-**One interaction with a granularity parameter, not two types.** New arity-1 container plus a
-`selections` member list (arity 2, like `options`). Words: `prompt`, `granularity`
-(`"sentence" | "word"`), `within` (`"stimulus"`), `text`, `min-choices`, `max-choices`,
-`upper-bound`, `response-processing`, `selections`; and `quote` inside a selection.
+One container with a `granularity` word, as designed. Authors mark units by `quote`; the
+compiler resolves them against the segmented passage. `upper-bound` is R7 — QTI's
+`mapping@upper-bound` — and defaults so it is rarely written: with C correct selections it
+defaults to their total, and `min-choices`/`max-choices` default to the count, so "click the
+sentence" needs no numbers at all.
 
-Authors mark units **by quote, not by id** — the segmentation is the compiler's, and an
-author working from a spec has the sentence, not an id.
+Four things came out different from the plan or from L0175, each for a reason:
 
-```
-hottext [
-  prompt "Click the sentence that best supports your answer to Part A."
-  within "stimulus"
-  granularity "sentence"
-  max-choices 1
-  selections [
-    [ quote "She did not turn around." assess [ correct ] ]
-  ] {}
-]
-```
-```
-interaction: { type: "hottext", granularity: "sentence", cardinality: "single",
-               minChoices: 0, maxChoices: 1,
-               hottext: [ {id: "p1.1", text: "…", selectable: true},
-                          {id: "p2.1", …}, {id: "p2.2", …} ] }
-validation:  { responseProcessing: "map_response", points: 1,
-               mapping: { "p2.1": {correct: true, points: 1} } }
-```
+1. **Two-phase resolution was forced, not chosen.** Children transform before parents, so
+   `HOTTEXT` cannot see the stimulus. A `within "stimulus"` interaction emits a `pending`
+   sibling that `ITEM` completes; `PROG` rejects one that survives. `hottext.ts` exists as a
+   plain module because both phases call it.
+2. **The passage renders once.** L0175 renders it twice — read-only in a "Passage" tab and
+   clickable in the item — which works only because they are tabs. L0180 is inline, so
+   `HottextPassage` takes the stimulus slot and `HottextPrompt` the part slot.
+3. **No stopword fallback.** L0175 makes every content word over two characters clickable when
+   the author curates no candidates. L0180 requires a `selections` list, so the clickable words
+   are exactly the authored ones — and the language carries no stopword list.
+4. **A quote that matches nothing, or matches twice, is an error.** L0175 warns and composes
+   on, because it is selecting from a superset it generated. An L0180 author naming a sentence
+   that is not in the passage has written a broken item. The message names the nearest sentence
+   by edit distance.
 
-Word granularity swaps `within` for its own `text`, and each token carries `pre`/`post`
-punctuation so the renderer reassembles the sentence exactly, as L0175's `wordSelect.tokens`
-does. Word tokens are selectable; punctuation is not.
+Two fixes to the ported segmentation, both because a unit here is something a candidate clicks
+rather than something a matcher tolerates:
 
-R7 is `min-choices N max-choices N` plus `upper-bound N` over a larger correct set:
-`points` becomes `min(Σ correct, upperBound)`, so `upper-bound` is the only number authored.
-This is the one place the existing "ceiling = sum of correct options" rule must yield.
-
-**Three decisions to make before writing code:**
-
-1. **Self-containment.** Hot text is the first interaction that does not own its content — it
-   selects within the *stimulus*, which belongs to the parent item, and CLAUDE.md records
-   that a part must render identically standing alone or nested. Resolve `within "stimulus"`
-   **at compile time** and inline the segmented units into the interaction, so the renderer
-   still receives something self-contained. The cost is that the passage appears twice in the
-   payload and `ItemView` must not render a static stimulus above an interactive copy of it.
-   L0175 does the same: `HotTextItem` renders the paragraphs itself.
-2. **Quote matching is the hard part**, not the interaction. Authors will miss — curly versus
-   straight quotes, trailing punctuation, a quote spanning a segmentation boundary. L0175
-   matches by normalized containment (`sourceText`, `buildSelectable`). The near-miss error
-   message is a product surface, like `assertKnownAttributes`, and is where the care goes.
-3. **Segmentation** ports `splitSentences()` and its `SENTENCE_ABBREVIATIONS` list from
-   `l0175/packages/core/src/compiler.ts:558-591`. Sentence ids are `"<paragraphId>.<n>"`,
-   matching L0175's `<lineId>.<sentenceIdx>` so a spec's line references survive.
-
-Three L0175 shapes must come out of it: two-part sentence (an item with a choice part and a
-hottext part), single-part sentence, and word-click (T10).
+- L0175's regex keeps only runs ending in `.!?`, so an unterminated final sentence is dropped
+  silently. Here the remainder is kept.
+- It splits `"Stop!" she called.` in two, leaving `"Stop!"` as its own clickable sentence.
+  L0175 calls that acceptable; in the Grade-5 literary prose T4 and T2 use, dialogue is
+  constant. A run starting lowercase is a continuation, so it rejoins.
 
 ### `extended-text` — R8
 
@@ -197,12 +173,13 @@ human-scored part reports its auto-scored subtotal rather than zero-as-if-earned
 part inside a `conjunctive` item is a compile error, consistent with the existing rule that
 every part of a conjunctive item must be scoreable.
 
-### The prerequisite for either
+### The schema, now that parts are heterogeneous
 
-`schema.json`'s `itemInteraction.parts` is `allOf: [choiceInteraction]` — an item can only
-hold choice parts today, so a new part type fails the schema gate before it fails anything
-else. It must become the interaction union. Do it first; it is small, and both interactions
-need it.
+`itemInteraction.parts` was `allOf: [choiceInteraction]` — an item could only hold choice
+parts, and a new part type failed the schema gate before anything else. It is now a `oneOf`
+union, and `choiceValidation` became **`responseValidation`**, shared by every interaction:
+a key is `responseProcessing` plus identifiers, and nothing in it is choice-specific. A third
+interaction adds one `$defs` entry and two union members, and touches no validation shape.
 
 ---
 

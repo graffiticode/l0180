@@ -46,6 +46,11 @@ Two words depart from that, both deliberately:
 | `paragraphs` | `<list: record>` | The stimulus text, one string per paragraph |
 | `scoring` | `<string: record>` | How parts combine — additive or conjunctive |
 | `choice` | `<list: record>` | A choice interaction |
+| `hottext` | `<list: record>` | A hottext interaction: clickable sentences or words |
+| `selections` | `<list record: record>` | The places a hottext can select |
+| `quote` | `<string: record>` | The text a selection names |
+| `granularity` | `<string: record>` | What is clickable — sentence or word |
+| `within` | `<string: record>` | Select within the item's stimulus |
 | `options` | `<list record: record>` | The options offered |
 | `prompt` | `<string: record>` | The question stem |
 | `text` | `<string: record>` | An option's visible text |
@@ -58,6 +63,7 @@ Two words depart from that, both deliberately:
 | `min-choices` | `<number: record>` | Fewest options selectable |
 | `max-choices` | `<number: record>` | Most options selectable |
 | `response-processing` | `<string: record>` | How the response scores — map-response or match-correct |
+| `upper-bound` | `<number: record>` | Cap on what the answers earn — "any N of them" |
 
 ### item
 
@@ -169,6 +175,59 @@ choice [
     [ text "She is absorbed by the tide pool." assess [ correct ] ]
     [ text "She is angry at her brother."
       assess [ rationale "Not turning around shows absorption, not anger." ] ]
+  ] {}
+]..
+```
+
+### hottext
+
+A passage whose sentences or words the candidate clicks. It takes its text from the item's
+`stimulus` (`within "stimulus"`) or carries its own (`text`) — exactly one of the two.
+Selections name their target by `quote`; the compiler resolves it against the segmented
+passage, so a quote that is missing or ambiguous is a compile error rather than a silent miss.
+
+```
+hottext [
+  prompt "Click the sentence that states the central idea."
+  text "Bees live in colonies. Every bee does a job that helps the group survive."
+  selections [
+    [ quote "Every bee does a job that helps the group survive." assess [ correct ] ]
+  ] {}
+]..
+```
+
+### granularity
+
+`sentence` (the default) makes every sentence of the passage clickable. `word` makes clickable
+only the words a selection names, so the candidate words are authored rather than inferred.
+
+```
+hottext [
+  prompt "Click the word that means a channel that carries water."
+  text "The aqueduct carried water across long distances."
+  granularity "word"
+  selections [
+    [ quote "aqueduct" assess [ correct ] ]
+    [ quote "water" assess [ rationale "Water is what it carries, not what the word means." ] ]
+  ] {}
+]..
+```
+
+### upper-bound
+
+Caps what the correct answers can earn. Below their total it asks for *some* of them — five
+valid sentences with `upper-bound 3` means any three are right. Without it, every correct
+answer must be selected.
+
+```
+hottext [
+  prompt "Click the two sentences that belong in a summary."
+  text "Bees live in colonies. Every bee does a job. Workers gather nectar. Guard bees defend the hive."
+  upper-bound 2
+  selections [
+    [ quote "Every bee does a job." assess [ correct ] ]
+    [ quote "Workers gather nectar." assess [ correct ] ]
+    [ quote "Guard bees defend the hive." assess [ correct ] ]
   ] {}
 ]..
 ```

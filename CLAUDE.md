@@ -240,9 +240,11 @@ Overview, not the JSON — `language-info.json` must not carry that key itself.
 4. Add a scorer case, keeping the module DOM-free.
 5. Add a renderer and register it in the `RENDERERS` map in `interactions.tsx` — not in
    `Form.tsx`, which only chooses between an item and a bare interaction.
-6. Extend `spec/schema.json` — a `$defs` entry plus the `oneOf` in `interaction` and
-   `validation`. `docs.test.ts` validates every spec program's output against it, so a new
-   type fails the suite until the schema knows it.
+6. Extend `spec/schema.json` — a `$defs` entry plus the `oneOf` in `interaction`, **and the
+   one inside `itemInteraction.parts`**, which is a separate union and the easy one to miss.
+   `validation` needs nothing: `responseValidation` is interaction-agnostic, keyed by
+   identifier, and already shared. `docs.test.ts` validates every spec program's output against
+   the schema, so a new type fails the suite until it knows about it.
 7. Document it in `spec/instructions.md` (the Functions signature table **and** the container
    table — both are asserted) and in `spec/spec.md`, each with a compiling example.
 8. Add prompts to `examples.md` as a new numbered category, updating the range in the category
@@ -253,8 +255,8 @@ Overview, not the JSON — `language-info.json` must not carry that key itself.
 ## L0175 conformance
 
 **`L0175-CONFORMANCE.md` at the repo root is the design record** — the QTI ontology and where
-it came from, the R1–R9 requirement set with its status, and the full unbuilt design for
-`hottext` and `extended-text`. Read it before adding either. What follows is the summary.
+it came from, the R1–R9 requirement set with its status, and the unbuilt design for
+`extended-text`. Read it before adding one. What follows is the summary.
 
 L0175 is a *content* language — it composes the passage, the claims and the error-typed
 distractors. L0180 delivers the result, and the bar is that any item an L0175 spec describes is
@@ -264,27 +266,43 @@ program per delivered shape and asserts the scorer against L0175's own `SCORING`
 because L0175's own coverage check substring-matches string literals — an EBSR item collapsed
 into a single choice passes it.
 
-Covered: `multiple-choice`, `multi-select` (exact-set), `ebsr`. Still missing, each needing a
-new interaction rather than more of `choice`:
+Covered: `multiple-choice`, `multi-select` (exact-set), `ebsr`, and all three `hot-text` shapes
+— two-part sentence, single-part sentence, and click-the-word. Still missing:
 
-- **`hottext`** — clicking a sentence or a word inside the stimulus. Needs sentence
-  segmentation (port `splitSentences` and its abbreviation list from L0175), `"<pId>.<n>"`
-  addressing to match L0175's line references, and QTI's `mapping@upper-bound` for
-  select-exactly-N-from-a-valid-superset. That last one is a hottext requirement, not a choice
-  one: L0175 computes `selectCount` as `valid - 1` for hot text but as the plain count of
-  correct options for choice.
 - **`extended-text`** — rubric-scored constructed response, `responseProcessing: "human"`,
   distinct from an unscored poll. The scorer will need a `pending` state so a human-scored part
   is not reported as zero earned.
 
-When either lands, `schema.json`'s `itemInteraction.parts` must stop being
-`allOf: [choiceInteraction]` — today an item can only hold choice parts, so a new part type
-fails the schema gate before it fails anything else.
+### A hottext resolves in two phases, and that is not optional
+
+Children transform before parents: `PARTS` visits each interaction, then `ITEM` merges. So when
+`HOTTEXT` runs **the stimulus does not exist yet** — it is a sibling of `parts` inside `item`.
+An interaction saying `within "stimulus"` therefore cannot resolve its own quotes, and emits a
+`pending` sibling of `interaction`/`validation` that `ITEM` completes once it has the passage.
+`PROG` rejects a `pending` that survives, which is how `within "stimulus"` outside an item gets
+an error rather than a half-built value.
+
+Both paths call `hottext.ts`, which is why it is a plain module with no AST and no CPS.
+
+### The passage renders once, unlike L0175
+
+L0175 renders the passage twice — read-only in a "Passage" tab, clickable in the item — and
+gets away with it because those are tabs. L0180 lays stimulus and parts out inline, so the same
+approach would put the passage on screen twice.
+
+Hence `HottextPassage` and `HottextPrompt` as separate exports rather than one component with a
+mode flag. `ItemView` puts the passage in the **stimulus slot** — top of the item, above Part A,
+replacing the static block — and the prompt in the part slot. `HottextItem` stacks both for a
+hottext standing alone, and is what `RENDERERS` holds.
+
+Selection at the ceiling **refuses** a further click, where `ChoiceItem` evicts the oldest. In a
+list of options an eviction is visible; in a passage the displaced sentence may be off screen,
+so the candidate would watch a selection vanish for no stated reason.
 
 ## Not built yet
 
-Every interaction type but `choice` — text entry, ordering, matching, classification, hot text,
-hotspot, sliders. QTI export, which the `interaction`/`validation` split is deliberately shaped
+Every interaction type but `choice` and `hottext` — text entry, ordering, matching,
+classification, hotspot, sliders. QTI export, which the `interaction`/`validation` split is deliberately shaped
 to allow later; now that the compiled shape carries QTI's own field names, that is a serializer
 rather than a translation.
 

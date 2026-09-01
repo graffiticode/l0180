@@ -125,6 +125,43 @@ describe("scoreChoice under match_correct", () => {
   });
 });
 
+describe("scoreChoice under an upper bound", () => {
+  /** Four valid sentences, click any three — L0175's hot-text shape. */
+  const SUPERSET: Validation = {
+    responseProcessing: "map_response",
+    points: 3,
+    upperBound: 3,
+    mapping: {
+      a: { correct: true, points: 1 },
+      b: { correct: true, points: 1 },
+      c: { correct: true, points: 1 },
+      d: { correct: true, points: 1 },
+    },
+  };
+
+  test("any three of the four reach the ceiling", () => {
+    expect(scoreChoice({ response: ["a", "b", "c"], validation: SUPERSET })).toMatchObject({
+      points: 3,
+      maxPoints: 3,
+      correct: true,
+    });
+    expect(scoreChoice({ response: ["b", "c", "d"], validation: SUPERSET }).correct).toBe(true);
+  });
+
+  test("the bound caps a fourth pick rather than paying for it", () => {
+    const s = scoreChoice({ response: ["a", "b", "c", "d"], validation: SUPERSET });
+    expect(s.points).toBe(3);
+    expect(s.rawPoints).toBe(4); // the unclamped sum is still reported
+  });
+
+  test("too few still falls short", () => {
+    expect(scoreChoice({ response: ["a", "b"], validation: SUPERSET })).toMatchObject({
+      points: 2,
+      correct: false,
+    });
+  });
+});
+
 describe("correctIds", () => {
   test("reads either template, so the renderer and the scorer cannot disagree", () => {
     expect(correctIds(VALIDATION)).toEqual(["B"]);

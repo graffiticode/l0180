@@ -173,7 +173,9 @@ describe("errors name the fix, not just the fault", () => {
   test("an option attribute written on choice lists the legal set", async () => {
     const msg = await errorOf(`choice [ text "oops" options [ [ text "a" ] ] {} ]`);
     expect(msg).toContain("is not an attribute of choice");
-    expect(msg).toContain("prompt, shuffle, min-choices, max-choices, response-processing, options");
+    expect(msg).toContain(
+      "prompt, shuffle, min-choices, max-choices, response-processing, upper-bound, options",
+    );
   });
 
   test("more correct options than max-choices allows", async () => {

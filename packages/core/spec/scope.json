@@ -11,11 +11,13 @@
     "A rationale on an option, shown once the candidate selects it and withheld from the presentation",
     "Shuffled option order, and author-named option ids",
     "Unscored polls — an item that collects a response without grading it",
-    "Multi-part items over a reading passage with numbered paragraphs, scored additively or conjunctively (both parts right for the point)"
+    "Multi-part items over a reading passage with numbered paragraphs, scored additively or conjunctively (both parts right for the point)",
+    "Hot text - clicking a sentence inside the passage, as a part of an item or standing alone",
+    "Click-the-word vocabulary items via granularity \"word\", where the candidate words are authored",
+    "Select any N of several correct answers via upper-bound, rather than requiring all of them"
   ],
   "out_of_scope": [
-    "Interaction types other than choice — text entry, ordering, matching, classification, hot text, hotspot and sliders are not implemented yet",
-    "Hot text — selecting a word or sentence inside the passage itself, at any granularity",
+    "Interaction types other than choice and hottext - text entry, ordering, matching, classification, hotspot and sliders are not implemented yet",
     "Cloze passages — a blank inside running text needs an inline interaction, which does not exist yet",
     "Test packages, sections, navigation and sequencing — L0180 authors single items",
     "Rubric-scored prose or any free-text judgement; scoring is exact matching against a key",

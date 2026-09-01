@@ -34,6 +34,11 @@ to configure: `options [...] {}`. Every other word here takes exactly one argume
 | `paragraphs` | `<list: record>` | The stimulus text, one string per paragraph |
 | `scoring` | `<string: record>` | How parts combine: `additive` (default) or `conjunctive` |
 | `choice` | `<list: record>` | A choice interaction: a stem and options to select from |
+| `hottext` | `<list: record>` | A hottext interaction: a passage with clickable sentences or words |
+| `selections` | `<list record: record>` | The places a hottext can select, each named by a quote |
+| `quote` | `<string: record>` | The text a selection names, copied from the passage |
+| `granularity` | `<string: record>` | What is clickable: `sentence` (default) or `word` |
+| `within` | `<string: record>` | Select within the item's `stimulus` instead of the hottext's own text |
 | `options` | `<list record: record>` | The options offered, each an attribute list |
 | `prompt` | `<string: record>` | The question stem shown to the candidate |
 | `text` | `<string: record>` | An option's visible text |
@@ -46,6 +51,7 @@ to configure: `options [...] {}`. Every other word here takes exactly one argume
 | `min-choices` | `<number: record>` | Fewest options selectable. Defaults to 0 |
 | `max-choices` | `<number: record>` | Most options selectable. Defaults to 1 (single-select) |
 | `response-processing` | `<string: record>` | How the response scores: `map-response` (default) or `match-correct` |
+| `upper-bound` | `<number: record>` | Cap on what the answers can earn. Below their total it means "any N of them" |
 
 ## Which words each container takes
 
@@ -53,7 +59,9 @@ to configure: `options [...] {}`. Every other word here takes exactly one argume
 | :-------- | :---- |
 | `item` | stimulus, scoring, points, parts |
 | `stimulus` | title, paragraphs |
-| `choice` | prompt, shuffle, min-choices, max-choices, response-processing, options |
+| `choice` | prompt, shuffle, min-choices, max-choices, response-processing, upper-bound, options |
+| `hottext` | prompt, text, within, granularity, min-choices, max-choices, response-processing, upper-bound, selections |
+| `selection` | quote, assess |
 | an option | id, text, assess |
 | `assess` | correct, points, rationale |
 
@@ -106,6 +114,108 @@ choice [
   ] {}
 ]..
 ```
+
+## Clicking inside the text
+
+`hottext` makes a passage itself the answer: the candidate clicks a sentence, or a word. Each
+`selection` names its target with a `quote` copied from the passage — the compiler finds it, so
+you never write an id. A quote that is not in the text is a compile error naming the closest
+sentence, and so is one that matches two places.
+
+Say where the text comes from, exactly once:
+
+- **`within "stimulus"`** — the passage of the item this hottext is a part of. The passage
+  renders once, at the top of the item, with its sentences clickable.
+- **`text "…"`** — its own passage, for a hottext standing alone.
+
+`granularity` picks the unit. `sentence` (the default) makes every sentence clickable.
+`word` makes clickable only the words a selection names, so the distractor words are authored
+rather than guessed.
+
+### Click the sentence that supports the answer
+
+```
+item [
+  stimulus [
+    title "The Tide Pool"
+    paragraphs [
+      "Mara crouched at the edge of the tide pool, ignoring the picnic behind her."
+      "Her brother called twice. She did not turn around."
+    ]
+  ]
+  scoring "conjunctive"
+  parts [
+    choice [
+      prompt "Click on the statement that best describes Mara."
+      options [
+        [ text "She is absorbed by the tide pool." assess [ correct ] ]
+        [ text "She is angry at her brother." ]
+      ] {}
+    ]
+    hottext [
+      prompt "Click the sentence that best supports your answer to Part A."
+      within "stimulus"
+      selections [
+        [ quote "She did not turn around." assess [ correct ] ]
+      ] {}
+    ]
+  ] {}
+]..
+```
+
+### Any three of these, not all of them
+
+`upper-bound` caps what the correct selections can earn, which is how you ask for *some* of
+them. Four sentences below are right and the candidate clicks three; picking any three earns
+the item.
+
+```
+item [
+  stimulus [
+    paragraphs [
+      "Bees live in colonies. Every bee does a job. Workers gather nectar."
+      "Guard bees defend the entrance. The queen lays every egg."
+    ]
+  ]
+  scoring "conjunctive"
+  points 1
+  parts [
+    hottext [
+      prompt "Click the three sentences that show how the colony works together."
+      within "stimulus"
+      upper-bound 3
+      selections [
+        [ quote "Every bee does a job." assess [ correct ] ]
+        [ quote "Workers gather nectar." assess [ correct ] ]
+        [ quote "Guard bees defend the entrance." assess [ correct ] ]
+        [ quote "The queen lays every egg." assess [ correct ] ]
+      ] {}
+    ]
+  ] {}
+]..
+```
+
+Without `upper-bound` every correct selection must be clicked. With it, the candidate is asked
+for exactly that many, and the item is worth that many points — wrap it in a conjunctive item
+to make the whole thing worth one.
+
+### Click the word
+
+```
+hottext [
+  prompt "Read the sentence. Click the word that means a channel that carries water."
+  text "The aqueduct carried water across long distances."
+  granularity "word"
+  selections [
+    [ quote "aqueduct" assess [ correct ] ]
+    [ quote "water" assess [ rationale "Water is what it carries, not what the word means." ] ]
+    [ quote "distances" ]
+  ] {}
+]..
+```
+
+Only the three named words are clickable. A wrong candidate needs no `assess` at all; give it
+one with a `rationale` to explain the mistake back.
 
 ## Items with a passage, or with more than one part
 

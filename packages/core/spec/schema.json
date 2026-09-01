@@ -8,11 +8,15 @@
   "properties": {
     "interaction": {
       "description": "Everything the candidate sees. Safe to send to a browser.",
-      "oneOf": [{ "$ref": "#/$defs/choiceInteraction" }, { "$ref": "#/$defs/itemInteraction" }]
+      "oneOf": [
+        { "$ref": "#/$defs/choiceInteraction" },
+        { "$ref": "#/$defs/hottextInteraction" },
+        { "$ref": "#/$defs/itemInteraction" }
+      ]
     },
     "validation": {
       "description": "The answer key. Withheld when the item is delivered graded.",
-      "oneOf": [{ "$ref": "#/$defs/choiceValidation" }, { "$ref": "#/$defs/itemValidation" }]
+      "oneOf": [{ "$ref": "#/$defs/responseValidation" }, { "$ref": "#/$defs/itemValidation" }]
     },
     "response": {
       "description": "The candidate's response, attached by the delivery loop rather than the author. A list of option ids for a bare interaction; keyed by part id for a multi-part item.",
@@ -73,6 +77,58 @@
       },
       "additionalProperties": false
     },
+    "hottextInteraction": {
+      "title": "Hottext interaction",
+      "description": "A passage cut into clickable units. Sentence granularity makes every sentence selectable; word granularity makes only the authored words selectable.",
+      "type": "object",
+      "required": ["type", "granularity", "units"],
+      "properties": {
+        "id": {
+          "description": "Present only when this interaction is a part of an item, where it keys the response.",
+          "type": "string"
+        },
+        "type": { "const": "hottext" },
+        "prompt": { "description": "The question stem.", "type": "string" },
+        "granularity": {
+          "description": "What the units are: whole sentences, or single words.",
+          "enum": ["sentence", "word"]
+        },
+        "within": {
+          "description": "Present when the units are the item's stimulus, which the renderer then shows in place of the static passage rather than twice.",
+          "const": "stimulus"
+        },
+        "cardinality": {
+          "description": "QTI cardinality, derived from maxChoices.",
+          "enum": ["single", "multiple"]
+        },
+        "minChoices": { "type": "integer", "minimum": 0 },
+        "maxChoices": { "type": "integer", "minimum": 1 },
+        "units": {
+          "description": "The text in order. Everything is rendered; only `selectable` units can be clicked.",
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["id", "text", "selectable"],
+            "properties": {
+              "id": {
+                "description": "`p2.1` for the first sentence of paragraph 2; `w7` for the seventh word.",
+                "type": "string"
+              },
+              "text": { "type": "string" },
+              "pre": {
+                "description": "Word granularity: punctuation before the clickable core, rendered outside it.",
+                "type": "string"
+              },
+              "post": { "description": "Punctuation after the clickable core.", "type": "string" },
+              "selectable": { "type": "boolean" }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
     "itemInteraction": {
       "title": "Multi-part item",
       "description": "An optional stimulus plus one or more interactions presented and scored together.",
@@ -108,14 +164,22 @@
           "type": "array",
           "minItems": 1,
           "items": {
-            "allOf": [{ "$ref": "#/$defs/choiceInteraction" }, { "required": ["id"] }]
+            "allOf": [
+              {
+                "oneOf": [
+                  { "$ref": "#/$defs/choiceInteraction" },
+                  { "$ref": "#/$defs/hottextInteraction" }
+                ]
+              },
+              { "required": ["id"] }
+            ]
           }
         }
       },
       "additionalProperties": false
     },
-    "choiceValidation": {
-      "title": "Choice answer key",
+    "responseValidation": {
+      "title": "Answer key for one interaction",
       "description": "The response-processing template decides the shape: map_response carries `mapping`, match_correct carries `correctResponse`. They are alternatives, never both.",
       "type": "object",
       "required": ["responseProcessing", "points"],
@@ -147,8 +211,12 @@
             "additionalProperties": false
           }
         },
+        "upperBound": {
+          "description": "map_response only: the most the mapping can earn. Below the sum of the correct entries it means \"any N of them\" — QTI's mapping@upper-bound.",
+          "type": "number"
+        },
         "correctResponse": {
-          "description": "match_correct only: the option ids that must all be selected, and no others.",
+          "description": "match_correct only: the identifiers that must all be selected, and no others.",
           "type": "array",
           "minItems": 1,
           "items": { "type": "string" }
@@ -173,7 +241,10 @@
             "properties": { "responseProcessing": { "const": "match_correct" } },
             "required": ["responseProcessing"]
           },
-          "then": { "required": ["correctResponse"], "not": { "required": ["mapping"] } }
+          "then": {
+            "required": ["correctResponse"],
+            "not": { "anyOf": [{ "required": ["mapping"] }, { "required": ["upperBound"] }] }
+          }
         }
       ]
     },
@@ -194,7 +265,7 @@
         "parts": {
           "description": "Per-part answer key, keyed by part id as the response is.",
           "type": "object",
-          "additionalProperties": { "$ref": "#/$defs/choiceValidation" }
+          "additionalProperties": { "$ref": "#/$defs/responseValidation" }
         }
       },
       "additionalProperties": false

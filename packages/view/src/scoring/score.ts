@@ -39,6 +39,13 @@ export interface Validation {
   points: number;
   /** `map_response` only: what each identifier is worth. */
   mapping?: Record<string, OptionValidation>;
+  /**
+   * `map_response` only: the most the mapping can earn — QTI's `mapping@upper-bound`.
+   *
+   * Set below the sum of the correct entries it means "any N of these": more identifiers are
+   * right than the candidate is asked to pick, and picking any N of them reaches the ceiling.
+   */
+  upperBound?: number;
   /** `match_correct` only: the set that must be selected exactly. */
   correctResponse?: string[];
   /** Why an option is right or wrong, keyed as the options are. Shown once it is selected. */
@@ -153,7 +160,11 @@ export function scoreChoice({
     if (isSelected) rawPoints += points;
   }
 
-  const points = Math.max(0, rawPoints);
+  // The bound caps what the selections can earn; `rawPoints` stays the unclamped sum, so a host
+  // that wants the signed total still has it.
+  const bounded =
+    typeof validation?.upperBound === "number" ? Math.min(rawPoints, validation.upperBound) : rawPoints;
+  const points = Math.max(0, bounded);
   return { points, rawPoints, maxPoints, correct: maxPoints > 0 && points >= maxPoints, options };
 }
 

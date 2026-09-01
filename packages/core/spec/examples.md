@@ -1,10 +1,10 @@
 <!-- SPDX-License-Identifier: CC-BY-4.0 -->
 # L0180 RAG Training Examples
 
-78 example prompts for training a RAG model on L0180, the web-based assessment language —
+88 example prompts for training a RAG model on L0180, the web-based assessment language —
 covering multiple choice, true/false, multi-select, exact-set scoring, weighted scoring,
-penalized distractors, presentation options, unscored polls, per-option rationale, and
-multi-part items over a reading passage.
+penalized distractors, presentation options, unscored polls, per-option rationale, clicking
+sentences and words inside a passage, and multi-part items over a reading passage.
 
 Each numbered line is a prompt in the author's own voice. Prompts describe WHAT to build,
 never how to write it: an author asks for a question, not for a `choice [...]` program. When
@@ -117,3 +117,19 @@ L0180 grows further interaction types, this file grows categories with them.
 76. Ask which gas plants absorb during photosynthesis, and explain to a student who chooses oxygen why that is the gas plants release instead.
 77. A fractions question where each distractor names the specific mistake a student who picked it probably made.
 78. Which sentence best states the central idea? Give a short explanation for each incorrect choice, shown only after it is selected.
+
+## Category 11: Clicking Sentences in a Passage (79-84)
+
+79. Show a short story about a girl at a tide pool and ask the student to click the sentence that best shows she is absorbed by it.
+80. A two-part reading item: first pick the statement that describes the narrator, then click the sentence in the passage that supports it. Both must be right.
+81. Give a passage about honeybees and ask the student to click the three sentences that show how the colony works together - any three of the four that fit.
+82. Ask students to click the sentence that states the central idea of a short informational passage.
+83. A passage about a thunderstorm where the student clicks the two sentences that describe what the narrator hears.
+84. Show a four-paragraph passage and ask which sentence best shows the author's opinion, answered by clicking it in the text.
+
+## Category 12: Clicking a Word (85-88)
+
+85. Read the sentence "The aqueduct carried water across long distances" and click the word that means a channel that carries water.
+86. A vocabulary item where the student clicks the word in the sentence that means "very tiring", with two other candidate words offered.
+87. Show a sentence about a ship and ask the student to click the word that means the front of the boat, explaining why each other choice is wrong.
+88. Click the word in this sentence that means the opposite of "ancient".

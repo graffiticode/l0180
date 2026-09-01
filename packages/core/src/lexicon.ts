@@ -60,6 +60,18 @@ const containers = {
     "<list record: record>",
     "The options a choice interaction offers, each an attribute list.",
   ),
+  hottext: fn(
+    "HOTTEXT",
+    1,
+    "<list: record>",
+    "A hottext interaction: a passage with clickable sentences or words.",
+  ),
+  selections: fn(
+    "SELECTIONS",
+    2,
+    "<list record: record>",
+    "The places a hottext interaction can select, each named by a quote.",
+  ),
 };
 
 export const lexicon = mergeLexicon(
