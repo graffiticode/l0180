@@ -15,7 +15,7 @@ import { test, describe, expect } from "vitest";
 import { readFileSync } from "fs";
 import { parser } from "@graffiticode/parser";
 import { lexicon as base } from "@graffiticode/l0000";
-import { compiler, lexicon } from "./index.js";
+import { compiler, lexicon, validAttributes } from "./index.js";
 
 /** Files whose fenced blocks are programs. examples.md holds prompts and is checked separately. */
 const SPEC_FILES = ["spec/spec.md", "spec/instructions.md"];
@@ -119,6 +119,80 @@ describe("spec and lexicon agree", () => {
         if (!m || !lexicon[m[1]]) continue;
         expect(lexicon[m[1]].type, `${f}: \`${m[1]}\` signature drift`).toBe(m[2]);
       }
+    }
+  });
+});
+
+describe("schema.json describes what the compiler actually emits", () => {
+  // schema.json is served to agents and to the console as the contract for compiled output.
+  // Nothing checked it against reality until an item shipped whose `parts` carried an `id`
+  // the schema's own choice definition forbade — the prose was right and the schema was not.
+  // Ajv 2020 is required: the schema is draft 2020-12, and the hoisted ajv 6 cannot read it.
+  const schema = JSON.parse(readFileSync("spec/schema.json", "utf-8"));
+
+  async function validator() {
+    const { default: Ajv } = await import("ajv/dist/2020.js");
+    return new Ajv({ strict: false, allErrors: true }).compile(schema);
+  }
+
+  test("every fenced spec program's compiled output validates", async () => {
+    const validate = await validator();
+    const bad: string[] = [];
+    let checked = 0;
+    for (const f of SPEC_FILES) {
+      for (const b of blocks(f)) {
+        const src = b.trim();
+        if (!isProgram(src)) continue;
+        const val = await compileSrc(src.endsWith("..") ? src : `${src}..`);
+        checked++;
+        if (!validate(val)) {
+          bad.push(`\n--- ${f}\n${src.split("\n")[0]}\n  -> ${JSON.stringify(validate.errors?.slice(0, 3))}`);
+        }
+      }
+    }
+    expect(bad.join("")).toBe("");
+    expect(checked).toBeGreaterThan(4);
+  });
+
+  test("both interaction shapes and a response validate", async () => {
+    const validate = await validator();
+    const cases: Record<string, string> = {
+      "unscored poll": `choice [ options [ [ text "a" ] [ text "b" ] ] {} ]`,
+      "penalty": `choice [ options [ [ text "a" assess [ correct ] ] [ text "b" assess [ points -1 ] ] ] {} ]`,
+      "additive item": `item [ parts [ choice [ options [ [ text "a" assess [ correct ] ] ] {} ] ] {} ]`,
+      "conjunctive item with a stimulus": `item [ stimulus [ title "T" paragraphs [ "One." ] ] scoring "conjunctive" parts [ choice [ options [ [ text "a" assess [ correct ] ] ] {} ] choice [ options [ [ text "b" assess [ correct ] ] ] {} ] ] {} ]`,
+    };
+    for (const [label, src] of Object.entries(cases)) {
+      const val: any = await compileSrc(`${src}..`);
+      expect(validate(val), `${label}: ${JSON.stringify(validate.errors?.slice(0, 2))}`).toBe(true);
+    }
+    // A response rides alongside, in both of its shapes.
+    const bare: any = await compileSrc(`choice [ options [ [ text "a" assess [ correct ] ] ] {} ]..`);
+    expect(validate({ ...bare, response: ["A"] })).toBe(true);
+    const item: any = await compileSrc(
+      `item [ parts [ choice [ options [ [ text "a" assess [ correct ] ] ] {} ] ] {} ]..`,
+    );
+    expect(validate({ ...item, response: { "1": ["A"] } })).toBe(true);
+  });
+});
+
+describe("the container tables match validAttributes", () => {
+  // The generator reads these tables to decide where a word goes; the compiler rejects on
+  // validAttributes. If they disagree, the docs teach a program the compiler refuses.
+  test("instructions.md lists exactly the words each container accepts", () => {
+    const text = readFileSync("spec/instructions.md", "utf-8");
+    // Scoped to its own section — the Functions table above has identically shaped rows.
+    const section = text.split(/^## Which words each container takes$/m)[1]?.split(/^## /m)[0];
+    expect(section, "instructions.md is missing the container-table section").toBeTruthy();
+    for (const [container, allowed] of Object.entries(validAttributes)) {
+      const row = section!.match(
+        new RegExp(`^\\|\\s*(?:\`${container}\`|an ${container})\\s*\\|\\s*(.+?)\\s*\\|\\s*$`, "m"),
+      );
+      expect(row, `no container row for \`${container}\``).toBeTruthy();
+      const documented = row![1].split(",").map((s) => s.trim()).sort();
+      expect(documented, `\`${container}\` row disagrees with validAttributes`).toEqual(
+        [...allowed].sort(),
+      );
     }
   });
 });

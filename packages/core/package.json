@@ -30,6 +30,7 @@
   },
   "devDependencies": {
     "@graffiticode/parser": "^1.7.0",
+    "ajv": "^8.20.0",
     "spec-md": "^3.1.0",
     "vitest": "^2.1.3"
   }

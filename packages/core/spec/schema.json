@@ -4,163 +4,40 @@
   "title": "L0180",
   "description": "A compiled L0180 assessment item: the interaction a candidate sees, and the answer key that scores it. The two are siblings so a graded delivery can withhold `validation` and score on the server.",
   "type": "object",
-  "required": [
-    "interaction"
-  ],
+  "required": ["interaction"],
   "properties": {
     "interaction": {
       "description": "Everything the candidate sees. Safe to send to a browser.",
-      "oneOf": [
-        {
-          "$ref": "#/$defs/choiceInteraction"
-        },
-        {
-          "title": "Multi-part item",
-          "description": "An optional stimulus plus one or more interactions scored together.",
-          "type": "object",
-          "required": [
-            "type",
-            "parts"
-          ],
-          "properties": {
-            "type": {
-              "const": "item"
-            },
-            "stimulus": {
-              "description": "The passage the parts are about.",
-              "type": "object",
-              "required": [
-                "paragraphs"
-              ],
-              "properties": {
-                "title": {
-                  "type": "string"
-                },
-                "paragraphs": {
-                  "type": "array",
-                  "minItems": 1,
-                  "items": {
-                    "type": "object",
-                    "required": [
-                      "id",
-                      "text"
-                    ],
-                    "properties": {
-                      "id": {
-                        "description": "Addressable paragraph id: p1, p2, …",
-                        "type": "string"
-                      },
-                      "text": {
-                        "description": "One paragraph of the stimulus.",
-                        "type": "string"
-                      }
-                    },
-                    "additionalProperties": false
-                  }
-                }
-              },
-              "additionalProperties": false
-            },
-            "parts": {
-              "description": "The interactions, in presentation order. Each carries its own id.",
-              "type": "array",
-              "minItems": 1,
-              "items": {
-                "allOf": [
-                  {
-                    "$ref": "#/$defs/choiceInteraction"
-                  }
-                ],
-                "required": [
-                  "id"
-                ]
-              }
-            }
-          },
-          "additionalProperties": false
-        }
-      ]
+      "oneOf": [{ "$ref": "#/$defs/choiceInteraction" }, { "$ref": "#/$defs/itemInteraction" }]
     },
     "validation": {
       "description": "The answer key. Withheld when the item is delivered graded.",
-      "oneOf": [
-        {
-          "$ref": "#/$defs/choiceValidation"
-        },
-        {
-          "title": "Item answer key",
-          "type": "object",
-          "required": [
-            "points",
-            "scoring",
-            "parts"
-          ],
-          "properties": {
-            "points": {
-              "description": "What a fully correct response earns. Under conjunctive scoring this is the item's own points, not the sum of its parts.",
-              "type": "number"
-            },
-            "scoring": {
-              "description": "additive sums the parts; conjunctive awards points only when every part is fully correct.",
-              "type": "string",
-              "enum": [
-                "additive",
-                "conjunctive"
-              ]
-            },
-            "parts": {
-              "description": "Per-part answer key, keyed by part id as the response is.",
-              "type": "object",
-              "additionalProperties": {
-                "$ref": "#/$defs/choiceValidation"
-              }
-            }
-          },
-          "additionalProperties": false
-        }
-      ]
+      "oneOf": [{ "$ref": "#/$defs/choiceValidation" }, { "$ref": "#/$defs/itemValidation" }]
     },
     "response": {
       "description": "The candidate's response, attached by the delivery loop rather than the author. A list of option ids for a bare interaction; keyed by part id for a multi-part item.",
       "oneOf": [
-        {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
+        { "type": "array", "items": { "type": "string" } },
         {
           "type": "object",
-          "additionalProperties": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          }
+          "additionalProperties": { "type": "array", "items": { "type": "string" } }
         }
       ]
     }
   },
   "$defs": {
     "choiceInteraction": {
-      "description": "Everything the candidate sees. Safe to send to a browser.",
+      "title": "Choice interaction",
+      "description": "A stem and a list of options. Single-select unless maxChoices is above 1.",
       "type": "object",
-      "required": [
-        "type",
-        "options"
-      ],
+      "required": ["type", "options"],
       "properties": {
-        "type": {
-          "description": "Which interaction this is.",
-          "type": "string",
-          "enum": [
-            "choice"
-          ]
-        },
-        "prompt": {
-          "description": "The question stem.",
+        "id": {
+          "description": "Present only when this interaction is a part of an item, where it keys the response.",
           "type": "string"
         },
+        "type": { "const": "choice" },
+        "prompt": { "description": "The question stem.", "type": "string" },
         "minChoices": {
           "description": "Fewest options the candidate may select.",
           "type": "integer",
@@ -171,43 +48,72 @@
           "type": "integer",
           "minimum": 1
         },
-        "shuffle": {
-          "description": "Present the options in random order.",
-          "type": "boolean"
-        },
+        "shuffle": { "description": "Present the options in random order.", "type": "boolean" },
         "options": {
           "description": "The options offered, in authored order.",
           "type": "array",
           "minItems": 1,
           "items": {
             "type": "object",
-            "required": [
-              "id",
-              "text"
-            ],
+            "required": ["id", "text"],
             "properties": {
               "id": {
                 "description": "Identifier, derived as A, B, C… unless authored.",
                 "type": "string"
               },
-              "text": {
-                "description": "The option's visible text.",
-                "type": "string"
-              }
+              "text": { "description": "The option's visible text.", "type": "string" }
             },
             "additionalProperties": false
           }
         }
       },
-      "additionalProperties": false,
-      "title": "Choice interaction"
+      "additionalProperties": false
+    },
+    "itemInteraction": {
+      "title": "Multi-part item",
+      "description": "An optional stimulus plus one or more interactions presented and scored together.",
+      "type": "object",
+      "required": ["type", "parts"],
+      "properties": {
+        "type": { "const": "item" },
+        "stimulus": {
+          "description": "The passage the parts are about.",
+          "type": "object",
+          "required": ["paragraphs"],
+          "properties": {
+            "title": { "description": "The stimulus's title.", "type": "string" },
+            "paragraphs": {
+              "description": "One entry per paragraph, numbered for the reader so a stem can cite a line.",
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "required": ["id", "text"],
+                "properties": {
+                  "id": { "description": "Addressable paragraph id: p1, p2, …", "type": "string" },
+                  "text": { "description": "One paragraph of the stimulus.", "type": "string" }
+                },
+                "additionalProperties": false
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "parts": {
+          "description": "The interactions, in presentation order. Each carries the id its response is keyed by.",
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "allOf": [{ "$ref": "#/$defs/choiceInteraction" }, { "required": ["id"] }]
+          }
+        }
+      },
+      "additionalProperties": false
     },
     "choiceValidation": {
+      "title": "Choice answer key",
       "type": "object",
-      "required": [
-        "points",
-        "options"
-      ],
+      "required": ["points", "options"],
       "properties": {
         "points": {
           "description": "The maximum achievable — the sum of the correct options only, so a penalty cannot move it.",
@@ -218,9 +124,7 @@
           "type": "object",
           "additionalProperties": {
             "type": "object",
-            "required": [
-              "points"
-            ],
+            "required": ["points"],
             "properties": {
               "correct": {
                 "description": "Present and true when this option is a right answer.",
@@ -235,8 +139,29 @@
           }
         }
       },
-      "additionalProperties": false,
-      "title": "Choice answer key"
+      "additionalProperties": false
+    },
+    "itemValidation": {
+      "title": "Item answer key",
+      "type": "object",
+      "required": ["points", "scoring", "parts"],
+      "properties": {
+        "points": {
+          "description": "What a fully correct response earns. Under conjunctive scoring this is the item's own points, not the sum of its parts.",
+          "type": "number"
+        },
+        "scoring": {
+          "description": "additive sums the parts; conjunctive awards the points only when every part is fully correct.",
+          "type": "string",
+          "enum": ["additive", "conjunctive"]
+        },
+        "parts": {
+          "description": "Per-part answer key, keyed by part id as the response is.",
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/choiceValidation" }
+        }
+      },
+      "additionalProperties": false
     }
   }
 }
