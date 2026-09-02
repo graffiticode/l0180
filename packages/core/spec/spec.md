@@ -47,6 +47,10 @@ Two words depart from that, both deliberately:
 | `scoring` | `<string: record>` | How parts combine — additive or conjunctive |
 | `choice` | `<list: record>` | A choice interaction |
 | `hottext` | `<list: record>` | A hottext interaction: clickable sentences or words |
+| `text-entry` | `<list: record>` | A sentence with blanks to type into |
+| `responses` | `<list record: record>` | The responses a text-entry collects |
+| `accept` | `<list: record>` | Every answer that counts as right |
+| `case-sensitive` | `<boolean: record>` | Whether capitals must match |
 | `extended-text` | `<list: record>` | A written response, marked by a person |
 | `rubric` | `<list record: record>` | The bands a written response is marked against |
 | `score` | `<number: record>` | What a band earns |
@@ -236,6 +240,26 @@ hottext [
   ] {}
 ]..
 ```
+
+### text-entry
+
+A sentence with blanks. `{{id}}` positions a blank and names it; the matching entry in
+`responses` says what that blank accepts. The answer binds to the name, so moving a clause
+cannot rebind it.
+
+```
+text-entry [
+  prompt "Complete the sentence."
+  text "The capital of France is {{capital}}, and the capital of Italy is {{italy}}."
+  responses [
+    [ id "capital" accept [ "Paris" ] ]
+    [ id "italy" accept [ "Rome" "Roma" ] ]
+  ] {}
+]..
+```
+
+Each blank is worth one point. Capitals are ignored unless `case-sensitive true` is set, on the
+interaction or on one response.
 
 ### extended-text
 

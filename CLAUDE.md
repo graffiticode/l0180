@@ -134,6 +134,17 @@ group — answering Part B silently unchecked Part A. Unit tests cannot see this
 rendering a real two-part item to catch. Any future interaction using radios needs the same
 treatment.
 
+### `baseType` decides what a key is made of
+
+`validation` is QTI's response declaration, so it carries `cardinality` and `baseType` — not the
+interaction, which carries `maxChoices`. Both are derived rather than authored.
+
+`baseType: "identifier"` means the response is things the candidate selected, and a `mapping`
+key names an option or a unit. `baseType: "string"` means the response is text they typed, the
+key names a blank, and the entry carries the `accept` values and its own resolved
+`caseSensitive`. It is the field that tells the scorer to compare text instead of looking
+identifiers up, and it is why `scorePart` branches on it before anything else.
+
 ### Two response-processing templates, named for QTI's
 
 `validation.responseProcessing` decides how a response scores, and it decides the SHAPE of the
@@ -280,12 +291,35 @@ reports what its other parts earned, says the rest is pending, and is never `cor
 `conjunctive` refuses a written part at compile time — "every part correct" cannot be decided
 over one — so a written response belongs in an additive item, where the rest still scores.
 
-### `ExtendedTextItem` is the one renderer with state of its own
+### Typed answers keep local state; clicks do not
 
-Every other interaction is fully controlled, because a click is discrete: report it, read the
-model back, one recompile. A textarea doing that would recompile per keystroke. So the draft is
-local and commits on **blur**, and a `useRef` guards the effect that adopts an externally
-changed response so a fresh compile never clobbers live typing.
+`ExtendedTextItem` and `TextEntryItem` are the two renderers that hold answer state of their
+own, and they have to. Every other interaction is fully controlled, which is cheap because a
+click is discrete: report it, read the model back, one recompile. An input reporting every
+keystroke would recompile the item per character.
+
+So both draft locally and commit on **blur**, with a `useRef` guarding the effect that adopts an
+externally changed response, so a fresh compile never clobbers live typing. `TextEntryItem`
+compares the committed response as a serialized string rather than by identity — the model hands
+down a fresh object every render, and an identity check would reset the draft under whoever is
+typing.
+
+### `text-entry`: the marker names the blank
+
+`{{<id>}}` positions a blank and names it, and the answer binds to the name. That is QTI's
+`response-identifier` model, where an inline interaction binds to a sibling response
+declaration. Learnosity's `{{response}}` carries no identity and its answers are a parallel array
+matched by order of appearance, so reordering a clause silently rebinds every answer after it —
+and L0176 has no check that the two counts even agree. **The delimiters are theirs; the binding
+is not**, and that is the whole difference.
+
+Named binding is also what makes the cross-checks expressible: a marker no response declares, a
+response with no marker, a marker used twice. `textentry.ts` owns them, and a positional model
+could not report any of them.
+
+Comparison is deliberately gentler than hottext's quote matching, which strips all punctuation
+so a quote can find its sentence. Here the typed string IS the answer, so only whitespace is
+normalized — `cant` must not pass for `can't`.
 
 ### A hottext resolves in two phases, and that is not optional
 
@@ -315,8 +349,9 @@ so the candidate would watch a selection vanish for no stated reason.
 
 ## Not built yet
 
-Inline text entry, ordering, matching, classification, hotspot, sliders — none has an L0175
-driver. QTI export, which the `interaction`/`validation` split is deliberately shaped
+Ordering, matching, classification, inline-choice dropdowns, hotspot, sliders. Numeric and
+symbolic answer matching — a typed answer is compared as text, so `0.5` does not match `1/2`;
+`baseType` makes `integer`/`float` additive when that is wanted. QTI export, which the `interaction`/`validation` split is deliberately shaped
 to allow later; now that the compiled shape carries QTI's own field names, that is a serializer
 rather than a translation.
 

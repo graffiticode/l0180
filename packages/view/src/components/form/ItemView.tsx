@@ -55,6 +55,16 @@ export function ItemView({
     if (Array.isArray(r)) return r.length > 0;
     // A written response that is only whitespace has not been answered.
     if (typeof r === "string") return r.trim().length > 0;
+    // A text-entry part answers with a map of blank id to typed text. The response alone cannot
+    // say whether it is complete — an untouched blank is simply absent — so count against the
+    // blanks the part actually has.
+    if (p.type === "text-entry") {
+      const blanks = (p.segments ?? []).filter((s: any) => s.blank).length;
+      const filled = Object.values(r ?? {}).filter(
+        (v) => typeof v === "string" && v.trim().length > 0,
+      ).length;
+      return blanks > 0 && filled === blanks;
+    }
     return r !== undefined && r !== null;
   });
   const score = gradable && answered ? scoreItem({ response: given, validation }) : null;

@@ -55,7 +55,6 @@ describe("interaction", () => {
     expect(interaction).toEqual({
       type: "choice",
       prompt: "What is 2 + 2?",
-      cardinality: "single",
       minChoices: 0,
       maxChoices: 1,
       shuffle: false,
@@ -95,6 +94,8 @@ describe("validation", () => {
     expect(validation).toEqual({
       points: 2,
       responseProcessing: "map_response",
+      cardinality: "single",
+      baseType: "identifier",
       mapping: { B: { correct: true, points: 2 }, C: { points: -1 } },
     });
   });
@@ -105,6 +106,8 @@ describe("validation", () => {
     `);
     expect(validation).toEqual({
       responseProcessing: "map_response",
+      cardinality: "single",
+      baseType: "identifier",
       points: 1,
       mapping: { B: { correct: true, points: 1 } },
     });
@@ -131,7 +134,13 @@ describe("validation", () => {
 
   test("an item with no assess anywhere is unscored rather than an error", async () => {
     const { validation } = await compile(`choice [ options [ [ text "a" ] [ text "b" ] ] {} ]`);
-    expect(validation).toEqual({ responseProcessing: "map_response", points: 0, mapping: {} });
+    expect(validation).toEqual({
+      responseProcessing: "map_response",
+      cardinality: "single",
+      baseType: "identifier",
+      points: 0,
+      mapping: {},
+    });
   });
 
   test("multi-select sums every correct option", async () => {
@@ -241,6 +250,8 @@ describe("response-processing: the two QTI templates", () => {
     const { validation } = await compile(EXACT);
     expect(validation).toEqual({
       responseProcessing: "match_correct",
+      cardinality: "multiple",
+      baseType: "identifier",
       points: 1,
       correctResponse: ["A", "B"],
     });
@@ -252,11 +263,15 @@ describe("response-processing: the two QTI templates", () => {
     expect(JSON.stringify(interaction)).not.toContain("correct");
   });
 
-  test("cardinality is derived from max-choices", async () => {
+  test("cardinality and baseType ride in the key, as QTI's response declaration does", async () => {
+    // Both are derived, not authored: max-choices already says the cardinality and the
+    // interaction type says the base type. They sit in `validation` because that half IS the
+    // response declaration, and splitting the two across the halves would be the odd choice.
     const single = await compile(BASIC);
-    expect(single.interaction.cardinality).toBe("single");
+    expect(single.validation).toMatchObject({ cardinality: "single", baseType: "identifier" });
+    expect(single.interaction.cardinality).toBeUndefined();
     const multi = await compile(EXACT);
-    expect(multi.interaction.cardinality).toBe("multiple");
+    expect(multi.validation.cardinality).toBe("multiple");
   });
 
   test("per-option points under match-correct is refused, not ignored", async () => {

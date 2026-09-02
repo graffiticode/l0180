@@ -114,11 +114,15 @@ describe("scoring modes", () => {
     // ...while each part still carries its own key, which is what the scorer walks.
     expect(validation.parts["1"]).toEqual({
       responseProcessing: "map_response",
+      cardinality: "single",
+      baseType: "identifier",
       points: 1,
       mapping: { A: { correct: true, points: 1 } },
     });
     expect(validation.parts["2"]).toEqual({
       responseProcessing: "map_response",
+      cardinality: "single",
+      baseType: "identifier",
       points: 1,
       mapping: { B: { correct: true, points: 1 } },
     });

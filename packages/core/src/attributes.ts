@@ -130,6 +130,17 @@ export const attributeFields: Record<string, AttributeMeta> = {
     description:
       "Most points the mapped selections can earn. Set it below the number of correct answers to ask for any N of them.",
   },
+  ACCEPT: {
+    field: "accept",
+    expects: "strings",
+    description: "Every answer that counts as right for this response, including alternate spellings.",
+  },
+  CASE_SENSITIVE: {
+    field: "caseSensitive",
+    expects: "boolean",
+    description:
+      "Whether capitals have to match. Defaults to false, and a response may override the interaction's setting.",
+  },
   EXEMPLAR: {
     field: "exemplar",
     expects: "string",
@@ -215,6 +226,8 @@ export const validAttributes: Record<string, string[]> = {
     "response-processing", "upper-bound", "selections",
   ],
   selection: ["quote", "assess"],
+  "text-entry": ["prompt", "text", "case-sensitive", "responses"],
+  response: ["id", "accept", "case-sensitive"],
   "extended-text": ["prompt", "rubric", "exemplar"],
   band: ["score", "descriptor"],
   option: ["id", "text", "assess"],
@@ -341,7 +354,7 @@ const fieldToWord: Record<string, string> = Object.entries(attributeFields).redu
   },
   // Container words are not rows in the table, but they must still be nameable when a
   // container rejects one of them.
-  { options: "options", parts: "parts", selections: "selections", rubric: "rubric" },
+  { options: "options", parts: "parts", selections: "selections", rubric: "rubric", responses: "responses" },
 );
 const fieldWord = (field: string): string => fieldToWord[field] || field;
 

@@ -35,6 +35,10 @@ to configure: `options [...] {}`. Every other word here takes exactly one argume
 | `scoring` | `<string: record>` | How parts combine: `additive` (default) or `conjunctive` |
 | `choice` | `<list: record>` | A choice interaction: a stem and options to select from |
 | `hottext` | `<list: record>` | A hottext interaction: a passage with clickable sentences or words |
+| `text-entry` | `<list: record>` | A sentence with blanks the candidate types into |
+| `responses` | `<list record: record>` | The responses a text-entry collects, each named by its marker |
+| `accept` | `<list: record>` | Every answer that counts as right, including alternate spellings |
+| `case-sensitive` | `<boolean: record>` | Whether capitals must match. Defaults to false |
 | `extended-text` | `<list: record>` | A written response, marked by a person against a rubric |
 | `rubric` | `<list record: record>` | The bands a written response is marked against |
 | `score` | `<number: record>` | What a band of the rubric earns |
@@ -67,6 +71,8 @@ to configure: `options [...] {}`. Every other word here takes exactly one argume
 | `choice` | prompt, shuffle, min-choices, max-choices, response-processing, upper-bound, options |
 | `hottext` | prompt, text, within, granularity, min-choices, max-choices, response-processing, upper-bound, selections |
 | `selection` | quote, assess |
+| `text-entry` | prompt, text, case-sensitive, responses |
+| `response` | id, accept, case-sensitive |
 | `extended-text` | prompt, rubric, exemplar |
 | `band` | score, descriptor |
 | an option | id, text, assess |
@@ -223,6 +229,48 @@ hottext [
 
 Only the three named words are clickable. A wrong candidate needs no `assess` at all; give it
 one with a `rationale` to explain the mistake back.
+
+## Filling in a blank
+
+`text-entry` puts blanks in a sentence. A marker `{{id}}` says where each one goes, and the
+matching entry in `responses` says what it takes:
+
+```
+text-entry [
+  prompt "Complete the sentence."
+  text "The capital of France is {{capital}}."
+  responses [
+    [ id "capital" accept [ "Paris" ] ]
+  ] {}
+]..
+```
+
+**The marker names the response, and the answer binds to that name.** Move the clause, rename
+nothing, and the answer still belongs to its blank. The id is yours to choose — `{{capital}}`
+reads better than `{{1}}`, and both work.
+
+`accept` lists every answer you will take, so alternate spellings are values rather than a
+setting. Each blank is worth one point, which makes several blanks partial credit; wrap the
+interaction in a conjunctive item to make the whole sentence worth one.
+
+Capitals are ignored by default. `case-sensitive true` on the interaction changes that for all
+of its blanks, and a single response can override it:
+
+```
+text-entry [
+  text "The agency {{agency}} launched the probe from {{place}}."
+  responses [
+    [ id "agency" accept [ "NASA" ] case-sensitive true ]
+    [ id "place" accept [ "Cape Canaveral" "Cape Canaveral, Florida" ] ]
+  ] {}
+]..
+```
+
+Surrounding and repeated spaces never cost a mark. Punctuation does count — `cant` is not
+`can't`.
+
+Every mismatch between the text and the responses is a compile error: a marker no response
+declares, a response with no marker, a marker used twice, or text with no marker at all.
 
 ## A written response
 

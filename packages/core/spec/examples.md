@@ -1,11 +1,11 @@
 <!-- SPDX-License-Identifier: CC-BY-4.0 -->
 # L0180 RAG Training Examples
 
-94 example prompts for training a RAG model on L0180, the web-based assessment language —
+102 example prompts for training a RAG model on L0180, the web-based assessment language —
 covering multiple choice, true/false, multi-select, exact-set scoring, weighted scoring,
 penalized distractors, presentation options, unscored polls, per-option rationale, clicking
-sentences and words inside a passage, written responses marked against a rubric, and
-multi-part items over a reading passage.
+sentences and words inside a passage, fill-in-the-blank, written responses marked against a
+rubric, and multi-part items over a reading passage.
 
 Each numbered line is a prompt in the author's own voice. Prompts describe WHAT to build,
 never how to write it: an author asks for a question, not for a `choice [...]` program. When
@@ -143,3 +143,14 @@ L0180 grows further interaction types, this file grows categories with them.
 92. A two-part item where the first part is multiple choice about the author's purpose and the second asks the student to explain their answer in writing.
 93. Explain why the narrator changes her mind, citing two details. Give the rubric bands for full, partial and no credit.
 94. A written response asking how the two characters' points of view differ, worth 3 points, with a description of what earns each score.
+
+## Category 14: Fill in the Blank (95-102)
+
+95. A fill-in-the-blank question: "The {{blank}} is the powerhouse of the cell", where the answer is mitochondria.
+96. Complete the sentence: the capital of France is ___. Accept Paris.
+97. A two-blank sentence about the water cycle where the student types the words for evaporation and condensation.
+98. Ask students to fill in the missing word in "Photosynthesis turns light into ___", accepting energy or chemical energy.
+99. A spelling item where the student types the word "rhythm" into a blank, and capitals must match.
+100. Fill in the blanks in a sentence about the American Revolution with the year and the place, each worth its own point.
+101. Complete the sentence about a science experiment, accepting either the British or the American spelling of the answer.
+102. A cloze question about mitosis with three blanks, where all three must be right for the point.

@@ -223,7 +223,8 @@ directly:
 
 ## 7. Out of scope
 
-`text-entry`, `inline-choice`, `order`, `match`, `associate`, `gap-match`, `hotspot`,
-`slider` — no L0175 driver. The `responseProcessing` dispatch makes each additive rather than
+`inline-choice`, `order`, `match`, `associate`, `gap-match`, `hotspot`, `slider` — no L0175
+driver. (`text-entry` has since been built, for the general catalog rather than for conformance:
+the routing eval's other open refusal was a cloze item. It is not part of the L0175 set.) The `responseProcessing` dispatch makes each additive rather than
 a refactor. Item metadata (standards, DOK, grade) likewise: an L0175 spec carries alignment,
 but nothing in delivery reads it.

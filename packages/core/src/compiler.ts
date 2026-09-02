@@ -22,6 +22,7 @@ import {
 } from "./attributes.js";
 import { resolveSelections, sentenceUnits, wordUnits } from "./hottext.js";
 import type { Paragraph, Unit } from "./hottext.js";
+import { cut } from "./textentry.js";
 
 /* ------------------------------------------------------------------ Checker */
 
@@ -57,6 +58,8 @@ Checker.prototype.HOTTEXT = checkChild;
 Checker.prototype.SELECTIONS = checkBoth;
 Checker.prototype.EXTENDED_TEXT = checkChild;
 Checker.prototype.RUBRIC = checkBoth;
+Checker.prototype.TEXT_ENTRY = checkChild;
+Checker.prototype.RESPONSES = checkBoth;
 Checker.prototype.ITEM = checkChild;
 Checker.prototype.PARTS = checkBoth;
 
@@ -231,13 +234,14 @@ function assembleHottext(attrs: any, units: Unit[], where: string) {
       type: "hottext",
       ...(attrs.prompt !== undefined ? { prompt: attrs.prompt } : {}),
       granularity: attrs.granularity !== undefined ? attrs.granularity : "sentence",
-      cardinality: maxChoices > 1 ? "multiple" : "single",
       minChoices,
       maxChoices,
       units,
     },
     validation: {
       responseProcessing: templateId(template),
+      cardinality: maxChoices > 1 ? "multiple" : "single",
+      baseType: "identifier",
       points: exactSet ? 1 : Math.min(sum, upperBound),
       ...(exactSet ? { correctResponse: correctIds } : { mapping }),
       ...(bounded && !exactSet ? { upperBound } : {}),
@@ -327,6 +331,97 @@ Transformer.prototype.RUBRIC = function (this: any, node: any, options: any, res
         resume(err.concat(String((e && e.message) || e)), {});
       }
     });
+  });
+};
+
+/**
+ * A member list of responses — the same shape as OPTIONS, SELECTIONS and RUBRIC.
+ */
+Transformer.prototype.RESPONSES = function (this: any, node: any, options: any, resume: any) {
+  this.visit(node.elts[0], options, (e0: any, v0: any) => {
+    this.visit(node.elts[1], options, (e1: any, v1: any) => {
+      const err = ([] as any[]).concat(e0 || [], e1 || []);
+      const raw = toPlainObject(v0);
+      if (!Array.isArray(raw)) {
+        resume(
+          err.concat(
+            'responses: expected a list of responses, e.g. responses [[id "capital" accept ["Paris"]]] {}.',
+          ),
+          {},
+        );
+        return;
+      }
+      try {
+        const rs = raw.map((entry: any, i: number) => {
+          const r = mergeAttributes(entry, `response ${i + 1}`);
+          assertKnownAttributes("response", r);
+          return r;
+        });
+        resume(err, { ...(toPlainObject(v1) || {}), responses: rs });
+      } catch (e: any) {
+        resume(err.concat(String((e && e.message) || e)), {});
+      }
+    });
+  });
+};
+
+/**
+ * A sentence with blanks the candidate types into.
+ *
+ * The marker `{{<id>}}` positions a blank and names it, so the answer binds BY NAME — QTI's
+ * response-identifier model, where an inline interaction binds to a sibling response
+ * declaration. Learnosity's `{{response}}` carries no identity and matches its answers by
+ * order, which is what makes reordering a clause silently rebind every answer after it.
+ *
+ * Always `map_response`: each blank is worth one point, so several blanks give partial credit.
+ * All-or-nothing across blanks is a conjunctive item around it, the same way a single-part
+ * hottext gets its 1/0.
+ */
+Transformer.prototype.TEXT_ENTRY = function (this: any, node: any, options: any, resume: any) {
+  this.visit(node.elts[0], options, (e0: any, v0: any) => {
+    const err = ([] as any[]).concat(e0 || []);
+    try {
+      const attrs = mergeAttributes(toPlainObject(v0), "text-entry");
+      assertKnownAttributes("text-entry", attrs);
+
+      if (typeof attrs.text !== "string" || !attrs.text.trim()) {
+        throw new Error(
+          'text-entry: needs the sentence it blanks out, e.g. text "The capital of France is ' +
+            '{{capital}}." Put {{<id>}} where each answer goes.',
+        );
+      }
+      if (!Array.isArray(attrs.responses) || !attrs.responses.length) {
+        throw new Error(
+          'text-entry: needs at least one response, e.g. responses [[id "capital" accept ["Paris"]]] {}.',
+        );
+      }
+
+      const { segments, mapping } = cut(
+        attrs.text,
+        attrs.responses,
+        attrs.caseSensitive === true,
+        "text-entry",
+      );
+
+      resume(err, {
+        interaction: {
+          type: "text-entry",
+          ...(attrs.prompt !== undefined ? { prompt: attrs.prompt } : {}),
+          segments,
+        },
+        validation: {
+          responseProcessing: "map_response",
+          cardinality: "single",
+          // The first key in this language that is not made of identifiers. It is what tells
+          // the scorer to compare typed text rather than to look ids up.
+          baseType: "string",
+          points: Object.keys(mapping).length,
+          mapping,
+        },
+      });
+    } catch (e: any) {
+      resume(err.concat(String((e && e.message) || e)), {});
+    }
   });
 };
 
@@ -540,9 +635,6 @@ Transformer.prototype.CHOICE = function (this: any, node: any, options: any, res
         interaction: {
           type: "choice",
           ...(attrs.prompt !== undefined ? { prompt: attrs.prompt } : {}),
-          // QTI's cardinality, derived rather than authored: max-choices already says it, and
-          // two words for one fact is two words to disagree.
-          cardinality: maxChoices > 1 ? "multiple" : "single",
           minChoices,
           maxChoices,
           shuffle: attrs.shuffle !== undefined ? attrs.shuffle : false,
@@ -550,6 +642,11 @@ Transformer.prototype.CHOICE = function (this: any, node: any, options: any, res
         },
         validation: {
           responseProcessing: templateId(template),
+          // QTI keeps cardinality and baseType on the response declaration, which is this half.
+          // Both are derived rather than authored: max-choices already says the first, and the
+          // interaction type says the second.
+          cardinality: maxChoices > 1 ? "multiple" : "single",
+          baseType: "identifier",
           points,
           ...(exactSet ? { correctResponse } : { mapping }),
           ...(bounded ? { upperBound: attrs.upperBound } : {}),

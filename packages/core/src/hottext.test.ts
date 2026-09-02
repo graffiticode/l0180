@@ -79,6 +79,8 @@ describe("sentence granularity, within the stimulus", () => {
     const { interaction, validation } = await compile(TWO_PART);
     expect(validation.parts["2"]).toEqual({
       responseProcessing: "map_response",
+      cardinality: "single",
+      baseType: "identifier",
       points: 1,
       mapping: { "p2.2": { correct: true, points: 1 } },
     });
@@ -86,8 +88,9 @@ describe("sentence granularity, within the stimulus", () => {
   });
 
   test("one correct selection means click exactly one", async () => {
-    const { interaction } = await compile(TWO_PART);
-    expect(interaction.parts[1]).toMatchObject({ cardinality: "single", minChoices: 1, maxChoices: 1 });
+    const { interaction, validation } = await compile(TWO_PART);
+    expect(interaction.parts[1]).toMatchObject({ minChoices: 1, maxChoices: 1 });
+    expect(validation.parts["2"].cardinality).toBe("single");
   });
 
   test("the item still scores conjunctively over a choice and a hottext", async () => {
@@ -131,8 +134,9 @@ describe("select N from a valid superset", () => {
   });
 
   test("the candidate is asked for exactly that many", async () => {
-    const { interaction } = await compile(SUPERSET);
-    expect(interaction.parts[0]).toMatchObject({ cardinality: "multiple", minChoices: 3, maxChoices: 3 });
+    const { interaction, validation } = await compile(SUPERSET);
+    expect(interaction.parts[0]).toMatchObject({ minChoices: 3, maxChoices: 3 });
+    expect(validation.parts["1"].cardinality).toBe("multiple");
   });
 
   test("a bound above what the correct selections are worth is refused", async () => {
@@ -177,7 +181,8 @@ describe("word granularity", () => {
 
   test("it is single-select, and the rationale rides in the key", async () => {
     const { interaction, validation } = await compile(WORD);
-    expect(interaction).toMatchObject({ cardinality: "single", maxChoices: 1 });
+    expect(interaction).toMatchObject({ maxChoices: 1 });
+    expect(validation.cardinality).toBe("single");
     expect(validation.mapping).toEqual({ w2: { correct: true, points: 1 } });
     expect(validation.feedback.w4).toContain("not what the word means");
     expect(JSON.stringify(interaction)).not.toContain("not what the word means");

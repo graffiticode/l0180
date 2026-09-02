@@ -72,6 +72,18 @@ const containers = {
     "<list record: record>",
     "The places a hottext interaction can select, each named by a quote.",
   ),
+  "text-entry": fn(
+    "TEXT_ENTRY",
+    1,
+    "<list: record>",
+    "A text-entry interaction: a sentence with blanks the candidate types into.",
+  ),
+  responses: fn(
+    "RESPONSES",
+    2,
+    "<list record: record>",
+    "The responses a text-entry interaction collects, each named by the marker that positions it.",
+  ),
   "extended-text": fn(
     "EXTENDED_TEXT",
     1,

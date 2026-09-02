@@ -4,7 +4,14 @@
  * a browser dependency it must not have.
  */
 import { test, describe, expect } from "vitest";
-import { correctIds, scoreChoice, scoreHuman, selectedIds, type Validation } from "./score.js";
+import {
+  correctIds,
+  scoreChoice,
+  scoreHuman,
+  scoreTextEntry,
+  selectedIds,
+  type Validation,
+} from "./score.js";
 
 /** The validation half of the compiled example in core's choice.test.ts. */
 const VALIDATION: Validation = {
@@ -173,6 +180,95 @@ describe("correctIds", () => {
   test("is empty for an unscored item or a missing key", () => {
     expect(correctIds({ points: 0, mapping: {} })).toEqual([]);
     expect(correctIds(null)).toEqual([]);
+  });
+});
+
+describe("scoreTextEntry", () => {
+  const TWO: Validation = {
+    responseProcessing: "map_response",
+    cardinality: "single",
+    baseType: "string",
+    points: 2,
+    mapping: {
+      france: { correct: true, points: 1, accept: ["Paris"], caseSensitive: false },
+      italy: { correct: true, points: 1, accept: ["Rome", "Roma"], caseSensitive: false },
+    },
+  };
+
+  test("both right earns the ceiling", () => {
+    const s = scoreTextEntry({ response: { france: "Paris", italy: "Roma" }, validation: TWO });
+    expect(s).toMatchObject({ points: 2, maxPoints: 2, correct: true });
+  });
+
+  test("one right is partial credit, which is what map_response means", () => {
+    const s = scoreTextEntry({ response: { france: "Paris", italy: "Milan" }, validation: TWO });
+    expect(s).toMatchObject({ points: 1, correct: false });
+    expect(s.options).toMatchObject({
+      france: { selected: true, correct: true },
+      italy: { selected: true, correct: false },
+    });
+  });
+
+  test("case is ignored by default", () => {
+    expect(scoreTextEntry({ response: { france: "paris", italy: "ROME" }, validation: TWO }).points).toBe(2);
+  });
+
+  test("case matters when the entry says so", () => {
+    const strict: Validation = {
+      responseProcessing: "map_response",
+      baseType: "string",
+      points: 1,
+      mapping: { a: { correct: true, points: 1, accept: ["NASA"], caseSensitive: true } },
+    };
+    expect(scoreTextEntry({ response: { a: "NASA" }, validation: strict }).points).toBe(1);
+    expect(scoreTextEntry({ response: { a: "nasa" }, validation: strict }).points).toBe(0);
+  });
+
+  test("surrounding and repeated whitespace never costs a mark", () => {
+    const s = scoreTextEntry({ response: { france: "  Paris ", italy: "Roma" }, validation: TWO });
+    expect(s.points).toBe(2);
+    const spaced: Validation = {
+      responseProcessing: "map_response",
+      baseType: "string",
+      points: 1,
+      mapping: { a: { correct: true, points: 1, accept: ["Cape Canaveral"], caseSensitive: false } },
+    };
+    expect(scoreTextEntry({ response: { a: "Cape   Canaveral" }, validation: spaced }).points).toBe(1);
+  });
+
+  test("punctuation still counts, unlike the compiler's quote matching", () => {
+    // hottext's matcher strips all punctuation so a quote can find its sentence. Here the typed
+    // string IS the answer, so "cant" must not pass for "can't".
+    const v: Validation = {
+      responseProcessing: "map_response",
+      baseType: "string",
+      points: 1,
+      mapping: { a: { correct: true, points: 1, accept: ["can't"], caseSensitive: false } },
+    };
+    expect(scoreTextEntry({ response: { a: "cant" }, validation: v }).points).toBe(0);
+    expect(scoreTextEntry({ response: { a: "can't" }, validation: v }).points).toBe(1);
+  });
+
+  test("blank, missing and stale responses earn nothing and throw nothing", () => {
+    expect(scoreTextEntry({ response: { france: "  " }, validation: TWO }).points).toBe(0);
+    expect(scoreTextEntry({ response: {}, validation: TWO }).points).toBe(0);
+    expect(scoreTextEntry({ response: null, validation: TWO }).points).toBe(0);
+    expect(scoreTextEntry({ response: { gone: "Paris" }, validation: TWO }).points).toBe(0);
+  });
+
+  test("under match_correct every blank must be right", () => {
+    // Nothing emits this today — text-entry always compiles to map_response — but the template
+    // is honoured rather than silently ignored, so a hand-built key cannot mean one thing and
+    // score as another.
+    const exact: Validation = { ...TWO, responseProcessing: "match_correct", points: 1 };
+    expect(scoreTextEntry({ response: { france: "Paris", italy: "Rome" }, validation: exact })).toMatchObject({
+      points: 1,
+      correct: true,
+    });
+    expect(scoreTextEntry({ response: { france: "Paris" }, validation: exact })).toMatchObject({
+      points: 0,
+      correct: false,
+    });
   });
 });
 

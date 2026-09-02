@@ -43,10 +43,6 @@
         },
         "type": { "const": "choice" },
         "prompt": { "description": "The question stem.", "type": "string" },
-        "cardinality": {
-          "description": "QTI cardinality, derived from maxChoices: one selection or several.",
-          "enum": ["single", "multiple"]
-        },
         "minChoices": {
           "description": "Fewest options the candidate may select.",
           "type": "integer",
@@ -97,10 +93,6 @@
         "within": {
           "description": "Present when the units are the item's stimulus, which the renderer then shows in place of the static passage rather than twice.",
           "const": "stimulus"
-        },
-        "cardinality": {
-          "description": "QTI cardinality, derived from maxChoices.",
-          "enum": ["single", "multiple"]
         },
         "minChoices": { "type": "integer", "minimum": 0 },
         "maxChoices": { "type": "integer", "minimum": 1 },
@@ -201,6 +193,14 @@
       "type": "object",
       "required": ["responseProcessing", "points"],
       "properties": {
+        "cardinality": {
+          "description": "QTI cardinality of the response variable, derived from maxChoices. Absent on a human-scored key, which declares no response variable.",
+          "enum": ["single", "multiple"]
+        },
+        "baseType": {
+          "description": "What the response is made of: identifiers the candidate selected, or the string they typed. Decides whether `mapping` keys name options or blanks, and whether entries carry `accept`.",
+          "enum": ["identifier", "string"]
+        },
         "responseProcessing": {
           "description": "map_response scores each selected option and sums; match_correct awards the points for exactly the correct set and nothing otherwise.",
           "enum": ["map_response", "match_correct", "human"]
@@ -223,6 +223,16 @@
               "points": {
                 "description": "What selecting this option is worth. Negative penalizes.",
                 "type": "number"
+              },
+              "accept": {
+                "description": "baseType string only: every answer that counts as right for this blank.",
+                "type": "array",
+                "minItems": 1,
+                "items": { "type": "string" }
+              },
+              "caseSensitive": {
+                "description": "baseType string only: whether capitals must match. Resolved at compile time from the interaction's default and any per-response override, so nothing inherits at score time.",
+                "type": "boolean"
               }
             },
             "additionalProperties": false

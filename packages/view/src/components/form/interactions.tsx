@@ -10,6 +10,7 @@ import type { Validation } from "../../scoring";
 import { ChoiceItem } from "./ChoiceItem";
 import { HottextItem } from "./HottextItem";
 import { ExtendedTextItem } from "./ExtendedTextItem";
+import { TextEntryItem } from "./TextEntryItem";
 import { ErrorList } from "./itemKit";
 
 export interface InteractionProps {
@@ -25,6 +26,7 @@ const RENDERERS: Record<string, (p: InteractionProps) => JSX.Element> = {
   choice: ChoiceItem as any,
   hottext: HottextItem as any,
   "extended-text": ExtendedTextItem as any,
+  "text-entry": TextEntryItem as any,
 };
 
 export function InteractionView(props: InteractionProps) {

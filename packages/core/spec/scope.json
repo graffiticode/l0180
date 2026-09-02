@@ -15,14 +15,15 @@
     "Hot text - clicking a sentence inside the passage, as a part of an item or standing alone",
     "Click-the-word vocabulary items via granularity \"word\", where the candidate words are authored",
     "Select any N of several correct answers via upper-bound, rather than requiring all of them",
-    "Written responses via extended-text - collected, held with their rubric, and marked by a person; never auto-scored"
+    "Written responses via extended-text - collected, held with their rubric, and marked by a person; never auto-scored",
+    "Fill in the blank via text-entry - one or more blanks in a sentence, with alternate accepted spellings and optional case sensitivity per blank"
   ],
   "out_of_scope": [
-    "Interaction types other than choice, hottext and extended-text - ordering, matching, classification, hotspot, sliders and inline text entry are not implemented yet",
-    "Cloze passages — a blank inside running text needs an inline interaction, which does not exist yet",
+    "Interaction types other than choice, hottext, text-entry and extended-text - ordering, matching, classification, hotspot, sliders and inline dropdowns are not implemented yet",
     "Test packages, sections, navigation and sequencing — L0180 authors single items",
     "Delivery policy — timing, attempt limits, feedback timing, gradebooks",
     "Vendor-specific formats — name the vendor and use that vendor's dialect instead",
-    "Auto-scoring a written response - extended-text emits a rubric and holds the answer for a person; nothing here judges prose"
+    "Auto-scoring a written response - extended-text emits a rubric and holds the answer for a person; nothing here judges prose",
+    "Numeric or symbolic answer matching - a typed answer is compared as text, so 0.5 does not match 1/2 and no math engine judges equivalence"
   ]
 }

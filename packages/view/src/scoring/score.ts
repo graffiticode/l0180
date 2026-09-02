@@ -19,6 +19,10 @@ export interface OptionValidation {
   correct?: boolean;
   /** What selecting it is worth. Negative penalizes. */
   points: number;
+  /** `baseType: "string"` only: every answer that counts as right for this blank. */
+  accept?: string[];
+  /** `baseType: "string"` only: whether capitals must match. Already resolved by the compiler. */
+  caseSensitive?: boolean;
 }
 
 /**
@@ -35,12 +39,25 @@ export interface OptionValidation {
  */
 export type ResponseProcessing = "map_response" | "match_correct" | "human";
 
+/**
+ * What the response is made of — QTI's baseType.
+ *
+ * `identifier` is what the candidate selected, and a mapping key names an option. `string` is
+ * what they typed, and a mapping key names a blank whose entry carries the answers it accepts.
+ * It is the field that tells this module to compare text rather than look identifiers up.
+ */
+export type BaseType = "identifier" | "string";
+
 /** The answer key half of a compiled item. */
 export interface Validation {
   /** Which template scores this response. Absent means `map_response`, the historical default. */
   responseProcessing?: ResponseProcessing;
   /** The maximum achievable. Under `map_response`, the sum of the `correct` options only. */
   points: number;
+  /** QTI cardinality of the response variable. Absent on a human-scored key. */
+  cardinality?: "single" | "multiple";
+  /** What the response is made of. Absent means `identifier`. */
+  baseType?: BaseType;
   /** `map_response` only: what each identifier is worth. */
   mapping?: Record<string, OptionValidation>;
   /**
@@ -185,6 +202,60 @@ export function scoreChoice({
 }
 
 /**
+ * Compare a typed answer to an accepted one.
+ *
+ * Deliberately gentler than the compiler's quote matching for hottext, which strips all
+ * punctuation — that would let "cant" match "can't", which is fine when locating a sentence and
+ * wrong when the typed string IS the answer. Only whitespace is normalized, and case only when
+ * the author did not ask for it to matter.
+ */
+function sameText(a: unknown, b: unknown, caseSensitive: boolean): boolean {
+  const norm = (s: unknown) => {
+    const t = String(s ?? "").trim().replace(/\s+/g, " ");
+    return caseSensitive ? t : t.toLowerCase();
+  };
+  const left = norm(a);
+  return left.length > 0 && left === norm(b);
+}
+
+/**
+ * Score typed answers. The response is a map of blank id to what was typed.
+ *
+ * `caseSensitive` is read off each entry and never inherited from the key as a whole — the
+ * compiler resolved it, the same way it resolves points.
+ */
+export function scoreTextEntry({
+  response,
+  validation,
+}: {
+  response: unknown;
+  validation: Validation | null | undefined;
+}): Score {
+  const key = validation?.mapping || {};
+  const maxPoints = typeof validation?.points === "number" ? validation.points : 0;
+  const given = response !== null && typeof response === "object" ? (response as any) : {};
+
+  const options: Record<string, OptionOutcome> = {};
+  let rawPoints = 0;
+  for (const id of Object.keys(key)) {
+    const entry = key[id];
+    const typed = given[id];
+    const answered = typeof typed === "string" && typed.trim().length > 0;
+    const right = (entry?.accept || []).some((a) => sameText(typed, a, entry?.caseSensitive === true));
+    options[id] = { selected: answered, points: typeof entry?.points === "number" ? entry.points : 0, correct: right };
+    if (right) rawPoints += typeof entry?.points === "number" ? entry.points : 0;
+  }
+
+  if (validation?.responseProcessing === "match_correct") {
+    const all = Object.keys(key).length > 0 && Object.keys(key).every((id) => options[id].correct);
+    const earned = all ? maxPoints : 0;
+    return { points: earned, rawPoints: earned, maxPoints, correct: all, options };
+  }
+  const points = Math.max(0, rawPoints);
+  return { points, rawPoints, maxPoints, correct: maxPoints > 0 && points >= maxPoints, options };
+}
+
+/**
  * A written response: nothing here can score it.
  *
  * The points are real and are reported as the maximum, so a host can show "0 / 2, pending"
@@ -198,6 +269,7 @@ export function scoreHuman({ validation }: { validation: Validation | null | und
 /** Score one interaction's response, whichever template its key declares. */
 function scorePart(response: unknown, validation: Validation | null | undefined): Score {
   if (validation?.responseProcessing === "human") return scoreHuman({ validation });
+  if (validation?.baseType === "string") return scoreTextEntry({ response, validation });
   return scoreChoice({ response, validation });
 }
 
