@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /**
- * Scoring a choice response against a compiled `validation`.
+ * Scoring a response against a compiled `validation`.
  *
  * NO React, NO DOM, and nothing in this file's import graph may reach either. The same code
  * has to run server-side, where an item is scored without shipping its answer key to the
@@ -8,10 +8,16 @@
  * learned this the hard way — its scorer was exported from the same entry as its Form and
  * could not be loaded in bare Node.
  *
- * The compiler resolves points at compile time, so this does arithmetic and nothing else:
- * no inheritance to walk, no defaults to reapply. `validation.points` is the ceiling, and it
- * was summed from the same per-option numbers this sums.
+ * The compiler resolves points at compile time, so this does arithmetic and nothing else: no
+ * inheritance to walk, no defaults to reapply. `validation.points` is the ceiling, and it was
+ * summed from the same per-option numbers this sums.
+ *
+ * The one import is `@graffiticode/l0180/matching` — the rules for comparing a typed answer,
+ * shared with the compiler so a collision it refuses cannot become a match here. A subpath on
+ * purpose: the package root would drag the whole compiler into the browser.
  */
+import { normalize, parseNumber, sameNumber } from "@graffiticode/l0180/matching";
+
 
 /** One option's entry in a compiled `validation.options`. */
 export interface OptionValidation {
@@ -20,15 +26,25 @@ export interface OptionValidation {
   /** What selecting it is worth. Negative penalizes. */
   points: number;
   /**
-   * `baseType: "string"` only: the answers this blank recognizes, in authored order.
+   * Typed answers only: what this blank recognizes, in authored order.
    *
    * Each is a mapping value plus the `response` that identifies it — QTI's mapKey. A recognized
    * wrong answer sits here too, with its points and its rationale, which is how a typed mistake
    * gets explained back the way a chosen one does.
    */
   responses?: { response: string; correct?: boolean; points: number; rationale?: string }[];
-  /** `baseType: "string"` only: whether capitals must match. Already resolved by the compiler. */
+  /**
+   * What this blank's answers are made of.
+   *
+   * Per blank rather than per interaction, because a text-entry has one response variable per
+   * blank and QTI gives each its own declaration. One numeric blank beside a text one is why
+   * this cannot live at the top.
+   */
+  baseType?: BaseType;
+  /** `string` only: whether capitals must match. Already resolved by the compiler. */
   caseSensitive?: boolean;
+  /** Numeric only: how far a typed answer may be and still count. Absolute and symmetric. */
+  tolerance?: number;
 }
 
 /**
@@ -48,11 +64,15 @@ export type ResponseProcessing = "map_response" | "match_correct" | "human";
 /**
  * What the response is made of — QTI's baseType.
  *
- * `identifier` is what the candidate selected, and a mapping key names an option. `string` is
- * what they typed, and a mapping key names a blank whose entry carries the answers it accepts.
- * It is the field that tells this module to compare text rather than look identifiers up.
+ * `identifier` is what the candidate selected, and a mapping key names an option. The rest are
+ * what the candidate typed, and a mapping key names a blank: `string` compares text, `float` and
+ * `integer` compare numbers, so 0.50, .5 and 1/2 are one answer rather than three.
+ *
+ * On a text-entry it sits on each mapping entry rather than at the top, because a text-entry has
+ * one response variable per blank and they need not agree — a numeric blank can sit beside a
+ * text one in the same sentence.
  */
-export type BaseType = "identifier" | "string";
+export type BaseType = "identifier" | "string" | "float" | "integer";
 
 /** The answer key half of a compiled item. */
 export interface Validation {
@@ -215,23 +235,6 @@ export function scoreChoice({
 }
 
 /**
- * How a typed answer is compared: whitespace normalized, case only when it does not matter.
- *
- * Deliberately gentler than the compiler's quote matching for hottext, which strips all
- * punctuation — that would let "cant" match "can't", which is fine when locating a sentence and
- * wrong when the typed string IS the answer.
- *
- * `core/src/textentry.ts` carries the same rule, because this module cannot import from core.
- * They must agree: the compiler refuses two responses that normalize alike, and if the scorer
- * normalized differently that refusal would be protecting against the wrong collision.
- * `textentry-units.test.ts` asserts the two functions agree, which is why this is exported.
- */
-export function normalizeResponse(s: unknown, caseSensitive: boolean): string {
-  const t = String(s ?? "").trim().replace(/\s+/g, " ");
-  return caseSensitive ? t : t.toLowerCase();
-}
-
-/**
  * Score typed answers. The response is a map of blank id to what was typed.
  *
  * `caseSensitive` is read off each entry and never inherited from the key as a whole — the
@@ -254,13 +257,9 @@ export function scoreTextEntry({
     const entry = key[id];
     const typed = given[id];
     const answered = typeof typed === "string" && typed.trim().length > 0;
-    const cs = entry?.caseSensitive === true;
-    const want = normalizeResponse(typed, cs);
-    // First match wins. The compiler refuses two responses that normalize alike, so at most one
-    // can match — this order only decides anything if that check was bypassed.
-    const hit = answered
-      ? (entry?.responses || []).find((r) => normalizeResponse(r.response, cs) === want)
-      : undefined;
+    // First match wins. The compiler refuses two responses that would recognize the same input,
+    // so at most one can match — this order only decides anything if that check was bypassed.
+    const hit = answered ? recognize(entry, typed) : undefined;
     options[id] = {
       selected: answered,
       points: hit?.points ?? 0,
@@ -280,6 +279,27 @@ export function scoreTextEntry({
 }
 
 /**
+ * Which authored answer, if any, the typed one matches.
+ *
+ * Numbers are compared as numbers, which is the whole point: `0.50`, `.5` and `1/2` are all
+ * `0.5`, and no enumeration of spellings could have covered them. Text is compared as text.
+ */
+function recognize(entry: OptionValidation | undefined, typed: unknown) {
+  const answers = entry?.responses || [];
+  if (entry?.baseType === "float" || entry?.baseType === "integer") {
+    const value = parseNumber(typed);
+    if (!value) return undefined;
+    return answers.find((r) => {
+      const want = parseNumber(r.response);
+      return want ? sameNumber(value, want, entry.tolerance) : false;
+    });
+  }
+  const cs = entry?.caseSensitive === true;
+  const want = normalize(typed, cs);
+  return answers.find((r) => normalize(r.response, cs) === want);
+}
+
+/**
  * A written response: nothing here can score it.
  *
  * The points are real and are reported as the maximum, so a host can show "0 / 2, pending"
@@ -291,9 +311,18 @@ export function scoreHuman({ validation }: { validation: Validation | null | und
 }
 
 /** Score one interaction's response, whichever template its key declares. */
+/**
+ * A typed key is the one whose mapping entries carry the answers they recognize.
+ *
+ * Structural rather than declared, because `baseType` moved onto the blanks — a text-entry has
+ * no single base type to dispatch on once one of its blanks is numeric and another is text.
+ */
+const isTyped = (v: Validation | null | undefined): boolean =>
+  Object.values(v?.mapping ?? {}).some((e) => Array.isArray(e?.responses));
+
 function scorePart(response: unknown, validation: Validation | null | undefined): Score {
   if (validation?.responseProcessing === "human") return scoreHuman({ validation });
-  if (validation?.baseType === "string") return scoreTextEntry({ response, validation });
+  if (isTyped(validation)) return scoreTextEntry({ response, validation });
   return scoreChoice({ response, validation });
 }
 

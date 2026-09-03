@@ -93,10 +93,10 @@ describe("validation", () => {
     expect(validation).toEqual({
       responseProcessing: "map_response",
       cardinality: "single",
-      baseType: "string",
       points: 1,
       mapping: {
         capital: {
+          baseType: "string",
           points: 1,
           caseSensitive: false,
           responses: [
@@ -171,7 +171,7 @@ describe("inside an item", () => {
       item [ scoring "conjunctive" points 1 parts [ ${TWO} ] {} ]`);
     expect(validation.scoring).toBe("conjunctive");
     expect(validation.points).toBe(1);
-    expect(validation.parts["1"].baseType).toBe("string");
+    expect(validation.parts["1"].mapping.france.baseType).toBe("string");
   });
 
   test("it sits beside a choice in one item", async () => {

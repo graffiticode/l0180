@@ -7,8 +7,7 @@
  * orphaned or whether the counts even agree.
  */
 import { test, describe, expect } from "vitest";
-import { cut, normalize } from "./textentry.js";
-import { normalizeResponse } from "../../view/src/scoring/score.js";
+import { cut } from "./textentry.js";
 
 const right = (response: string, points?: number) => ({
   response,
@@ -208,16 +207,82 @@ describe("the checks naming the blank makes possible", () => {
   });
 });
 
-describe("the compiler and the scorer normalize identically", () => {
-  // They cannot share code — the scorer must stay importable without core — so they carry the
-  // same three lines twice. If they ever drift, a collision the compiler refuses becomes a
-  // silent first-match-wins at score time, which is exactly what the check above exists to stop.
-  const cases = ["Paris", "  paris  ", "Cape   Canaveral", "can't", "", "  ", "É"];
-  for (const cs of [true, false]) {
-    test(`agree with caseSensitive: ${cs}`, () => {
-      for (const c of cases) {
-        expect(normalize(c, cs), JSON.stringify(c)).toBe(normalizeResponse(c, cs));
-      }
-    });
-  }
+describe("numeric blanks", () => {
+  const err = (fn: () => unknown): string => {
+    try {
+      fn();
+    } catch (e: any) {
+      return String(e.message);
+    }
+    return "";
+  };
+  const num = (id: string, responses: any[], extra: any = {}) => [
+    { id, baseType: "float", responses, ...extra },
+  ];
+  const ok = (response: string) => ({ response, assess: { correct: true } });
+
+  test("the base type and tolerance ride on the blank", () => {
+    const { mapping } = cut("{{a}}", num("a", [ok("0.5")], { tolerance: 0.01 }), false, "t");
+    expect(mapping.a.baseType).toBe("float");
+    expect(mapping.a.tolerance).toBe(0.01);
+    // Numbers have no case, so the string-only field is absent rather than defaulted.
+    expect(mapping.a.caseSensitive).toBeUndefined();
+  });
+
+  test("a string blank still says so, rather than defaulting by absence", () => {
+    const { mapping } = cut("{{a}}", [{ id: "a", responses: [ok("Paris")] }], false, "t");
+    expect(mapping.a.baseType).toBe("string");
+    expect(mapping.a.caseSensitive).toBe(false);
+    expect(mapping.a.tolerance).toBeUndefined();
+  });
+
+  test("an answer that is not a number says what forms are understood", () => {
+    const msg = err(() => cut("{{a}}", num("a", [ok("about half")]), false, "t"));
+    expect(msg).toContain("is not a number this can compare");
+    expect(msg).toContain("1/2");
+    expect(msg).toContain("Expressions, units");
+  });
+
+  test("integer refuses a fractional answer", () => {
+    const msg = err(() =>
+      cut("{{a}}", [{ id: "a", baseType: "integer", responses: [ok("3.5")] }], false, "t"),
+    );
+    expect(msg).toContain("is not a whole number");
+    expect(msg).toContain('base-type "float"');
+  });
+
+  test("case-sensitive on a number, and tolerance on text, are both refused", () => {
+    expect(
+      err(() => cut("{{a}}", num("a", [ok("1")], { caseSensitive: true }), false, "t")),
+    ).toContain("numbers have no case");
+    expect(
+      err(() => cut("{{a}}", [{ id: "a", responses: [ok("Paris")], tolerance: 0.1 }], false, "t")),
+    ).toContain("it is how close a NUMBER may be");
+  });
+
+  test("a negative tolerance is refused", () => {
+    expect(err(() => cut("{{a}}", num("a", [ok("1")], { tolerance: -1 }), false, "t"))).toContain(
+      "is negative",
+    );
+  });
+
+  test("two answers that are the same number collide, however written", () => {
+    const msg = err(() => cut("{{a}}", num("a", [ok("0.5"), ok("0.50")]), false, "t"));
+    expect(msg).toContain("is the same answer as response 1");
+  });
+
+  test("a fraction collides with its decimal", () => {
+    const msg = err(() => cut("{{a}}", num("a", [ok("0.5"), ok("1/2")]), false, "t"));
+    expect(msg).toContain("is the same answer as response 1");
+  });
+
+  test("collision follows the tolerance, since that is what decides a match", () => {
+    // 0.5 and 0.55 are 0.05 apart. At a tolerance of 0.1 each reaches the other, so one typed
+    // value could match both; at 0.01 they are safely distinct.
+    const near = [ok("0.5"), { response: "0.55", assess: { points: 1 } }];
+    expect(err(() => cut("{{a}}", num("a", near, { tolerance: 0.1 }), false, "t"))).toContain(
+      "within a tolerance of 0.1",
+    );
+    expect(err(() => cut("{{a}}", num("a", near, { tolerance: 0.01 }), false, "t"))).toBe("");
+  });
 });

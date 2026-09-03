@@ -366,6 +366,92 @@ describe("selectedIds", () => {
   });
 });
 
+describe("scoreTextEntry over numbers", () => {
+  const half: Validation = {
+    responseProcessing: "map_response",
+    cardinality: "single",
+    points: 1,
+    mapping: {
+      a: {
+        baseType: "float",
+        points: 1,
+        responses: [{ response: "0.5", correct: true, points: 1 }],
+      },
+    },
+  };
+
+  test("every way of writing the same number earns the point", () => {
+    // This is the whole reason for the feature: string comparison marked all but the first
+    // of these wrong, and no enumeration of spellings could have covered them.
+    for (const typed of ["0.5", "0.50", ".5", "+0.5", " 0.5 ", "1/2", "2/4", "0.500000"]) {
+      expect(scoreTextEntry({ response: { a: typed }, validation: half }).points, typed).toBe(1);
+    }
+  });
+
+  test("a different number does not", () => {
+    for (const typed of ["0.6", "5", "0.05", "-0.5"]) {
+      expect(scoreTextEntry({ response: { a: typed }, validation: half }).points, typed).toBe(0);
+    }
+  });
+
+  test("something that is not a number earns nothing and throws nothing", () => {
+    for (const typed of ["half", "1/0", "x", "5 cm", "  "]) {
+      expect(scoreTextEntry({ response: { a: typed }, validation: half }).points, typed).toBe(0);
+    }
+  });
+
+  test("a tolerance widens it, and only as far as it says", () => {
+    const loose: Validation = {
+      ...half,
+      mapping: { a: { ...half.mapping!.a, tolerance: 0.01 } },
+    };
+    expect(scoreTextEntry({ response: { a: "0.51" }, validation: loose }).points).toBe(1);
+    expect(scoreTextEntry({ response: { a: "0.49" }, validation: loose }).points).toBe(1);
+    expect(scoreTextEntry({ response: { a: "0.52" }, validation: loose }).points).toBe(0);
+    // The same answer against a tighter tolerance.
+    const tight: Validation = { ...half, mapping: { a: { ...half.mapping!.a, tolerance: 0.001 } } };
+    expect(scoreTextEntry({ response: { a: "0.51" }, validation: tight }).points).toBe(0);
+  });
+
+  test("a recognized wrong number still explains itself", () => {
+    const explained: Validation = {
+      responseProcessing: "map_response",
+      points: 2,
+      mapping: {
+        a: {
+          baseType: "float",
+          points: 2,
+          responses: [
+            { response: "0.5", correct: true, points: 2 },
+            { response: "2", points: 0, rationale: "That is one divided by a half, not a half." },
+          ],
+        },
+      },
+    };
+    const s = scoreTextEntry({ response: { a: "2.0" }, validation: explained });
+    expect(s.points).toBe(0);
+    expect(s.options?.a.rationale).toContain("not a half");
+  });
+
+  test("a numeric blank and a text blank score side by side", () => {
+    const mixed: Validation = {
+      responseProcessing: "map_response",
+      points: 2,
+      mapping: {
+        half: { baseType: "float", points: 1, responses: [{ response: "0.5", correct: true, points: 1 }] },
+        city: {
+          baseType: "string",
+          caseSensitive: false,
+          points: 1,
+          responses: [{ response: "Paris", correct: true, points: 1 }],
+        },
+      },
+    };
+    const s = scoreTextEntry({ response: { half: "1/2", city: "paris" }, validation: mixed });
+    expect(s).toMatchObject({ points: 2, correct: true });
+  });
+});
+
 describe("scoreHuman", () => {
   const WRITTEN: Validation = {
     responseProcessing: "human",

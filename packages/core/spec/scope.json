@@ -16,7 +16,8 @@
     "Click-the-word vocabulary items via granularity \"word\", where the candidate words are authored",
     "Select any N of several correct answers via upper-bound, rather than requiring all of them",
     "Written responses via extended-text - collected, held with their rubric, and marked by a person; never auto-scored",
-    "Fill in the blank via text-entry - one or more blanks in a sentence, each recognizing a list of answers with per-answer score, partial credit, penalties and rationale, and optional case sensitivity per blank"
+    "Fill in the blank via text-entry - one or more blanks in a sentence, each recognizing a list of answers with per-answer score, partial credit, penalties and rationale, and optional case sensitivity per blank",
+    "Numeric blanks via base-type \"float\" or \"integer\" - the typed answer is compared as a number, so 0.50, .5 and 1/2 all equal 0.5, with an optional tolerance for rounded answers"
   ],
   "out_of_scope": [
     "Interaction types other than choice, hottext, text-entry and extended-text - ordering, matching, classification, hotspot, sliders and inline dropdowns are not implemented yet",
@@ -24,6 +25,6 @@
     "Delivery policy — timing, attempt limits, feedback timing, gradebooks",
     "Vendor-specific formats — name the vendor and use that vendor's dialect instead",
     "Auto-scoring a written response - extended-text emits a rubric and holds the answer for a person; nothing here judges prose",
-    "Numeric or symbolic answer matching - a typed answer is compared as text, so 0.5 does not match 1/2 and no math engine judges equivalence"
+    "Expressions, units and symbolic equivalence - a numeric blank understands whole numbers, decimals and simple fractions; 1/2 + 1/3, 5 cm and x/2 are not evaluated, and nothing judges algebraic equivalence"
   ]
 }

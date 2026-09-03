@@ -12,7 +12,11 @@
  * identity and its answers are a parallel array matched by order of appearance, so reordering a
  * clause silently misaligns every answer after it. The delimiters here are theirs; the binding
  * is not.
+ *
+ * How an answer is compared lives in `matching.ts`, shared with the scorer so a collision this
+ * module refuses cannot become a match at score time.
  */
+import { normalize, parseNumber } from "./matching.js";
 
 /** One run of the sentence: literal text, or a blank the candidate types into. */
 export interface Segment {
@@ -21,6 +25,14 @@ export interface Segment {
   /** Present on a blank: the response's identifier. */
   id?: string;
   blank?: true;
+  /**
+   * A blank that takes a number, so the renderer can ask for a numeric keypad.
+   *
+   * Presentational rather than key material — the sentence already tells the candidate a number
+   * is wanted — which is why it rides here and survives a graded delivery that withholds
+   * `validation`.
+   */
+  numeric?: true;
 }
 
 /** One answer a blank recognizes, already merged. */
@@ -34,6 +46,8 @@ export interface Blank {
   id?: string;
   responses?: Response[];
   caseSensitive?: boolean;
+  baseType?: "string" | "float" | "integer";
+  tolerance?: number;
 }
 
 /** What one recognized answer is worth. The shape of a choice mapping value, plus its text. */
@@ -51,24 +65,17 @@ export interface Recognized {
  * this and never reads it back.
  */
 export interface Entry {
+  /** What this blank's answers are made of. Emitted on every entry, so none defaults by absence. */
+  baseType: "string" | "float" | "integer";
   points: number;
-  caseSensitive: boolean;
+  /** `string` only. */
+  caseSensitive?: boolean;
+  /** Numeric only, and only when authored. Absent means an exact decimal comparison. */
+  tolerance?: number;
   responses: Recognized[];
 }
 
 const MARKER = /\{\{([^{}]*)\}\}/g;
-
-/**
- * How a typed answer is compared: whitespace normalized, case only when it does not matter.
- *
- * `score.ts` carries the same rule, because the scorer cannot import from core. They must agree
- * — a compile-time collision check under one rule and a match under another would let two
- * responses claim the same input at run time. `textentry-units.test.ts` asserts they agree.
- */
-export function normalize(s: unknown, caseSensitive: boolean): string {
-  const t = String(s ?? "").trim().replace(/\s+/g, " ");
-  return caseSensitive ? t : t.toLowerCase();
-}
 
 export interface Cut {
   segments: Segment[];
@@ -108,9 +115,28 @@ export function cut(
       );
     }
 
-    const cs = b.caseSensitive !== undefined ? b.caseSensitive === true : caseSensitive;
+    const baseType = b.baseType !== undefined ? b.baseType : "string";
+    const numeric = baseType !== "string";
+    if (numeric && b.caseSensitive !== undefined) {
+      throw new Error(
+        `${at}: \`case-sensitive\` means nothing on a ${baseType} blank — numbers have no case. ` +
+          "Remove it, or drop `base-type` to compare the answers as text.",
+      );
+    }
+    if (!numeric && b.tolerance !== undefined) {
+      throw new Error(
+        `${at}: \`tolerance\` means nothing on a text blank — it is how close a NUMBER may be. ` +
+          'Add `base-type "float"` to compare numerically, or remove the tolerance.',
+      );
+    }
+    if (b.tolerance !== undefined && b.tolerance < 0) {
+      throw new Error(`${at}: tolerance ${b.tolerance} is negative. It is a distance, so it cannot be.`);
+    }
+
+    const cs = numeric ? false : b.caseSensitive !== undefined ? b.caseSensitive === true : caseSensitive;
     const recognized: Recognized[] = [];
     const claimed = new Map<string, number>();
+    const numbers: { at: number; value: ReturnType<typeof parseNumber>; text: string }[] = [];
     b.responses.forEach((r, j) => {
       const rat = `${at}: response ${j + 1}`;
       const value = typeof r.response === "string" ? r.response.trim() : "";
@@ -119,17 +145,47 @@ export function cut(
           `${rat}: needs the answer it recognizes, e.g. [ response "Paris" assess [ correct ] ].`,
         );
       }
-      const norm = normalize(value, cs);
-      const prior = claimed.get(norm);
-      if (prior !== undefined) {
-        throw new Error(
-          `${rat}: "${value}" is the same answer as response ${prior}` +
-            (cs ? "" : " once capitals are ignored") +
-            ". Two responses cannot claim the same typed input — merge them, or set " +
-            "`case-sensitive true` if the difference is meant to matter.",
-        );
+      if (numeric) {
+        const parsed = parseNumber(value);
+        if (!parsed) {
+          throw new Error(
+            `${rat}: "${value}" is not a number this can compare. Whole numbers, decimals and ` +
+              "simple fractions are understood — 8, -3, 0.5, .5, 1/2, 1,000. Expressions, units " +
+              "and symbols are not.",
+          );
+        }
+        if (baseType === "integer" && !parsed.isInteger()) {
+          throw new Error(
+            `${rat}: "${value}" is not a whole number, but the blank says \`base-type "integer"\`. ` +
+              'Use `base-type "float"`, or give a whole number.',
+          );
+        }
+        // Two answers collide when one typed value could match both — for numbers, when their
+        // tolerance intervals overlap, which is a gap of at most twice the tolerance.
+        const reach = b.tolerance !== undefined ? b.tolerance * 2 : 0;
+        const clash = numbers.find((prev) => prev.value!.sub(parsed).abs().lte(reach));
+        if (clash) {
+          throw new Error(
+            `${rat}: "${value}" is the same answer as response ${clash.at} ("${clash.text}")` +
+              (b.tolerance !== undefined ? ` within a tolerance of ${b.tolerance}` : "") +
+              ". Two responses cannot claim the same typed input — merge them, or tighten the " +
+              "tolerance so they are told apart.",
+          );
+        }
+        numbers.push({ at: j + 1, value: parsed, text: value });
+      } else {
+        const norm = normalize(value, cs);
+        const prior = claimed.get(norm);
+        if (prior !== undefined) {
+          throw new Error(
+            `${rat}: "${value}" is the same answer as response ${prior}` +
+              (cs ? "" : " once capitals are ignored") +
+              ". Two responses cannot claim the same typed input — merge them, or set " +
+              "`case-sensitive true` if the difference is meant to matter.",
+          );
+        }
+        claimed.set(norm, j + 1);
       }
-      claimed.set(norm, j + 1);
 
       const assess = r.assess;
       if (assess === undefined) {
@@ -167,8 +223,13 @@ export function cut(
     // Only one answer can be typed, so the blank is worth its best correct one — not their sum.
     // `choice` sums because several options can be selected; the difference is cardinality.
     declared.set(id, {
+      baseType,
       points: Math.max(...correct.map((r) => r.points)),
-      caseSensitive: cs,
+      ...(numeric
+        ? b.tolerance !== undefined
+          ? { tolerance: b.tolerance }
+          : {}
+        : { caseSensitive: cs }),
       responses: recognized,
     });
   });
@@ -201,7 +262,7 @@ export function cut(
     }
     seen.set(id, n);
     if (m.index > last) segments.push({ text: text.slice(last, m.index) });
-    segments.push({ id, blank: true });
+    segments.push({ id, blank: true, ...(declared.get(id)!.baseType !== "string" ? { numeric: true as const } : {}) });
     last = m.index + m[0].length;
   }
 

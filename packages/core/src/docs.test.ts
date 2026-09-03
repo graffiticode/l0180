@@ -36,8 +36,17 @@ function blocks(path: string): string[] {
   return out;
 }
 
-/** A fenced block that is a program, rather than a table row or a fragment. */
-const isProgram = (src: string): boolean => !!src && /^\s*(choice|item)\s*\[/.test(src);
+/**
+ * A fenced block that is a program, rather than a table row or a fragment.
+ *
+ * Recognized by the terminator, not by a list of opening words. The list version read
+ * `/^(choice|item)\[/` and was never widened, so from the day hottext landed until this was
+ * found, every hottext, text-entry and extended-text example in the spec was silently skipped —
+ * fourteen of thirty-one blocks, never compiled and never validated against the schema. A gate
+ * that quietly stops covering things is worse than no gate. Every L0180 program ends in `..`, and
+ * that cannot go stale when an interaction is added.
+ */
+const isProgram = (src: string): boolean => !!src && src.trim().endsWith("..");
 
 async function compileSrc(src: string) {
   const code: any = await parser.parse(180, src, lexicon);
@@ -53,6 +62,20 @@ async function compileSrc(src: string) {
 }
 
 describe("spec programs", () => {
+  test("no fenced block is silently skipped", () => {
+    // The companion to isProgram: if a block is added that is NOT a program — compiled output,
+    // say — this fails and asks for a deliberate decision, rather than letting the block drop
+    // out of coverage the way three interactions' worth once did.
+    const skipped: string[] = [];
+    for (const f of SPEC_FILES) {
+      for (const b of blocks(f)) {
+        const src = b.trim();
+        if (src && !isProgram(src)) skipped.push(`${f}: ${src.split("\n")[0]}`);
+      }
+    }
+    expect(skipped, "fenced blocks not checked as programs").toEqual([]);
+  });
+
   test("every program fragment in spec/ compiles, not merely parses", async () => {
     // Parsing is not enough: a program can parse perfectly and fail in the builder, which is
     // exactly how a stale example survives behind a parse-only guard.
@@ -73,7 +96,7 @@ describe("spec programs", () => {
       }
     }
     expect(bad.join("")).toBe("");
-    expect(ok).toBeGreaterThan(4);
+    expect(ok).toBeGreaterThan(25);
   });
 
   test("the starter template compiles and produces a scoreable item", async () => {
@@ -151,7 +174,7 @@ describe("schema.json describes what the compiler actually emits", () => {
       }
     }
     expect(bad.join("")).toBe("");
-    expect(checked).toBeGreaterThan(4);
+    expect(checked).toBeGreaterThan(25);
   });
 
   test("both interaction shapes and a response validate", async () => {

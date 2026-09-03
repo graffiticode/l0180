@@ -445,10 +445,10 @@ Transformer.prototype.TEXT_ENTRY = function (this: any, node: any, options: any,
         },
         validation: {
           responseProcessing: "map_response",
+          // Cardinality stays here because it does not vary: every blank takes one typed value.
+          // `baseType` DOES vary, so it rides on each mapping entry instead — a text-entry has
+          // one response variable per blank, and in QTI each carries its own declaration.
           cardinality: "single",
-          // The first key in this language that is not made of identifiers. It is what tells
-          // the scorer to compare typed text rather than to look ids up.
-          baseType: "string",
           // Each blank contributes its own best correct answer; the interaction is their sum.
           points: Object.values(mapping).reduce((n: number, e: any) => n + e.points, 0),
           mapping,

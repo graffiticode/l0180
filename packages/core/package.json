@@ -13,7 +13,11 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
-    "./spec/*": "./spec/*"
+    "./spec/*": "./spec/*",
+    "./matching": {
+      "types": "./dist/matching.d.ts",
+      "import": "./dist/matching.js"
+    }
   },
   "files": [
     "dist",
@@ -26,7 +30,8 @@
     "lint": "eslint src tools"
   },
   "dependencies": {
-    "@graffiticode/l0000": "^0.2.0"
+    "@graffiticode/l0000": "^0.2.0",
+    "decimal.js": "^10.5.0"
   },
   "devDependencies": {
     "@graffiticode/parser": "^1.7.0",

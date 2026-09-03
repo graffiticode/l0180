@@ -156,16 +156,39 @@ rather than a thing being assessed. They still say `points`, not `score` — one
 answer can be typed into it, so summing would let it claim points nobody can earn. The
 interaction is worth the sum of its blanks. The difference is cardinality, not inconsistency.
 
-### `baseType` decides what a key is made of
+### `baseType` decides what a key is made of, and it lives per response variable
 
 `validation` is QTI's response declaration, so it carries `cardinality` and `baseType` — not the
 interaction, which carries `maxChoices`. Both are derived rather than authored.
 
-`baseType: "identifier"` means the response is things the candidate selected, and a `mapping`
-key names an option or a unit. `baseType: "string"` means the response is text they typed, the
-key names a blank, and the entry carries the `accept` values and its own resolved
-`caseSensitive`. It is the field that tells the scorer to compare text instead of looking
-identifiers up, and it is why `scorePart` branches on it before anything else.
+`identifier` means the response is things the candidate selected, and a `mapping` key names an
+option or a unit. `string`, `float` and `integer` mean the response is what they typed, and the
+key names a blank.
+
+**On a text-entry, `baseType` sits on each mapping entry rather than at the top**, because a
+text-entry has one response variable per blank and QTI gives each its own declaration. A numeric
+blank can sit beside a text one in the same sentence, so a single top-level value would be a
+claim that is false. `cardinality` stays at the top because it does not vary: every blank takes
+one typed value. **Move what varies, keep what does not.**
+
+The consequence is that the scorer cannot dispatch on a declared field. `scorePart` branches on
+the mapping entries carrying a `responses` array, which only a typed key has — structural rather
+than declared, and worth knowing before wondering why.
+
+### Arithmetic is decimal
+
+Numeric answers go through **decimal.js**, matching L0179 and L0166. Not a preference: `0.1` has
+no exact binary representation, `0.1 + 0.2 !== 0.3`, and a tolerance comparison at its boundary
+would land either side of the line depending on the values. An assessment scorer is the wrong
+place for that.
+
+`base-type "float"` with no tolerance already makes `0.50`, `.5` and `1/2` equal `0.5`, because
+all four parse to the same number. Tolerance is for rounding on top of that, and it is absolute
+and symmetric — QTI's `absolute` mode.
+
+Whole numbers, decimals, a sign and simple fractions are understood. Expressions, units and
+symbols are not, and that boundary is deliberate: it is where L0176 reaches for Learnosity's
+math engine.
 
 ### Two response-processing templates, named for QTI's
 
@@ -195,8 +218,9 @@ and the renderer shows it only under an option the candidate actually selected.
 `packages/view/src/scoring/` has **no React and no DOM anywhere in its import graph**, because
 the same module has to run server-side to score without shipping the key to the browser. L0166
 exported its scorer from the same entry as its Form and could not be loaded in bare Node. It
-has no imports at all, which is what lets `conformance.test.ts` over in `packages/core` import
-it by relative path and score what it just compiled.
+has exactly one import — `@graffiticode/l0180/matching`, which is DOM-free — which is what lets
+`conformance.test.ts` over in `packages/core` import it by relative path and score what it just
+compiled. Anything heavier would break that, and would ship the compiler to the browser besides.
 
 Points resolve at compile time, so the scorer does arithmetic and nothing else. Under
 `map_response`, `validation.points` sums only the `correct` options — a penalty must not be
@@ -358,10 +382,17 @@ Comparison is deliberately gentler than hottext's quote matching, which strips a
 so a quote can find its sentence. Here the typed string IS the answer, so only whitespace is
 normalized — `cant` must not pass for `can't`.
 
-That rule is written **twice** — `normalize` in `core/src/textentry.ts` and `normalizeResponse`
-in `view/src/scoring/score.ts` — because the scorer cannot import from core. They must agree, or
-a collision the compiler refuses becomes a silent first-match-wins at score time.
-`textentry-units.test.ts` imports both and asserts they do.
+**`core/src/matching.ts` owns every comparison rule, and is published as
+`@graffiticode/l0180/matching`.** The compiler parses authored answers to validate them and to
+refuse two that would recognize the same input; the scorer parses what the candidate types. Those
+must agree exactly, or a collision the compiler refuses becomes a silent first-match at score
+time. The rule used to be written twice with a test asserting they agreed; one implementation
+cannot disagree with itself.
+
+The **subpath** is what makes this safe for the browser: importing `@graffiticode/l0180` would
+drag the compiler and `@graffiticode/l0000` in, while `./matching` brings only the parser and
+decimal.js. It is `score.ts`'s one and only import, and vitest in both packages aliases it to
+source so tests never require a build first.
 
 ### A hottext resolves in two phases, and that is not optional
 

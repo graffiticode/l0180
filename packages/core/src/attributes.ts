@@ -61,6 +61,15 @@ export const GRANULARITIES = ["sentence", "word"] as const;
 /** What a hottext may select within, when it does not carry its own text. */
 export const SELECTION_SCOPES = ["stimulus"] as const;
 
+/**
+ * What a blank's response variable is made of — QTI's baseType.
+ *
+ * `string` compares text; `float` and `integer` parse the typed answer as a number, which is
+ * what makes 0.50, .5 and 1/2 all equal 0.5. `integer` differs from `float` only in refusing an
+ * authored answer that is not whole.
+ */
+export const BASE_TYPES = ["string", "float", "integer"] as const;
+
 /** Authored spelling -> the QTI template identifier emitted in `validation`. */
 export const templateId = (word: string): string => word.replace(/-/g, "_");
 
@@ -134,6 +143,19 @@ export const attributeFields: Record<string, AttributeMeta> = {
     field: "response",
     expects: "string",
     description: "One answer a blank recognizes. Its `assess` says what that answer is worth.",
+  },
+  BASE_TYPE: {
+    field: "baseType",
+    expects: "string",
+    oneOf: BASE_TYPES,
+    description:
+      "What this blank's answers are: `string` (the default) compares text, `float` and `integer` compare numbers.",
+  },
+  TOLERANCE: {
+    field: "tolerance",
+    expects: "number",
+    description:
+      "How far a numeric answer may be from the expected one and still count. Absolute and symmetric.",
   },
   CASE_SENSITIVE: {
     field: "caseSensitive",
@@ -222,7 +244,7 @@ export const validAttributes: Record<string, string[]> = {
   ],
   selection: ["quote", "assess"],
   "text-entry": ["prompt", "text", "case-sensitive", "blanks"],
-  blank: ["id", "responses", "case-sensitive"],
+  blank: ["id", "responses", "case-sensitive", "base-type", "tolerance"],
   // The member container and its value word are both `response`, so an error reads
   // "It takes: response, assess". Repetitive, and accurate.
   response: ["response", "assess"],

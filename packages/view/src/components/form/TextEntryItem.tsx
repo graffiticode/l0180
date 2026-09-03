@@ -20,6 +20,8 @@ interface Segment {
   text?: string;
   id?: string;
   blank?: boolean;
+  /** The blank takes a number. Comes from `interaction`, so it survives a graded delivery. */
+  numeric?: boolean;
 }
 
 interface Interaction {
@@ -119,6 +121,9 @@ export function TextEntryItem({
                       : "border-zinc-300 bg-white",
                 )}
                 aria-label={`Blank ${nth}`}
+                // A numeric keypad on a phone, without asserting the field only accepts digits
+                // — `inputMode` hints, `type="number"` would fight fractions like 1/2.
+                inputMode={seg.numeric ? "decimal" : undefined}
                 value={draft[id] ?? ""}
                 onChange={(e) => setDraft((d) => ({ ...d, [id]: e.target.value }))}
                 onBlur={() => commit(id)}

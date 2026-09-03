@@ -1,11 +1,11 @@
 <!-- SPDX-License-Identifier: CC-BY-4.0 -->
 # L0180 RAG Training Examples
 
-102 example prompts for training a RAG model on L0180, the web-based assessment language —
+108 example prompts for training a RAG model on L0180, the web-based assessment language —
 covering multiple choice, true/false, multi-select, exact-set scoring, weighted scoring,
 penalized distractors, presentation options, unscored polls, per-option rationale, clicking
-sentences and words inside a passage, fill-in-the-blank, written responses marked against a
-rubric, and multi-part items over a reading passage.
+sentences and words inside a passage, fill-in-the-blank including numeric answers, written
+responses marked against a rubric, and multi-part items over a reading passage.
 
 Each numbered line is a prompt in the author's own voice. Prompts describe WHAT to build,
 never how to write it: an author asks for a question, not for a `choice [...]` program. When
@@ -154,3 +154,12 @@ L0180 grows further interaction types, this file grows categories with them.
 100. Fill in the blanks in a sentence about the American Revolution with the year and the place, each worth its own point.
 101. Complete the sentence about a science experiment, accepting either the British or the American spelling of the answer.
 102. A cloze question about mitosis with three blanks, where all three must be right for the point.
+
+## Category 15: Numeric Answers (103-108)
+
+103. Ask what half of one is, accepting 0.5, 0.50 or 1/2 as the same answer.
+104. A maths question where the student types the value of pi to two decimal places, accepting anything within 0.005.
+105. How many sides does a hexagon have? The answer is a whole number.
+106. A science question asking for the density of water in g/cm3, accepting 1 or 1.0, with a small tolerance for rounding.
+107. Ask for three quarters as a decimal or a fraction, accepting either form.
+108. A two-blank question about a rectangle: type its area and its perimeter, each a number worth its own point.

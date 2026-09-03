@@ -13,7 +13,7 @@ A compiled item has two halves, deliberately separate. `interaction` is everythi
 
 When composing a request, name the question type first, then the stem, then the options, then which option or options are right. Say what an option is worth only if it is not worth one point — per-option scoring is the default, so partial credit needs no special request. Mention "select all that apply" or a number of answers when you want a multi-select item, and say so explicitly if you want the options shuffled.
 
-In scope: choice interactions — single-select multiple choice, multi-select, and true/false — with per-option points, weighted answers, penalized distractors, shuffled options, unscored polls, exact-set scoring for a "choose exactly these" question, and a rationale on a distractor explaining why it is wrong; hottext interactions, where the candidate clicks a sentence or a word inside the passage itself, including "click any three of these" and click-the-word vocabulary items; fill-in-the-blank, where the candidate types into blanks in a sentence and each recognized answer can carry its own score and explanation; written responses collected with their rubric and held for a person to mark; and multi-part items over a reading passage, scored additively or conjunctively. Out of scope: other interaction types (ordering, matching, classification, inline dropdowns and the rest are not implemented yet), test and section wrappers, auto-scoring of prose, numeric or symbolic answer matching, media beyond passage and option text, and delivery concerns such as timing, attempts and gradebooks.
+In scope: choice interactions — single-select multiple choice, multi-select, and true/false — with per-option points, weighted answers, penalized distractors, shuffled options, unscored polls, exact-set scoring for a "choose exactly these" question, and a rationale on a distractor explaining why it is wrong; hottext interactions, where the candidate clicks a sentence or a word inside the passage itself, including "click any three of these" and click-the-word vocabulary items; fill-in-the-blank, where the candidate types into blanks in a sentence, each recognized answer can carry its own score and explanation, and a numeric blank is compared as a number so 0.50 and 1/2 both count as 0.5; written responses collected with their rubric and held for a person to mark; and multi-part items over a reading passage, scored additively or conjunctively. Out of scope: other interaction types (ordering, matching, classification, inline dropdowns and the rest are not implemented yet), test and section wrappers, auto-scoring of prose, numeric or symbolic answer matching, media beyond passage and option text, and delivery concerns such as timing, attempts and gradebooks.
 
 ## Writing a request
 
@@ -47,6 +47,8 @@ Say this to get that:
 - **Alternate spellings** — one `response` entry each, all `assess [correct]`.
 - **Partial credit for a near-miss** — `assess [correct points 1]` beside the full-credit answer.
 - **Explain a wrong answer** — `assess [rationale "…"]` on an answer you expect students to type. Shown only once they type it.
+- **A numeric answer** — `base-type "float"` on the blank. The answer is compared as a number, so `0.5`, `0.50`, `.5` and `1/2` all count. Use `base-type "integer"` when only a whole number makes sense.
+- **A rounded or measured answer** — add `tolerance 0.005`. Absolute and symmetric, evaluated in decimal.
 - **Several blanks** — one marker and one blank each. A blank is worth its best correct answer and the item is their sum, so several blanks give partial credit; wrap it in a conjunctive item for all-or-nothing.
 - **A written answer** — `extended-text [ prompt "…" rubric [[points 2 descriptor "…"] [points 0 descriptor "…"]] {} ]`. Nothing scores it; the rubric ships with it and a person marks it. Put it in an additive item so the rest still scores.
 - **Two parts, both required** — `scoring "conjunctive"` on the item. Every part must be right for the point.
@@ -71,7 +73,7 @@ Say this to get that:
 ## Out of Scope
 
 - **Other interaction types** — ordering, matching, classification, inline dropdowns, hotspot and sliders are not implemented yet. A request for one should not be answered with a choice item that approximates it.
-- **Numeric and symbolic answers** — a typed answer is compared as text, so `0.5` does not match `1/2` and nothing judges algebraic equivalence. Ask for the form you want.
+- **Expressions, units and symbolic answers** — a numeric blank understands whole numbers, decimals and simple fractions. `1/2 + 1/3`, `5 cm` and `x/2` are not evaluated, and nothing judges algebraic equivalence. Ask for the form you want.
 - **Tests and sections** — L0180 authors single items, not test packages, navigation or sequencing.
 - **Auto-scoring prose** — `extended-text` collects a written response and ships its rubric, but nothing here judges the writing. The score comes back pending, for a person to settle.
 - **Delivery policy** — timing, attempt limits, feedback timing, and gradebooks belong to the host, not the item.

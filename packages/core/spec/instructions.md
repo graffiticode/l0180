@@ -40,6 +40,8 @@ to configure: `options [...] {}`. Every other word here takes exactly one argume
 | `responses` | `<list record: record>` | The answers a blank recognizes, each with what it is worth |
 | `response` | `<string: record>` | One answer a blank recognizes |
 | `case-sensitive` | `<boolean: record>` | Whether capitals must match. Defaults to false |
+| `base-type` | `<string: record>` | What a blank's answers are: `string` (default), `float` or `integer` |
+| `tolerance` | `<number: record>` | How far a numeric answer may be and still count |
 | `extended-text` | `<list: record>` | A written response, marked by a person against a rubric |
 | `rubric` | `<list record: record>` | The bands a written response is marked against |
 | `descriptor` | `<string: record>` | What a response must do to earn that band |
@@ -72,7 +74,7 @@ to configure: `options [...] {}`. Every other word here takes exactly one argume
 | `hottext` | prompt, text, within, granularity, min-choices, max-choices, response-processing, upper-bound, selections |
 | `selection` | quote, assess |
 | `text-entry` | prompt, text, case-sensitive, blanks |
-| `blank` | id, responses, case-sensitive |
+| `blank` | id, responses, case-sensitive, base-type, tolerance |
 | `response` | response, assess |
 | `extended-text` | prompt, rubric, exemplar |
 | `band` | points, descriptor |
@@ -294,6 +296,51 @@ text-entry [
 
 Surrounding and repeated spaces never cost a mark. Punctuation does count — `cant` is not
 `can't`.
+
+### Numbers
+
+A blank whose answer is a number should say so. `base-type "float"` compares the answer **as a
+number**, so every way of writing it counts:
+
+```
+text-entry [
+  prompt "Complete the sentence."
+  text "Half of one is {{half}}."
+  blanks [
+    [ id "half" base-type "float"
+      responses [ [ response "0.5" assess [ correct ] ] ] {} ]
+  ] {}
+]..
+```
+
+`0.5`, `0.50`, `.5`, `+0.5` and `1/2` all earn the point. Without `base-type` they are five
+different strings and four of them are marked wrong — which is why a numeric answer should never
+be left as text.
+
+Whole numbers, decimals, a leading sign and simple fractions are understood, and `1,000` may be
+written with its comma. Expressions (`1/2 + 1/3`), units (`5 cm`) and symbols (`x/2`) are not;
+ask for the form you want.
+
+`base-type "integer"` is the same but refuses an authored answer that is not whole — useful when
+"how many" is the question.
+
+`tolerance` accepts an answer near the expected one, which is what a rounded or measured answer
+needs:
+
+```
+text-entry [
+  text "Pi to two decimal places is {{pi}}."
+  blanks [
+    [ id "pi" base-type "float" tolerance 0.005
+      responses [ [ response "3.14" assess [ correct ] ] ] {} ]
+  ] {}
+]..
+```
+
+Arithmetic is decimal, not binary, so a tolerance means exactly what it says at its edge.
+
+`case-sensitive` has no meaning on a numeric blank and `tolerance` none on a text one; either
+combination is a compile error rather than a setting that quietly does nothing.
 
 Every mismatch is a compile error: a marker no blank declares, a blank with no marker, a marker
 used twice, text with no marker at all, a blank with nothing marked `correct`, or two responses
