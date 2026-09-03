@@ -82,7 +82,7 @@
     {
       "prompt": "Ask what half of one is, accepting 0.5, 0.50 or 1/2 as the same answer.",
       "produces": "text-entry",
-      "notes": "base-type \"float\" on the blank compares the typed answer as a number rather than as text, so every way of writing it counts. Arithmetic is decimal, and tolerance accepts a rounded answer. input-formats narrows which written forms are accepted - decimal, fraction or scientific - for a question where the form is what is being asked; the default accepts all of them. Expressions, units and symbols are not understood."
+      "notes": "base-type \"float\" on the blank compares the typed answer as a number rather than as text, so every way of writing it counts. Arithmetic is decimal, and tolerance accepts a rounded answer. input-formats narrows which written forms are accepted - decimal, fraction or scientific - for a question where the form is what is being asked; the default accepts all of them. A repeating answer such as 1/3 is refused unless the blank asks for a fraction or carries a tolerance, since no decimal can equal it. Expressions, units and symbols are not understood."
     }
   ]
 }

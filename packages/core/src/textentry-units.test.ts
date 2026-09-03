@@ -321,6 +321,41 @@ describe("numeric blanks", () => {
     expect(err(() => cut("{{a}}", num("a", [ok("0.5")], { inputFormats: ["fraction"] }), false, "t"))).toBe("");
   });
 
+  test("a repeating answer with no way to reach it is refused", () => {
+    // The trap this closes: it compiles, it grades, and every decimal a student types is
+    // wrong with nothing said. A right answer marked wrong in silence is the failure the
+    // whole numeric feature exists to remove, so it must not survive at the default.
+    const msg = err(() => cut("{{a}}", num("a", [ok("1/3")]), false, "t"));
+    expect(msg).toContain("has no exact decimal form");
+    expect(msg).toContain('input-formats [ "fraction" ]');
+    expect(msg).toContain("`tolerance`");
+  });
+
+  test("asking for a fraction is one way out, a tolerance the other", () => {
+    expect(err(() => cut("{{a}}", num("a", [ok("1/3")], { inputFormats: ["fraction"] }), false, "t"))).toBe("");
+    expect(err(() => cut("{{a}}", num("a", [ok("1/3")], { tolerance: 0.001 }), false, "t"))).toBe("");
+  });
+
+  test("accepting decimals alongside fractions is not a way out", () => {
+    // The decimal half would still be unreachable, so half the accepted forms grade silently.
+    for (const formats of [["decimal"], ["fraction", "decimal"], ["scientific"]]) {
+      expect(err(() => cut("{{a}}", num("a", [ok("1/3")], { inputFormats: formats }), false, "t")), String(formats))
+        .toContain("has no exact decimal form");
+    }
+  });
+
+  test("a fraction that does terminate needs neither", () => {
+    for (const value of ["1/2", "3/4", "1/8", "7/20", "4/2"]) {
+      expect(err(() => cut("{{a}}", num("a", [ok(value)]), false, "t")), value).toBe("");
+    }
+  });
+
+  test("a repeating string is just a string, and nothing is claimed about it", () => {
+    // Without `base-type` the answer is the literal text "1/3", compared as text. No decimal
+    // is involved and there is nothing to refuse.
+    expect(err(() => cut("{{a}}", [{ id: "a", responses: [ok("1/3")] }], false, "t"))).toBe("");
+  });
+
   test("collision follows the tolerance, since that is what decides a match", () => {
     // 0.5 and 0.55 are 0.05 apart. At a tolerance of 0.1 each reaches the other, so one typed
     // value could match both; at 0.01 they are safely distinct.

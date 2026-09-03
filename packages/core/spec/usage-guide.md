@@ -50,6 +50,7 @@ Say this to get that:
 - **A numeric answer** — `base-type "float"` on the blank. The answer is compared as a number, so `0.5`, `0.50`, `.5` and `1/2` all count. Use `base-type "integer"` when only a whole number makes sense.
 - **A rounded or measured answer** — add `tolerance 0.005`. Absolute and symmetric, evaluated in decimal.
 - **"Express your answer as a fraction"** — `input-formats [ "fraction" ]` on the blank. The value is still compared in base 10; only the written form is constrained. `decimal`, `fraction` and `scientific` may be combined; the default accepts all three.
+- **A repeating answer such as 1/3** — no decimal equals it, so the blank must either ask for a fraction with `input-formats [ "fraction" ]` or carry a `tolerance`. Anything else is a compile error rather than a blank that marks every decimal wrong in silence.
 - **Several blanks** — one marker and one blank each. A blank is worth its best correct answer and the item is their sum, so several blanks give partial credit; wrap it in a conjunctive item for all-or-nothing.
 - **A written answer** — `extended-text [ prompt "…" rubric [[points 2 descriptor "…"] [points 0 descriptor "…"]] {} ]`. Nothing scores it; the rubric ships with it and a person marks it. Put it in an additive item so the rest still scores.
 - **Two parts, both required** — `scoring "conjunctive"` on the item. Every part must be right for the point.

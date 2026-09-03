@@ -367,6 +367,29 @@ beside a particular form is a compile error, since it says two different things.
 `input-formats` constrains what a candidate may type, not what you may author: the answer above
 is written `0.5` and still asks for a fraction.
 
+### A repeating answer
+
+`1/3` is not any decimal — it repeats — so no decimal a student would type can equal it. `0.333`
+and `0.3333` are both wrong, and left alone the blank would say nothing about why. So an answer
+that repeats is a compile error unless you say which way out you want:
+
+```
+text-entry [
+  prompt "Give your answer as a fraction."
+  text "One divided by three is {{third}}."
+  blanks [
+    [ id "third" base-type "float" input-formats [ "fraction" ]
+      responses [ [ response "1/3" assess [ correct ] ] ] {} ]
+  ] {}
+]..
+```
+
+Either ask for a fraction, as above — a student typing `0.33` is then told a fraction is wanted
+rather than simply marked wrong — or add a `tolerance` saying how close a decimal has to be.
+Accepting decimals *and* fractions is not a way out, since the decimal half stays unreachable.
+
+Only a fraction can repeat. `1/2`, `3/4` and `7/20` are exact decimals and need nothing.
+
 `case-sensitive` and `input-formats` have no meaning on the blank the other belongs to —
 numbers have no case, and text has no form — and `tolerance` none on a text one; any such
 combination is a compile error rather than a setting that quietly does nothing.

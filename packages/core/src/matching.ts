@@ -100,6 +100,49 @@ export function parseNumber(s: unknown): ParsedNumber | null {
   return plain ? { value: plain, format: "decimal" } : null;
 }
 
+/** Euclid, over decimal.js integers. */
+function gcd(a: Decimal, b: Decimal): Decimal {
+  let [x, y] = [a, b];
+  while (!y.isZero()) [x, y] = [y, x.mod(y)];
+  return x;
+}
+
+/**
+ * Does this number have an exact decimal expansion?
+ *
+ * Only a fraction can fail to have one — a decimal or a scientific literal IS its expansion.
+ * A reduced fraction terminates exactly when its denominator's only prime factors are 2 and 5,
+ * the factors of ten, which is why 1/8 is 0.125 and 1/3 is no decimal at all.
+ *
+ * It matters because a repeating value is unreachable by typing. 1/3 divides to twenty threes
+ * here, and 0.333, 0.3333 and any decimal a candidate would actually write all compare unequal.
+ * The compiler uses this to refuse a key nobody can answer rather than let it grade silently.
+ *
+ * Answers `true` for anything it cannot analyze, including what does not parse: this decides
+ * whether to REFUSE a program, and a check that is unsure must not be the one to do it.
+ */
+export function terminates(s: unknown): boolean {
+  const t = String(s ?? "").trim();
+  const slash = t.indexOf("/");
+  if (slash < 0) return true;
+  const numerator = decimalOnly(t.slice(0, slash));
+  const denominator = decimalOnly(t.slice(slash + 1));
+  if (!numerator || !denominator || denominator.isZero()) return true;
+
+  // Scale both sides to whole numbers so the reduction is exact arithmetic rather than division.
+  const scale = new Decimal(10).pow(Math.max(numerator.decimalPlaces(), denominator.decimalPlaces()));
+  const n = numerator.times(scale).abs();
+  let d = denominator.times(scale).abs();
+  // Past decimal.js's precision the reduction would itself round, and a rounded answer here
+  // would refuse a valid program. Sixteen digits of denominator is not a real assessment.
+  if (n.precision() > 15 || d.precision() > 15) return true;
+
+  d = d.div(gcd(n, d));
+  while (d.mod(2).isZero()) d = d.div(2);
+  while (d.mod(5).isZero()) d = d.div(5);
+  return d.eq(1);
+}
+
 /**
  * Which forms an `input-formats` list permits.
  *

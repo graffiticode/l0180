@@ -18,7 +18,8 @@
     "Written responses via extended-text - collected, held with their rubric, and marked by a person; never auto-scored",
     "Fill in the blank via text-entry - one or more blanks in a sentence, each recognizing a list of answers with per-answer score, partial credit, penalties and rationale, and optional case sensitivity per blank",
     "Numeric blanks via base-type \"float\" or \"integer\" - the typed answer is compared as a number, so 0.50, .5, 1/2 and 5e-1 all equal 0.5, with an optional tolerance for rounded answers",
-    "Requiring a written form with input-formats - decimal, fraction or scientific, for a question that asks the student to express an answer a particular way; the default numeric accepts all of them"
+    "Requiring a written form with input-formats - decimal, fraction or scientific, for a question that asks the student to express an answer a particular way; the default numeric accepts all of them",
+    "Refusing a repeating answer such as 1/3 that no decimal can reach, unless the blank asks for a fraction or carries a tolerance"
   ],
   "out_of_scope": [
     "Interaction types other than choice, hottext, text-entry and extended-text - ordering, matching, classification, hotspot, sliders and inline dropdowns are not implemented yet",

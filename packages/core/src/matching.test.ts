@@ -8,7 +8,7 @@
  * a silent first-match at score time — is now impossible rather than watched.
  */
 import { test, describe, expect } from "vitest";
-import { normalize, parseNumber, permittedFormats, sameNumber } from "./matching.js";
+import { normalize, parseNumber, permittedFormats, sameNumber, terminates } from "./matching.js";
 
 const n = (s: string) => parseNumber(s)?.value.toString();
 const f = (s: string) => parseNumber(s)?.format;
@@ -102,6 +102,36 @@ describe("permittedFormats", () => {
   test("a subset is honoured in a stable order", () => {
     expect(permittedFormats(["fraction"])).toEqual(["fraction"]);
     expect(permittedFormats(["scientific", "decimal"])).toEqual(["decimal", "scientific"]);
+  });
+});
+
+describe("terminates", () => {
+  test("a literal decimal IS its own expansion, so it always does", () => {
+    for (const s of ["0.5", "8", "-3", "1,000", "5e-1", "6.02e23"]) expect(terminates(s), s).toBe(true);
+  });
+
+  test("a fraction terminates when its denominator is made of 2s and 5s", () => {
+    for (const s of ["1/2", "1/4", "1/8", "3/8", "1/5", "1/10", "7/20", "4/2", "0/3"]) {
+      expect(terminates(s), s).toBe(true);
+    }
+  });
+
+  test("and does not otherwise — which is the case nobody can type", () => {
+    for (const s of ["1/3", "2/3", "1/6", "1/7", "5/12", "100/300"]) {
+      expect(terminates(s), s).toBe(false);
+    }
+  });
+
+  test("reduction happens first: 100/300 repeats, 4/2 does not", () => {
+    // 300 has a 3 in it and 100/300 is a third; 2 divides 4 exactly. Testing the written
+    // denominator rather than the reduced one would get both of these backwards.
+    expect(terminates("100/300")).toBe(false);
+    expect(terminates("4/2")).toBe(true);
+  });
+
+  test("what it cannot analyze is not refused", () => {
+    // It decides whether to reject a program. A check that is unsure must not be the one to.
+    for (const s of ["abc", "1/0", "", "5 cm"]) expect(terminates(s), s).toBe(true);
   });
 });
 

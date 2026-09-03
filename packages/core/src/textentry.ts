@@ -16,7 +16,7 @@
  * How an answer is compared lives in `matching.ts`, shared with the scorer so a collision this
  * module refuses cannot become a match at score time.
  */
-import { NUMBER_FORMATS, normalize, parseNumber, permittedFormats } from "./matching.js";
+import { NUMBER_FORMATS, normalize, parseNumber, permittedFormats, terminates } from "./matching.js";
 
 /** One run of the sentence: literal text, or a blank the candidate types into. */
 export interface Segment {
@@ -183,6 +183,20 @@ export function cut(
           throw new Error(
             `${rat}: "${value}" is not a whole number, but the blank says \`base-type "integer"\`. ` +
               'Use `base-type "float"`, or give a whole number.',
+          );
+        }
+        // A repeating value is unreachable by typing: 1/3 is twenty threes here, and 0.333,
+        // 0.3333 and every decimal a candidate would actually write compare unequal. Left
+        // alone this grades silently — right answer, no mark, no explanation — which is the
+        // exact failure numeric blanks exist to remove. So it is refused unless the author
+        // has said which way out they want: ask for a fraction, or say how close is close
+        // enough. Only a fraction can reach such a value at all.
+        if (!terminates(value) && b.tolerance === undefined && allowed.some((f) => f !== "fraction")) {
+          throw new Error(
+            `${rat}: "${value}" has no exact decimal form, so no decimal a candidate types can ` +
+              "ever match it — 0.333 and 0.3333 would both be wrong, with nothing said about " +
+              'why. Either ask for a fraction with `input-formats [ "fraction" ]`, which says ' +
+              "so when one is not given, or add a `tolerance` saying how close a decimal must be.",
           );
         }
         // Two answers collide when one typed value could match both — for numbers, when their

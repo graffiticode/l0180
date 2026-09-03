@@ -212,6 +212,25 @@ Three rules keep it from becoming a second answer key:
   is reporting the wrong thing. The scorer returns the accepted forms and the renderer names
   them in English — the phrasing is presentation, so it stays out of the DOM-free module.
 
+### A repeating answer is refused, because nobody can type it
+
+`1/3` divides to twenty threes at decimal.js's precision, and `0.333`, `0.3333` and every decimal
+a student would actually write compare unequal — including, for `2/3`, the twenty-digit
+truncation, since it rounds up. So a key that repeats grades silently: right answer, no mark, no
+explanation. That is precisely the failure numeric blanks were built to remove, so `cut` refuses
+it unless the blank asks for a fraction or carries a `tolerance`.
+
+`matching.ts` decides this with `terminates()` — reduce the fraction and check that its
+denominator is built only from 2s and 5s, the factors of ten. Two rules it follows:
+
+- **Reduce first.** `100/300` repeats and `4/2` does not; testing the written denominator gets
+  both backwards.
+- **Anything it cannot analyze answers `true`.** It decides whether to REFUSE a program, and a
+  check that is unsure must not be the one doing that.
+
+Accepting decimals *alongside* fractions is not a way out and is refused too — the decimal half
+stays unreachable, so half the accepted forms would still grade in silence.
+
 ### Two response-processing templates, named for QTI's
 
 `validation.responseProcessing` decides how a response scores, and it decides the SHAPE of the

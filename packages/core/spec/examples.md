@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: CC-BY-4.0 -->
 # L0180 RAG Training Examples
 
-111 example prompts for training a RAG model on L0180, the web-based assessment language —
+113 example prompts for training a RAG model on L0180, the web-based assessment language —
 covering multiple choice, true/false, multi-select, exact-set scoring, weighted scoring,
 penalized distractors, presentation options, unscored polls, per-option rationale, clicking
 sentences and words inside a passage, fill-in-the-blank including numeric answers and the form they must be written in, written
@@ -155,7 +155,7 @@ L0180 grows further interaction types, this file grows categories with them.
 101. Complete the sentence about a science experiment, accepting either the British or the American spelling of the answer.
 102. A cloze question about mitosis with three blanks, where all three must be right for the point.
 
-## Category 15: Numeric Answers (103-111)
+## Category 15: Numeric Answers (103-113)
 
 103. Ask what half of one is, accepting 0.5, 0.50 or 1/2 as the same answer.
 104. A maths question where the student types the value of pi to two decimal places, accepting anything within 0.005.
@@ -166,3 +166,5 @@ L0180 grows further interaction types, this file grows categories with them.
 109. Ask the student to express three eighths as a fraction in lowest terms, accepting only a fraction.
 110. A chemistry question asking for Avogadro's number, where the answer must be written in scientific notation.
 111. Convert one half to a decimal — a fraction is not an acceptable answer here.
+112. Ask what one divided by three is, where only a fraction is accepted as the answer.
+113. A division question whose answer is two thirds, accepting a decimal rounded to two places.

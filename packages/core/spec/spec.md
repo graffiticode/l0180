@@ -278,6 +278,10 @@ what is being asked. The forms are `decimal`, `fraction` and `scientific`; the d
 `numeric`, meaning any of them. A right value in a form the blank does not accept scores zero
 and is reported as a form problem rather than as a wrong answer.
 
+An answer that repeats — `1/3`, `2/3`, `5/12` — is a compile error unless the blank either asks
+for a fraction or carries a `tolerance`. No decimal equals a repeating value, so accepting one
+would mark every decimal a student types wrong without saying why.
+
 ```
 text-entry [
   text "Pi to two decimal places is {{pi}}, and half of one is {{half}}."
