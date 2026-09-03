@@ -38,9 +38,9 @@ const WRITTEN = `
 extended-text [
   prompt "What inference can be made about Mara? Use details from the passage."
   rubric [
-    [ score 0 descriptor "No valid inference, or no support from the text." ]
-    [ score 2 descriptor "Makes a valid inference and cites two supporting details." ]
-    [ score 1 descriptor "Makes a valid inference with one detail, or a partial inference." ]
+    [ points 0 descriptor "No valid inference, or no support from the text." ]
+    [ points 2 descriptor "Makes a valid inference and cites two supporting details." ]
+    [ points 1 descriptor "Makes a valid inference with one detail, or a partial inference." ]
   ] {}
   exemplar "Mara is absorbed by the tide pool — she ignores the picnic and does not turn around."
 ]`;
@@ -73,7 +73,7 @@ describe("validation", () => {
     // The rubric is read top down, and an author listing 0 first should not produce a rubric
     // that reads backwards.
     const { validation } = await compile(WRITTEN);
-    expect(validation.rubric.map((b: any) => b.score)).toEqual([2, 1, 0]);
+    expect(validation.rubric.map((b: any) => b.points)).toEqual([2, 1, 0]);
   });
 
   test("it is not an unscored item — those have nothing to earn", async () => {
@@ -124,32 +124,32 @@ describe("errors name the fix, not just the fault", () => {
   });
 
   test("one band is not a rubric", async () => {
-    const msg = await errorOf(`extended-text [ prompt "Explain." rubric [ [ score 2 descriptor "Good." ] ] {} ]`);
+    const msg = await errorOf(`extended-text [ prompt "Explain." rubric [ [ points 2 descriptor "Good." ] ] {} ]`);
     expect(msg).toContain("at least two bands");
   });
 
   test("a band without a descriptor tells the marker nothing", async () => {
     const msg = await errorOf(`
-      extended-text [ prompt "Explain." rubric [ [ score 2 ] [ score 0 descriptor "No." ] ] {} ]`);
+      extended-text [ prompt "Explain." rubric [ [ points 2 ] [ points 0 descriptor "No." ] ] {} ]`);
     expect(msg).toContain("needs a `descriptor`");
     expect(msg).toContain("tells the person marking it nothing");
   });
 
-  test("two bands cannot share a score", async () => {
+  test("two bands cannot share a points value", async () => {
     const msg = await errorOf(`
-      extended-text [ rubric [ [ score 1 descriptor "A." ] [ score 1 descriptor "B." ] ] {} ]`);
-    expect(msg).toContain("already band 1");
+      extended-text [ rubric [ [ points 1 descriptor "A." ] [ points 1 descriptor "B." ] ] {} ]`);
+    expect(msg).toContain("is already band 1");
   });
 
   test("a rubric where nothing earns anything is refused", async () => {
     const msg = await errorOf(`
-      extended-text [ rubric [ [ score 0 descriptor "A." ] [ score -1 descriptor "B." ] ] {} ]`);
+      extended-text [ rubric [ [ points 0 descriptor "A." ] [ points -1 descriptor "B." ] ] {} ]`);
     expect(msg).toContain("no band earns anything");
   });
 
   test("a choice attribute on extended-text lists the legal set", async () => {
     const msg = await errorOf(`
-      extended-text [ shuffle true rubric [ [ score 1 descriptor "A." ] [ score 0 descriptor "B." ] ] {} ]`);
+      extended-text [ shuffle true rubric [ [ points 1 descriptor "A." ] [ points 0 descriptor "B." ] ] {} ]`);
     expect(msg).toContain("is not an attribute of extended-text");
     expect(msg).toContain("It takes: prompt, rubric, exemplar");
   });

@@ -278,9 +278,9 @@ describe("short-text — hand-scored against the rubric, never auto-scored", () 
     extended-text [
       prompt "What inference can be made about Mara? Explain using key details from the passage."
       rubric [
-        [ score 2 descriptor "Makes a valid inference and cites two supporting details." ]
-        [ score 1 descriptor "Makes a valid inference with one detail, or a partial inference." ]
-        [ score 0 descriptor "No valid inference, or no support from the text." ]
+        [ points 2 descriptor "Makes a valid inference and cites two supporting details." ]
+        [ points 1 descriptor "Makes a valid inference with one detail, or a partial inference." ]
+        [ points 0 descriptor "No valid inference, or no support from the text." ]
       ] {}
       exemplar "Mara is absorbed by the tide pool — she ignores the picnic and does not turn around."
     ]
@@ -295,7 +295,7 @@ describe("short-text — hand-scored against the rubric, never auto-scored", () 
   test("the 0-2 rubric reaches delivery, highest band first", async () => {
     const { validation } = await compile(SRC);
     expect(validation.responseProcessing).toBe("human");
-    expect(validation.rubric.map((b: any) => b.score)).toEqual([2, 1, 0]);
+    expect(validation.rubric.map((b: any) => b.points)).toEqual([2, 1, 0]);
     expect(validation.points).toBe(2);
   });
 

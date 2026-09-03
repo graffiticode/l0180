@@ -48,12 +48,12 @@ Two words depart from that, both deliberately:
 | `choice` | `<list: record>` | A choice interaction |
 | `hottext` | `<list: record>` | A hottext interaction: clickable sentences or words |
 | `text-entry` | `<list: record>` | A sentence with blanks to type into |
-| `responses` | `<list record: record>` | The responses a text-entry collects |
-| `accept` | `<list: record>` | Every answer that counts as right |
+| `blanks` | `<list record: record>` | The blanks in a text-entry's sentence |
+| `responses` | `<list record: record>` | The answers a blank recognizes |
+| `response` | `<string: record>` | One answer a blank recognizes |
 | `case-sensitive` | `<boolean: record>` | Whether capitals must match |
 | `extended-text` | `<list: record>` | A written response, marked by a person |
 | `rubric` | `<list record: record>` | The bands a written response is marked against |
-| `score` | `<number: record>` | What a band earns |
 | `descriptor` | `<string: record>` | What earns that band |
 | `exemplar` | `<string: record>` | A response that would earn full marks |
 | `selections` | `<list record: record>` | The places a hottext can select |
@@ -243,23 +243,29 @@ hottext [
 
 ### text-entry
 
-A sentence with blanks. `{{id}}` positions a blank and names it; the matching entry in
-`responses` says what that blank accepts. The answer binds to the name, so moving a clause
-cannot rebind it.
+A sentence with blanks. `{{id}}` positions a blank and names it; the matching entry in `blanks`
+says what that blank recognizes. The answer binds to the name, so moving a clause cannot
+rebind it.
+
+Each recognized answer carries its own `assess`, the same as a choice option — so a blank can
+give partial credit, penalize, and explain a wrong answer back.
 
 ```
 text-entry [
   prompt "Complete the sentence."
-  text "The capital of France is {{capital}}, and the capital of Italy is {{italy}}."
-  responses [
-    [ id "capital" accept [ "Paris" ] ]
-    [ id "italy" accept [ "Rome" "Roma" ] ]
+  text "The capital of France is {{capital}}."
+  blanks [
+    [ id "capital"
+      responses [
+        [ response "Paris" assess [ correct ] ]
+        [ response "Lyon" assess [ rationale "The largest city after Paris, not the capital." ] ]
+      ] {} ]
   ] {}
 ]..
 ```
 
-Each blank is worth one point. Capitals are ignored unless `case-sensitive true` is set, on the
-interaction or on one response.
+A blank is worth its best correct answer; the interaction is worth the sum of its blanks.
+Capitals are ignored unless `case-sensitive true` is set, on the interaction or on one blank.
 
 ### extended-text
 
@@ -271,9 +277,9 @@ than as zero. Needs at least two rubric bands; the item is worth the top one.
 extended-text [
   prompt "What inference can be made about Mara? Explain using key details from the passage."
   rubric [
-    [ score 2 descriptor "Makes a valid inference and cites two supporting details." ]
-    [ score 1 descriptor "Makes a valid inference with one detail." ]
-    [ score 0 descriptor "No valid inference, or no support from the text." ]
+    [ points 2 descriptor "Makes a valid inference and cites two supporting details." ]
+    [ points 1 descriptor "Makes a valid inference with one detail." ]
+    [ points 0 descriptor "No valid inference, or no support from the text." ]
   ] {}
   exemplar "Mara is absorbed by the tide pool — she ignores the picnic and does not turn around."
 ]..

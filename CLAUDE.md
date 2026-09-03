@@ -134,6 +134,28 @@ group — answering Part B silently unchecked Part A. Unit tests cannot see this
 rendering a real two-part item to catch. Any future interaction using radios needs the same
 treatment.
 
+### One way to say what something is worth
+
+**Every scoring statement in the language is an `assess` on the thing being scored.** An option
+has one, a hottext selection has one, and each answer a text-entry blank recognizes has one.
+`assess` says `correct`, `points`, `rationale`, or a combination, and it means the same thing
+everywhere.
+
+`text-entry` shipped without this and it showed: `accept` was a bare list of strings with
+`{correct: true, points: 1}` hard-coded, so a language that could explain a wrong multiple-choice
+option could not explain a wrong typed one, or give a near-miss partial credit. Adding an
+interaction whose key does not fit this shape is the mistake to avoid — it is the fourth
+breaking change to compiled output and every one of them was this.
+
+Rubric bands are the one scoring statement with no `assess`, because a band **is** an assessment
+rather than a thing being assessed. They still say `points`, not `score` — one word per concept.
+
+### A blank is worth its BEST answer, not their sum
+
+`choice` sums, because several options can be selected. A blank is single-cardinality: only one
+answer can be typed into it, so summing would let it claim points nobody can earn. The
+interaction is worth the sum of its blanks. The difference is cardinality, not inconsistency.
+
 ### `baseType` decides what a key is made of
 
 `validation` is QTI's response declaration, so it carries `cardinality` and `baseType` — not the
@@ -313,13 +335,33 @@ matched by order of appearance, so reordering a clause silently rebinds every an
 and L0176 has no check that the two counts even agree. **The delimiters are theirs; the binding
 is not**, and that is the whole difference.
 
-Named binding is also what makes the cross-checks expressible: a marker no response declares, a
-response with no marker, a marker used twice. `textentry.ts` owns them, and a positional model
-could not report any of them.
+Named binding is also what makes the cross-checks expressible: a marker no blank declares, a
+blank with no marker, a marker used twice. `textentry.ts` owns them, and a positional model could
+not report any of them. It also refuses **two responses that normalize alike** — both would claim
+the same typed input, and the scorer would silently take whichever came first.
+
+`blanks` holds the holes; `responses` inside a blank holds the answers it recognizes, each with
+its own `assess`. **Relative to QTI those two words trade places** — QTI makes the blank the
+response variable and the answers `qti-map-entry`s — and that is deliberate. L0180 has never used
+QTI's element names, and the fidelity lives in the compiled shape, which still carries `mapping`,
+`cardinality` and `baseType` under QTI's own names.
+
+The value word is `response`, not `text`, because `text-entry` already has a `text` attribute —
+the sentence — and one word meaning two things a level apart is what the 1:1 word-to-field rule
+exists to prevent.
+
+A rationale sits **on the response**, not in the top-level `feedback` map that `choice` uses. A
+typed answer's identifier is its own text, which can repeat across blanks — `"Paris"` may be
+wrong in one and right in another — so a flat map cannot key it. Asymmetry with a reason.
 
 Comparison is deliberately gentler than hottext's quote matching, which strips all punctuation
 so a quote can find its sentence. Here the typed string IS the answer, so only whitespace is
 normalized — `cant` must not pass for `can't`.
+
+That rule is written **twice** — `normalize` in `core/src/textentry.ts` and `normalizeResponse`
+in `view/src/scoring/score.ts` — because the scorer cannot import from core. They must agree, or
+a collision the compiler refuses becomes a silent first-match-wins at score time.
+`textentry-units.test.ts` imports both and asserts they do.
 
 ### A hottext resolves in two phases, and that is not optional
 

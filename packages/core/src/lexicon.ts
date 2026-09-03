@@ -78,11 +78,17 @@ const containers = {
     "<list: record>",
     "A text-entry interaction: a sentence with blanks the candidate types into.",
   ),
+  blanks: fn(
+    "BLANKS",
+    2,
+    "<list record: record>",
+    "The blanks in a text-entry's sentence, each named by the marker that positions it.",
+  ),
   responses: fn(
     "RESPONSES",
     2,
     "<list record: record>",
-    "The responses a text-entry interaction collects, each named by the marker that positions it.",
+    "The answers a blank recognizes, each with what it is worth.",
   ),
   "extended-text": fn(
     "EXTENDED_TEXT",

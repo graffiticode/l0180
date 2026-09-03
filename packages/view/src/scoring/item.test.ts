@@ -118,8 +118,8 @@ describe("a written part is pending, never zero earned", () => {
         responseProcessing: "human",
         points: 2,
         rubric: [
-          { score: 2, descriptor: "Full." },
-          { score: 0, descriptor: "None." },
+          { points: 2, descriptor: "Full." },
+          { points: 0, descriptor: "None." },
         ],
       },
     },

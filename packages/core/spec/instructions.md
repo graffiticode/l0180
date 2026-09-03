@@ -36,12 +36,12 @@ to configure: `options [...] {}`. Every other word here takes exactly one argume
 | `choice` | `<list: record>` | A choice interaction: a stem and options to select from |
 | `hottext` | `<list: record>` | A hottext interaction: a passage with clickable sentences or words |
 | `text-entry` | `<list: record>` | A sentence with blanks the candidate types into |
-| `responses` | `<list record: record>` | The responses a text-entry collects, each named by its marker |
-| `accept` | `<list: record>` | Every answer that counts as right, including alternate spellings |
+| `blanks` | `<list record: record>` | The blanks in a text-entry's sentence, each named by its marker |
+| `responses` | `<list record: record>` | The answers a blank recognizes, each with what it is worth |
+| `response` | `<string: record>` | One answer a blank recognizes |
 | `case-sensitive` | `<boolean: record>` | Whether capitals must match. Defaults to false |
 | `extended-text` | `<list: record>` | A written response, marked by a person against a rubric |
 | `rubric` | `<list record: record>` | The bands a written response is marked against |
-| `score` | `<number: record>` | What a band of the rubric earns |
 | `descriptor` | `<string: record>` | What a response must do to earn that band |
 | `exemplar` | `<string: record>` | A response that would earn full marks |
 | `selections` | `<list record: record>` | The places a hottext can select, each named by a quote |
@@ -71,10 +71,11 @@ to configure: `options [...] {}`. Every other word here takes exactly one argume
 | `choice` | prompt, shuffle, min-choices, max-choices, response-processing, upper-bound, options |
 | `hottext` | prompt, text, within, granularity, min-choices, max-choices, response-processing, upper-bound, selections |
 | `selection` | quote, assess |
-| `text-entry` | prompt, text, case-sensitive, responses |
-| `response` | id, accept, case-sensitive |
+| `text-entry` | prompt, text, case-sensitive, blanks |
+| `blank` | id, responses, case-sensitive |
+| `response` | response, assess |
 | `extended-text` | prompt, rubric, exemplar |
-| `band` | score, descriptor |
+| `band` | points, descriptor |
 | an option | id, text, assess |
 | `assess` | correct, points, rationale |
 
@@ -233,35 +234,60 @@ one with a `rationale` to explain the mistake back.
 ## Filling in a blank
 
 `text-entry` puts blanks in a sentence. A marker `{{id}}` says where each one goes, and the
-matching entry in `responses` says what it takes:
+matching entry in `blanks` says what that blank recognizes:
 
 ```
 text-entry [
   prompt "Complete the sentence."
   text "The capital of France is {{capital}}."
-  responses [
-    [ id "capital" accept [ "Paris" ] ]
+  blanks [
+    [ id "capital"
+      responses [
+        [ response "Paris" assess [ correct ] ]
+      ] {} ]
   ] {}
 ]..
 ```
 
-**The marker names the response, and the answer binds to that name.** Move the clause, rename
+**The marker names the blank, and the answer binds to that name.** Move the clause, rename
 nothing, and the answer still belongs to its blank. The id is yours to choose — `{{capital}}`
 reads better than `{{1}}`, and both work.
 
-`accept` lists every answer you will take, so alternate spellings are values rather than a
-setting. Each blank is worth one point, which makes several blanks partial credit; wrap the
-interaction in a conjunctive item to make the whole sentence worth one.
+**Each answer carries its own `assess`, exactly as an option does.** That is what lets a blank
+give partial credit for a near-miss, penalize a known wrong answer, and explain one back:
+
+```
+text-entry [
+  text "The capital of France is {{capital}}."
+  blanks [
+    [ id "capital"
+      responses [
+        [ response "Paris" assess [ correct ] ]
+        [ response "Paree" assess [ correct points 1 ] ]
+        [ response "Lyon" assess [ rationale "The largest city after Paris, not the capital." ] ]
+      ] {} ]
+  ] {}
+]..
+```
+
+A blank is worth its **best** correct answer, not their sum — only one thing can be typed into
+it. The interaction is worth the sum of its blanks, which makes several blanks partial credit;
+wrap it in a conjunctive item to make the whole sentence worth one point.
 
 Capitals are ignored by default. `case-sensitive true` on the interaction changes that for all
-of its blanks, and a single response can override it:
+of its blanks, and a single blank can override it:
 
 ```
 text-entry [
   text "The agency {{agency}} launched the probe from {{place}}."
-  responses [
-    [ id "agency" accept [ "NASA" ] case-sensitive true ]
-    [ id "place" accept [ "Cape Canaveral" "Cape Canaveral, Florida" ] ]
+  blanks [
+    [ id "agency" case-sensitive true
+      responses [ [ response "NASA" assess [ correct ] ] ] {} ]
+    [ id "place"
+      responses [
+        [ response "Cape Canaveral" assess [ correct ] ]
+        [ response "Cape Canaveral, Florida" assess [ correct ] ]
+      ] {} ]
   ] {}
 ]..
 ```
@@ -269,8 +295,9 @@ text-entry [
 Surrounding and repeated spaces never cost a mark. Punctuation does count — `cant` is not
 `can't`.
 
-Every mismatch between the text and the responses is a compile error: a marker no response
-declares, a response with no marker, a marker used twice, or text with no marker at all.
+Every mismatch is a compile error: a marker no blank declares, a blank with no marker, a marker
+used twice, text with no marker at all, a blank with nothing marked `correct`, or two responses
+that would recognize the same typed answer.
 
 ## A written response
 
@@ -279,16 +306,16 @@ inference, so the compiled key says `responseProcessing "human"` and carries the
 person marks against. The candidate is told the answer is saved and how many points are
 available — never that they scored zero, which is what an unscored item would mean.
 
-A `rubric` needs at least two bands, each with a `score` and a `descriptor`. The item is worth
+A `rubric` needs at least two bands, each with `points` and a `descriptor`. The item is worth
 its top band. `exemplar` is optional: a response that would earn full marks.
 
 ```
 extended-text [
   prompt "What inference can be made about Mara? Explain using key details from the passage."
   rubric [
-    [ score 2 descriptor "Makes a valid inference and cites two supporting details." ]
-    [ score 1 descriptor "Makes a valid inference with one detail, or a partial inference." ]
-    [ score 0 descriptor "No valid inference, or no support from the text." ]
+    [ points 2 descriptor "Makes a valid inference and cites two supporting details." ]
+    [ points 1 descriptor "Makes a valid inference with one detail, or a partial inference." ]
+    [ points 0 descriptor "No valid inference, or no support from the text." ]
   ] {}
   exemplar "Mara is absorbed by the tide pool — she ignores the picnic and does not turn around."
 ]..

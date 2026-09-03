@@ -79,6 +79,12 @@ export function TextEntryItem({
   const outcomes = gradable && filled > 0 ? scoreTextEntry({ response: committed, validation }) : null;
   const score = gradable && blanks > 0 && filled === blanks ? outcomes : null;
 
+  // Only for an answer the author anticipated and the candidate actually typed — the same rule
+  // `OptionRow` follows for a distractor. An unanticipated answer gets a ✗ and nothing else.
+  const showFeedbackLines = Object.entries(outcomes?.options ?? {})
+    .filter(([, o]) => o.rationale && !o.correct)
+    .map(([id, o]) => ({ id, rationale: o.rationale as string }));
+
   let nth = 0;
   return (
     <div className="flex flex-col gap-3">
@@ -123,6 +129,16 @@ export function TextEntryItem({
           );
         })}
       </p>
+
+      {showFeedbackLines.length > 0 && (
+        <div className="flex flex-col gap-1">
+          {showFeedbackLines.map(({ id, rationale }) => (
+            <p key={id} className="text-xs text-red-800 m-0">
+              {rationale}
+            </p>
+          ))}
+        </div>
+      )}
 
       {score && showResult && (
         <div

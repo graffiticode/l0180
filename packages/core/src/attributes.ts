@@ -130,10 +130,10 @@ export const attributeFields: Record<string, AttributeMeta> = {
     description:
       "Most points the mapped selections can earn. Set it below the number of correct answers to ask for any N of them.",
   },
-  ACCEPT: {
-    field: "accept",
-    expects: "strings",
-    description: "Every answer that counts as right for this response, including alternate spellings.",
+  RESPONSE: {
+    field: "response",
+    expects: "string",
+    description: "One answer a blank recognizes. Its `assess` says what that answer is worth.",
   },
   CASE_SENSITIVE: {
     field: "caseSensitive",
@@ -145,11 +145,6 @@ export const attributeFields: Record<string, AttributeMeta> = {
     field: "exemplar",
     expects: "string",
     description: "A response that would earn full marks, shown to the reader alongside the rubric.",
-  },
-  SCORE: {
-    field: "score",
-    expects: "number",
-    description: "What a response at this band of the rubric earns.",
   },
   DESCRIPTOR: {
     field: "descriptor",
@@ -226,10 +221,13 @@ export const validAttributes: Record<string, string[]> = {
     "response-processing", "upper-bound", "selections",
   ],
   selection: ["quote", "assess"],
-  "text-entry": ["prompt", "text", "case-sensitive", "responses"],
-  response: ["id", "accept", "case-sensitive"],
+  "text-entry": ["prompt", "text", "case-sensitive", "blanks"],
+  blank: ["id", "responses", "case-sensitive"],
+  // The member container and its value word are both `response`, so an error reads
+  // "It takes: response, assess". Repetitive, and accurate.
+  response: ["response", "assess"],
   "extended-text": ["prompt", "rubric", "exemplar"],
-  band: ["score", "descriptor"],
+  band: ["points", "descriptor"],
   option: ["id", "text", "assess"],
   assess: ["correct", "points", "rationale"],
 };
@@ -354,7 +352,7 @@ const fieldToWord: Record<string, string> = Object.entries(attributeFields).redu
   },
   // Container words are not rows in the table, but they must still be nameable when a
   // container rejects one of them.
-  { options: "options", parts: "parts", selections: "selections", rubric: "rubric", responses: "responses" },
+  { options: "options", parts: "parts", selections: "selections", rubric: "rubric", responses: "responses", blanks: "blanks" },
 );
 const fieldWord = (field: string): string => fieldToWord[field] || field;
 

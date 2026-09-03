@@ -16,7 +16,7 @@
     "Click-the-word vocabulary items via granularity \"word\", where the candidate words are authored",
     "Select any N of several correct answers via upper-bound, rather than requiring all of them",
     "Written responses via extended-text - collected, held with their rubric, and marked by a person; never auto-scored",
-    "Fill in the blank via text-entry - one or more blanks in a sentence, with alternate accepted spellings and optional case sensitivity per blank"
+    "Fill in the blank via text-entry - one or more blanks in a sentence, each recognizing a list of answers with per-answer score, partial credit, penalties and rationale, and optional case sensitivity per blank"
   ],
   "out_of_scope": [
     "Interaction types other than choice, hottext, text-entry and extended-text - ordering, matching, classification, hotspot, sliders and inline dropdowns are not implemented yet",

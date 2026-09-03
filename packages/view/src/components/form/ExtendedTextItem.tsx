@@ -95,9 +95,9 @@ export function ExtendedTextItem({
           </h3>
           <ol className="flex flex-col gap-1 list-none p-0 m-0">
             {rubric.map((band) => (
-              <li key={band.score} className="flex gap-3 text-sm text-zinc-800">
+              <li key={band.points} className="flex gap-3 text-sm text-zinc-800">
                 <span className="text-zinc-500 tabular-nums select-none w-8 text-right font-semibold">
-                  {band.score}
+                  {band.points}
                 </span>
                 <span className="flex-1">{band.descriptor}</span>
               </li>

@@ -19,8 +19,14 @@ export interface OptionValidation {
   correct?: boolean;
   /** What selecting it is worth. Negative penalizes. */
   points: number;
-  /** `baseType: "string"` only: every answer that counts as right for this blank. */
-  accept?: string[];
+  /**
+   * `baseType: "string"` only: the answers this blank recognizes, in authored order.
+   *
+   * Each is a mapping value plus the `response` that identifies it — QTI's mapKey. A recognized
+   * wrong answer sits here too, with its points and its rationale, which is how a typed mistake
+   * gets explained back the way a chosen one does.
+   */
+  responses?: { response: string; correct?: boolean; points: number; rationale?: string }[];
   /** `baseType: "string"` only: whether capitals must match. Already resolved by the compiler. */
   caseSensitive?: boolean;
 }
@@ -72,7 +78,7 @@ export interface Validation {
   /** Why an option is right or wrong, keyed as the options are. Shown once it is selected. */
   feedback?: Record<string, string>;
   /** `human` only: the bands a person marks the response against, highest first. */
-  rubric?: { score: number; descriptor: string }[];
+  rubric?: { points: number; descriptor: string }[];
   /** `human` only: a response that would earn full marks. */
   exemplar?: string;
 }
@@ -89,12 +95,19 @@ export function correctIds(validation: Validation | null | undefined): string[] 
   return Object.keys(mapping).filter((id) => mapping[id]?.correct === true);
 }
 
-/** What one option contributed to the result. */
+/** What one option, unit or blank contributed to the result. */
 export interface OptionOutcome {
   selected: boolean;
   /** The option's own points, whether or not it was selected. */
   points: number;
   correct: boolean;
+  /**
+   * `baseType: "string"` only: why the recognized answer they typed is wrong.
+   *
+   * Reported here so the renderer does not repeat the match to find it — the scorer already
+   * knows which response entry was hit.
+   */
+  rationale?: string;
 }
 
 /** How an item's parts combine into its score. */
@@ -202,20 +215,20 @@ export function scoreChoice({
 }
 
 /**
- * Compare a typed answer to an accepted one.
+ * How a typed answer is compared: whitespace normalized, case only when it does not matter.
  *
  * Deliberately gentler than the compiler's quote matching for hottext, which strips all
  * punctuation — that would let "cant" match "can't", which is fine when locating a sentence and
- * wrong when the typed string IS the answer. Only whitespace is normalized, and case only when
- * the author did not ask for it to matter.
+ * wrong when the typed string IS the answer.
+ *
+ * `core/src/textentry.ts` carries the same rule, because this module cannot import from core.
+ * They must agree: the compiler refuses two responses that normalize alike, and if the scorer
+ * normalized differently that refusal would be protecting against the wrong collision.
+ * `textentry-units.test.ts` asserts the two functions agree, which is why this is exported.
  */
-function sameText(a: unknown, b: unknown, caseSensitive: boolean): boolean {
-  const norm = (s: unknown) => {
-    const t = String(s ?? "").trim().replace(/\s+/g, " ");
-    return caseSensitive ? t : t.toLowerCase();
-  };
-  const left = norm(a);
-  return left.length > 0 && left === norm(b);
+export function normalizeResponse(s: unknown, caseSensitive: boolean): string {
+  const t = String(s ?? "").trim().replace(/\s+/g, " ");
+  return caseSensitive ? t : t.toLowerCase();
 }
 
 /**
@@ -241,9 +254,20 @@ export function scoreTextEntry({
     const entry = key[id];
     const typed = given[id];
     const answered = typeof typed === "string" && typed.trim().length > 0;
-    const right = (entry?.accept || []).some((a) => sameText(typed, a, entry?.caseSensitive === true));
-    options[id] = { selected: answered, points: typeof entry?.points === "number" ? entry.points : 0, correct: right };
-    if (right) rawPoints += typeof entry?.points === "number" ? entry.points : 0;
+    const cs = entry?.caseSensitive === true;
+    const want = normalizeResponse(typed, cs);
+    // First match wins. The compiler refuses two responses that normalize alike, so at most one
+    // can match — this order only decides anything if that check was bypassed.
+    const hit = answered
+      ? (entry?.responses || []).find((r) => normalizeResponse(r.response, cs) === want)
+      : undefined;
+    options[id] = {
+      selected: answered,
+      points: hit?.points ?? 0,
+      correct: hit?.correct === true,
+      ...(hit?.rationale ? { rationale: hit.rationale } : {}),
+    };
+    if (hit) rawPoints += hit.points;
   }
 
   if (validation?.responseProcessing === "match_correct") {

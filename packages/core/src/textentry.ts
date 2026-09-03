@@ -23,27 +23,52 @@ export interface Segment {
   blank?: true;
 }
 
-/** One entry of an authored `responses` list, already merged. */
+/** One answer a blank recognizes, already merged. */
 export interface Response {
+  response?: string;
+  assess?: { correct?: boolean; points?: number; rationale?: string };
+}
+
+/** One blank, already merged. */
+export interface Blank {
   id?: string;
-  accept?: string[];
+  responses?: Response[];
   caseSensitive?: boolean;
 }
 
+/** What one recognized answer is worth. The shape of a choice mapping value, plus its text. */
+export interface Recognized {
+  response: string;
+  correct?: true;
+  points: number;
+  rationale?: string;
+}
+
 /**
- * What a blank is worth and what it takes.
+ * What a blank is worth and what it recognizes.
  *
- * Comparing a typed answer against `accept` happens in the scorer, not here — the compiler
- * builds this and never reads it back.
+ * Comparing a typed answer against these happens in the scorer, not here — the compiler builds
+ * this and never reads it back.
  */
 export interface Entry {
-  correct: true;
   points: number;
-  accept: string[];
   caseSensitive: boolean;
+  responses: Recognized[];
 }
 
 const MARKER = /\{\{([^{}]*)\}\}/g;
+
+/**
+ * How a typed answer is compared: whitespace normalized, case only when it does not matter.
+ *
+ * `score.ts` carries the same rule, because the scorer cannot import from core. They must agree
+ * — a compile-time collision check under one rule and a match under another would let two
+ * responses claim the same input at run time. `textentry-units.test.ts` asserts they agree.
+ */
+export function normalize(s: unknown, caseSensitive: boolean): string {
+  const t = String(s ?? "").trim().replace(/\s+/g, " ");
+  return caseSensitive ? t : t.toLowerCase();
+}
 
 export interface Cut {
   segments: Segment[];
@@ -51,7 +76,7 @@ export interface Cut {
 }
 
 /**
- * Cut the text at its markers and bind each blank to its response.
+ * Cut the text at its markers and bind each blank to what it recognizes.
  *
  * Every mismatch is a compile error naming the fix. Named binding is what makes these checks
  * possible at all — a positional model cannot say which answer is orphaned, and L0176 does not
@@ -59,34 +84,93 @@ export interface Cut {
  */
 export function cut(
   text: string,
-  responses: Response[],
+  blanks: Blank[],
   caseSensitive: boolean,
   where: string,
 ): Cut {
-  const declared = new Map<string, Response>();
-  responses.forEach((r, i) => {
-    const at = `${where}: response ${i + 1}`;
-    const id = typeof r.id === "string" ? r.id.trim() : "";
+  const declared = new Map<string, Entry>();
+  blanks.forEach((b, i) => {
+    const at = `${where}: blank ${i + 1}`;
+    const id = typeof b.id === "string" ? b.id.trim() : "";
     if (!id) {
       throw new Error(
         `${at}: needs an \`id\`, which is what the marker in the text refers to — ` +
-          'e.g. [ id "capital" accept [ "Paris" ] ] with {{capital}} in the text.',
+          'e.g. [ id "capital" responses [ [ response "Paris" assess [ correct ] ] ] {} ] ' +
+          "with {{capital}} in the text.",
       );
     }
     if (declared.has(id)) {
-      throw new Error(`${at}: the id "${id}" is already used. Each response needs its own.`);
+      throw new Error(`${at}: the id "${id}" is already used. Each blank needs its own.`);
     }
-    if (!Array.isArray(r.accept) || !r.accept.length) {
+    if (!Array.isArray(b.responses) || !b.responses.length) {
       throw new Error(
-        `${at}: needs \`accept\` listing what counts as right, e.g. accept [ "Paris" ]. ` +
-          "List every spelling you will take.",
+        `${at}: needs at least one response, e.g. responses [ [ response "Paris" assess [ correct ] ] ] {}.`,
       );
     }
-    const bad = r.accept.findIndex((a) => typeof a !== "string" || !a.trim());
-    if (bad >= 0) {
-      throw new Error(`${at}: accept entry ${bad + 1} is empty. Every accepted answer must be text.`);
+
+    const cs = b.caseSensitive !== undefined ? b.caseSensitive === true : caseSensitive;
+    const recognized: Recognized[] = [];
+    const claimed = new Map<string, number>();
+    b.responses.forEach((r, j) => {
+      const rat = `${at}: response ${j + 1}`;
+      const value = typeof r.response === "string" ? r.response.trim() : "";
+      if (!value) {
+        throw new Error(
+          `${rat}: needs the answer it recognizes, e.g. [ response "Paris" assess [ correct ] ].`,
+        );
+      }
+      const norm = normalize(value, cs);
+      const prior = claimed.get(norm);
+      if (prior !== undefined) {
+        throw new Error(
+          `${rat}: "${value}" is the same answer as response ${prior}` +
+            (cs ? "" : " once capitals are ignored") +
+            ". Two responses cannot claim the same typed input — merge them, or set " +
+            "`case-sensitive true` if the difference is meant to matter.",
+        );
+      }
+      claimed.set(norm, j + 1);
+
+      const assess = r.assess;
+      if (assess === undefined) {
+        // A recognized answer worth nothing and unexplained is just a wrong answer, which the
+        // blank already handles by not recognizing it.
+        throw new Error(
+          `${rat}: needs an \`assess\` saying what "${value}" is worth — ` +
+            "`assess [correct]` for a right answer, `assess [points 1]` for partial credit, " +
+            '`assess [rationale "…"]` to explain a wrong one.',
+        );
+      }
+      const isCorrect = assess.correct === true;
+      const hasPoints = typeof assess.points === "number";
+      const hasRationale = typeof assess.rationale === "string";
+      if (!isCorrect && !hasPoints && !hasRationale) {
+        throw new Error(
+          `${rat}: assess must say what it asserts — \`correct\`, \`points\`, or \`rationale\`.`,
+        );
+      }
+      recognized.push({
+        response: value,
+        ...(isCorrect ? { correct: true as const } : {}),
+        points: hasPoints ? (assess.points as number) : isCorrect ? 1 : 0,
+        ...(hasRationale ? { rationale: assess.rationale as string } : {}),
+      });
+    });
+
+    const correct = recognized.filter((r) => r.correct);
+    if (!correct.length) {
+      throw new Error(
+        `${at}: no response is marked \`correct\`, so the blank cannot be scored. ` +
+          "Add `assess [correct]` to the right answer.",
+      );
     }
-    declared.set(id, r);
+    // Only one answer can be typed, so the blank is worth its best correct one — not their sum.
+    // `choice` sums because several options can be selected; the difference is cardinality.
+    declared.set(id, {
+      points: Math.max(...correct.map((r) => r.points)),
+      caseSensitive: cs,
+      responses: recognized,
+    });
   });
 
   const segments: Segment[] = [];
@@ -99,20 +183,20 @@ export function cut(
     const id = m[1].trim();
     if (!id) {
       throw new Error(
-        `${where}: a marker at position ${m.index} names no response. Write {{<id>}}, ` +
-          'e.g. {{capital}}, matching an id in `responses`.',
+        `${where}: a marker at position ${m.index} names no blank. Write {{<id>}}, ` +
+          'e.g. {{capital}}, matching an id in `blanks`.',
       );
     }
     if (!declared.has(id)) {
       throw new Error(
-        `${where}: the text has {{${id}}} but no response declares that id. ` +
-          `\`responses\` declares: ${[...declared.keys()].join(", ") || "nothing"}.`,
+        `${where}: the text has {{${id}}} but no blank declares that id. ` +
+          `\`blanks\` declares: ${[...declared.keys()].join(", ") || "nothing"}.`,
       );
     }
     if (seen.has(id)) {
       throw new Error(
-        `${where}: {{${id}}} appears twice. One response is one blank — give the second its ` +
-          "own id and its own entry in `responses`.",
+        `${where}: {{${id}}} appears twice. One blank is one input — give the second its ` +
+          "own id and its own entry in `blanks`.",
       );
     }
     seen.set(id, n);
@@ -134,21 +218,10 @@ export function cut(
   const orphan = [...declared.keys()].find((id) => !seen.has(id));
   if (orphan !== undefined) {
     throw new Error(
-      `${where}: response "${orphan}" has no {{${orphan}}} in the text, so nothing can be ` +
-        "typed into it. Add the marker, or remove the response.",
+      `${where}: blank "${orphan}" has no {{${orphan}}} in the text, so nothing can be ` +
+        "typed into it. Add the marker, or remove the blank.",
     );
   }
 
-  const mapping: Record<string, Entry> = {};
-  for (const [id, r] of declared) {
-    mapping[id] = {
-      correct: true,
-      points: 1,
-      accept: (r.accept as string[]).map((a) => a.trim()),
-      // Resolved here rather than left to the scorer to inherit — points resolve at compile
-      // time in this language, and so does this.
-      caseSensitive: r.caseSensitive !== undefined ? r.caseSensitive === true : caseSensitive,
-    };
-  }
-  return { segments, mapping };
+  return { segments, mapping: Object.fromEntries(declared) };
 }

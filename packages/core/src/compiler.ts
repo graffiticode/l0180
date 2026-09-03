@@ -59,6 +59,7 @@ Checker.prototype.SELECTIONS = checkBoth;
 Checker.prototype.EXTENDED_TEXT = checkChild;
 Checker.prototype.RUBRIC = checkBoth;
 Checker.prototype.TEXT_ENTRY = checkChild;
+Checker.prototype.BLANKS = checkBoth;
 Checker.prototype.RESPONSES = checkBoth;
 Checker.prototype.ITEM = checkChild;
 Checker.prototype.PARTS = checkBoth;
@@ -335,7 +336,39 @@ Transformer.prototype.RUBRIC = function (this: any, node: any, options: any, res
 };
 
 /**
- * A member list of responses — the same shape as OPTIONS, SELECTIONS and RUBRIC.
+ * A member list of blanks — the same shape as OPTIONS, SELECTIONS and RUBRIC.
+ */
+Transformer.prototype.BLANKS = function (this: any, node: any, options: any, resume: any) {
+  this.visit(node.elts[0], options, (e0: any, v0: any) => {
+    this.visit(node.elts[1], options, (e1: any, v1: any) => {
+      const err = ([] as any[]).concat(e0 || [], e1 || []);
+      const raw = toPlainObject(v0);
+      if (!Array.isArray(raw)) {
+        resume(
+          err.concat(
+            'blanks: expected a list of blanks, e.g. blanks [[id "capital" responses [...] {}]] {}.',
+          ),
+          {},
+        );
+        return;
+      }
+      try {
+        const bs = raw.map((entry: any, i: number) => {
+          const b = mergeAttributes(entry, `blank ${i + 1}`);
+          assertKnownAttributes("blank", b);
+          return b;
+        });
+        resume(err, { ...(toPlainObject(v1) || {}), blanks: bs });
+      } catch (e: any) {
+        resume(err.concat(String((e && e.message) || e)), {});
+      }
+    });
+  });
+};
+
+/**
+ * A member list of the answers one blank recognizes, each with its own `assess` — the same
+ * shape as the options of a choice, which is the point of the whole arrangement.
  */
 Transformer.prototype.RESPONSES = function (this: any, node: any, options: any, resume: any) {
   this.visit(node.elts[0], options, (e0: any, v0: any) => {
@@ -345,7 +378,7 @@ Transformer.prototype.RESPONSES = function (this: any, node: any, options: any, 
       if (!Array.isArray(raw)) {
         resume(
           err.concat(
-            'responses: expected a list of responses, e.g. responses [[id "capital" accept ["Paris"]]] {}.',
+            'responses: expected a list of answers, e.g. responses [[response "Paris" assess [correct]]] {}.',
           ),
           {},
         );
@@ -390,15 +423,16 @@ Transformer.prototype.TEXT_ENTRY = function (this: any, node: any, options: any,
             '{{capital}}." Put {{<id>}} where each answer goes.',
         );
       }
-      if (!Array.isArray(attrs.responses) || !attrs.responses.length) {
+      if (!Array.isArray(attrs.blanks) || !attrs.blanks.length) {
         throw new Error(
-          'text-entry: needs at least one response, e.g. responses [[id "capital" accept ["Paris"]]] {}.',
+          'text-entry: needs at least one blank, e.g. ' +
+            'blanks [[id "capital" responses [[response "Paris" assess [correct]]] {}]] {}.',
         );
       }
 
       const { segments, mapping } = cut(
         attrs.text,
-        attrs.responses,
+        attrs.blanks,
         attrs.caseSensitive === true,
         "text-entry",
       );
@@ -415,7 +449,8 @@ Transformer.prototype.TEXT_ENTRY = function (this: any, node: any, options: any,
           // The first key in this language that is not made of identifiers. It is what tells
           // the scorer to compare typed text rather than to look ids up.
           baseType: "string",
-          points: Object.keys(mapping).length,
+          // Each blank contributes its own best correct answer; the interaction is their sum.
+          points: Object.values(mapping).reduce((n: number, e: any) => n + e.points, 0),
           mapping,
         },
       });
@@ -450,23 +485,25 @@ Transformer.prototype.EXTENDED_TEXT = function (this: any, node: any, options: a
       }
       const seen = new Map<number, number>();
       for (const [i, band] of bands.entries()) {
-        if (typeof band.score !== "number") {
-          throw new Error(`band ${i + 1}: needs a \`score\`, e.g. [ score 2 descriptor "…" ].`);
+        if (typeof band.points !== "number") {
+          throw new Error(`band ${i + 1}: needs \`points\`, e.g. [ points 2 descriptor "…" ].`);
         }
         if (typeof band.descriptor !== "string" || !band.descriptor.trim()) {
           throw new Error(
-            `band ${i + 1}: needs a \`descriptor\` saying what earns ${band.score}. ` +
+            `band ${i + 1}: needs a \`descriptor\` saying what earns ${band.points}. ` +
               "A bare score tells the person marking it nothing.",
           );
         }
-        const prior = seen.get(band.score);
+        const prior = seen.get(band.points);
         if (prior !== undefined) {
-          throw new Error(`band ${i + 1}: score ${band.score} is already band ${prior}. Each band scores differently.`);
+          throw new Error(
+            `band ${i + 1}: ${band.points} points is already band ${prior}. Each band scores differently.`,
+          );
         }
-        seen.set(band.score, i + 1);
+        seen.set(band.points, i + 1);
       }
 
-      const points = Math.max(...bands.map((b) => b.score));
+      const points = Math.max(...bands.map((b) => b.points));
       if (points <= 0) {
         throw new Error(
           "extended-text: no band earns anything, so the response cannot be scored. " +
@@ -485,8 +522,8 @@ Transformer.prototype.EXTENDED_TEXT = function (this: any, node: any, options: a
           // Ordered high to low, which is how a rubric is read.
           rubric: bands
             .slice()
-            .sort((a, b) => b.score - a.score)
-            .map((b) => ({ score: b.score, descriptor: b.descriptor })),
+            .sort((a, b) => b.points - a.points)
+            .map((b) => ({ points: b.points, descriptor: b.descriptor })),
           ...(attrs.exemplar !== undefined ? { exemplar: attrs.exemplar } : {}),
         },
       });

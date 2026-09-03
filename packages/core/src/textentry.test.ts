@@ -2,7 +2,9 @@
 /**
  * The text-entry interaction — fill in the blank.
  *
- * The first interaction whose key is not made of identifiers, which is what `baseType` is for.
+ * Every scoring statement in L0180 is an `assess` on the thing being scored, and here that thing
+ * is each answer a blank recognizes. That is what lets a typed mistake be explained back the way
+ * a chosen one is.
  */
 import { test, describe, expect } from "vitest";
 import { parser } from "@graffiticode/parser";
@@ -36,17 +38,24 @@ const ONE = `
 text-entry [
   prompt "Complete the sentence."
   text "The capital of France is {{capital}}."
-  responses [
-    [ id "capital" accept [ "Paris" ] ]
+  blanks [
+    [ id "capital"
+      responses [
+        [ response "Paris" assess [ correct ] ]
+        [ response "Lyon" assess [ rationale "The largest city after Paris, not the capital." ] ]
+      ] {} ]
   ] {}
 ]`;
 
 const TWO = `
 text-entry [
   text "The capital of France is {{france}}, and of Italy is {{italy}}."
-  responses [
-    [ id "france" accept [ "Paris" ] ]
-    [ id "italy" accept [ "Rome" "Roma" ] ]
+  blanks [
+    [ id "france" responses [ [ response "Paris" assess [ correct ] ] ] {} ]
+    [ id "italy" responses [
+        [ response "Rome" assess [ correct ] ]
+        [ response "Roma" assess [ correct ] ]
+      ] {} ]
   ] {}
 ]`;
 
@@ -64,59 +73,94 @@ describe("interaction", () => {
     });
   });
 
-  test("no accepted answer reaches the half that ships to the browser", async () => {
-    const { interaction } = await compile(TWO);
+  test("no recognized answer reaches the half that ships to the browser", async () => {
+    const { interaction } = await compile(ONE);
     const shipped = JSON.stringify(interaction);
     expect(shipped).not.toContain("Paris");
-    expect(shipped).not.toContain("Roma");
+    expect(shipped).not.toContain("Lyon");
+    expect(shipped).not.toContain("largest city");
   });
 
   test("nothing in it betrays how long an answer is", async () => {
-    // QTI has expected-length as a presentation hint and deriving it from the answer would put
-    // the answer's shape in the candidate's half. A five-character box is a five-letter clue.
     const { interaction } = await compile(ONE);
-    expect(JSON.stringify(interaction)).not.toContain("expectedLength");
-    expect(JSON.stringify(interaction)).not.toContain("length");
+    expect(JSON.stringify(interaction)).not.toContain("Length");
   });
 });
 
 describe("validation", () => {
-  test("declares a string response, and carries the answers", async () => {
+  test("each blank carries what it recognizes, in the shape a choice option has", async () => {
     const { validation } = await compile(ONE);
     expect(validation).toEqual({
       responseProcessing: "map_response",
       cardinality: "single",
       baseType: "string",
       points: 1,
-      mapping: { capital: { correct: true, points: 1, accept: ["Paris"], caseSensitive: false } },
+      mapping: {
+        capital: {
+          points: 1,
+          caseSensitive: false,
+          responses: [
+            { response: "Paris", correct: true, points: 1 },
+            { response: "Lyon", points: 0, rationale: "The largest city after Paris, not the capital." },
+          ],
+        },
+      },
     });
   });
 
-  test("each blank is worth a point, so several give partial credit", async () => {
+  test("the interaction is worth the sum of its blanks", async () => {
     const { validation } = await compile(TWO);
     expect(validation.points).toBe(2);
     expect(validation.mapping.france.points).toBe(1);
     expect(validation.mapping.italy.points).toBe(1);
   });
 
-  test("alternates are values, not a flag", async () => {
-    const { validation } = await compile(TWO);
-    expect(validation.mapping.italy.accept).toEqual(["Rome", "Roma"]);
+  test("a blank is worth its best correct answer, not their sum", async () => {
+    // Two correct answers worth 2 and 1 make a blank worth 2, because only one can be typed.
+    const { validation } = await compile(`
+      text-entry [
+        text "The capital is {{a}}."
+        blanks [ [ id "a" responses [
+          [ response "Paris" assess [ correct points 2 ] ]
+          [ response "Paree" assess [ correct points 1 ] ]
+        ] {} ] ] {}
+      ]`);
+    expect(validation.mapping.a.points).toBe(2);
+    expect(validation.points).toBe(2);
   });
 
-  test("case sensitivity is resolved onto every entry", async () => {
+  test("a near-miss, a penalty and an explanation all fit", async () => {
+    const { validation } = await compile(`
+      text-entry [
+        text "The capital is {{a}}."
+        blanks [ [ id "a" responses [
+          [ response "Paris" assess [ correct ] ]
+          [ response "paris france" assess [ points 1 ] ]
+          [ response "London" assess [ points -1 rationale "That is the capital of England." ] ]
+        ] {} ] ] {}
+      ]`);
+    const rs = validation.mapping.a.responses;
+    expect(rs[1]).toEqual({ response: "paris france", points: 1 });
+    expect(rs[2]).toEqual({
+      response: "London",
+      points: -1,
+      rationale: "That is the capital of England.",
+    });
+  });
+
+  test("case sensitivity resolves onto the blank, overridable", async () => {
     const { validation } = await compile(`
       text-entry [
         text "The agency {{agency}} launched from {{place}}."
         case-sensitive false
-        responses [
-          [ id "agency" accept [ "NASA" ] case-sensitive true ]
-          [ id "place" accept [ "Cape Canaveral" ] ]
+        blanks [
+          [ id "agency" case-sensitive true
+            responses [ [ response "NASA" assess [ correct ] ] ] {} ]
+          [ id "place" responses [ [ response "Cape Canaveral" assess [ correct ] ] ] {} ]
         ] {}
       ]`);
     expect(validation.mapping.agency.caseSensitive).toBe(true);
     expect(validation.mapping.place.caseSensitive).toBe(false);
-    // Resolved, so there is nothing left at the top for a scorer to inherit from.
     expect(validation.caseSensitive).toBeUndefined();
   });
 });
@@ -124,11 +168,7 @@ describe("validation", () => {
 describe("inside an item", () => {
   test("all-or-nothing across blanks is a conjunctive item, as it is for hottext", async () => {
     const { validation } = await compile(`
-      item [
-        scoring "conjunctive"
-        points 1
-        parts [ ${TWO} ] {}
-      ]`);
+      item [ scoring "conjunctive" points 1 parts [ ${TWO} ] {} ]`);
     expect(validation.scoring).toBe("conjunctive");
     expect(validation.points).toBe(1);
     expect(validation.parts["1"].baseType).toBe("string");
@@ -149,45 +189,59 @@ describe("inside an item", () => {
 
 describe("errors name the fix, not just the fault", () => {
   test("no text", async () => {
-    const msg = await errorOf(`text-entry [ responses [ [ id "a" accept [ "x" ] ] ] {} ]`);
+    const msg = await errorOf(
+      `text-entry [ blanks [ [ id "a" responses [ [ response "x" assess [ correct ] ] ] {} ] ] {} ]`,
+    );
     expect(msg).toContain("needs the sentence it blanks out");
-    expect(msg).toContain("{{capital}}");
   });
 
-  test("no responses", async () => {
-    const msg = await errorOf(`text-entry [ text "A {{a}}." responses [] {} ]`);
-    expect(msg).toContain("needs at least one response");
+  test("no blanks", async () => {
+    const msg = await errorOf(`text-entry [ text "A {{a}}." blanks [] {} ]`);
+    expect(msg).toContain("needs at least one blank");
   });
 
-  test("a marker with no response lists the declared ids", async () => {
+  test("a marker with no blank lists the declared ids", async () => {
     const msg = await errorOf(ONE.replace("{{capital}}", "{{captial}}"));
-    expect(msg).toContain("no response declares that id");
+    expect(msg).toContain("no blank declares that id");
     expect(msg).toContain("declares: capital");
   });
 
-  test("a response with no marker", async () => {
+  test("two responses that normalize alike are ambiguous", async () => {
     const msg = await errorOf(
-      ONE.replace('[ id "capital" accept [ "Paris" ] ]', '[ id "capital" accept [ "Paris" ] ] [ id "spare" accept [ "x" ] ]'),
+      ONE.replace('[ response "Lyon" assess [ rationale "The largest city after Paris, not the capital." ] ]',
+                  '[ response "paris" assess [ correct ] ]'),
     );
-    expect(msg).toContain('response "spare"');
+    expect(msg).toContain("same answer as response 1");
+    expect(msg).toContain("case-sensitive true");
   });
 
-  test("text with no marker at all", async () => {
-    const msg = await errorOf(ONE.replace("{{capital}}", "Paris"));
-    expect(msg).toContain("no blank to fill in");
+  test("a blank with no correct response cannot be scored", async () => {
+    const msg = await errorOf(
+      ONE.replace('[ response "Paris" assess [ correct ] ]', '[ response "Paris" assess [ points 1 ] ]'),
+    );
+    expect(msg).toContain("no response is marked `correct`");
+  });
+
+  test("a response with no assess", async () => {
+    const msg = await errorOf(
+      `text-entry [ text "A {{a}}." blanks [ [ id "a" responses [ [ response "x" ] ] {} ] ] {} ]`,
+    );
+    expect(msg).toContain("needs an `assess` saying what");
   });
 
   test("a choice attribute on text-entry lists the legal set", async () => {
     const msg = await errorOf(`
-      text-entry [ shuffle true text "A {{a}}." responses [ [ id "a" accept [ "x" ] ] ] {} ]`);
+      text-entry [ shuffle true text "A {{a}}."
+        blanks [ [ id "a" responses [ [ response "x" assess [ correct ] ] ] {} ] ] {} ]`);
     expect(msg).toContain("is not an attribute of text-entry");
-    expect(msg).toContain("It takes: prompt, text, case-sensitive, responses");
+    expect(msg).toContain("It takes: prompt, text, case-sensitive, blanks");
   });
 
-  test("an option attribute inside a response lists the legal set", async () => {
+  test("an old-style attribute inside a response lists the legal set", async () => {
     const msg = await errorOf(`
-      text-entry [ text "A {{a}}." responses [ [ id "a" accept [ "x" ] assess [ correct ] ] ] {} ]`);
+      text-entry [ text "A {{a}}."
+        blanks [ [ id "a" responses [ [ text "x" assess [ correct ] ] ] {} ] ] {} ]`);
     expect(msg).toContain("is not an attribute of response");
-    expect(msg).toContain("It takes: id, accept, case-sensitive");
+    expect(msg).toContain("It takes: response, assess");
   });
 });

@@ -1,6 +1,6 @@
 {
   "id": "0180",
-  "description": "Authors web-based assessment items — quizzes, tests, practice questions and self-checks that render and score in a browser with no assessment platform behind them. Produces a choice interaction (single-select multiple choice, multi-select, or true/false) a hottext interaction (clicking a sentence or a word inside the passage itself), a text-entry interaction (fill in the blank, with alternate spellings accepted), or an extended-text interaction (a written response collected and held for a person to mark against a rubric), optionally wrapped in a multi-part item with a reading passage and conjunctive scoring, with per-option points, weighted answers, penalized distractors, exact-set scoring for a \"choose exactly these\" question, a rationale explaining each wrong answer, optional shuffling, and an answer key kept separate from the presentation so a graded delivery can withhold it. This is the general-purpose assessment language: use it whenever the request is a quiz, test or practice question and no particular vendor or platform is named.",
+  "description": "Authors web-based assessment items — quizzes, tests, practice questions and self-checks that render and score in a browser with no assessment platform behind them. Produces a choice interaction (single-select multiple choice, multi-select, or true/false) a hottext interaction (clicking a sentence or a word inside the passage itself), a text-entry interaction (fill in the blank, where each recognized answer carries its own score and explanation), or an extended-text interaction (a written response collected and held for a person to mark against a rubric), optionally wrapped in a multi-part item with a reading passage and conjunctive scoring, with per-option points, weighted answers, penalized distractors, exact-set scoring for a \"choose exactly these\" question, a rationale explaining each wrong answer, optional shuffling, and an answer key kept separate from the presentation so a graded delivery can withhold it. This is the general-purpose assessment language: use it whenever the request is a quiz, test or practice question and no particular vendor or platform is named.",
   "supported_item_types": [
     "choice",
     "hottext",
@@ -77,7 +77,7 @@
     {
       "prompt": "A fill-in-the-blank question: \"The ___ is the powerhouse of the cell\", where the answer is mitochondria.",
       "produces": "text-entry",
-      "notes": "Fill in the blank. A {{id}} marker positions each blank and names it, and the matching response says what it accepts - so the answer binds by name and moving a clause cannot rebind it. Alternate spellings are listed in accept; capitals are ignored unless asked for."
+      "notes": "Fill in the blank. A {{id}} marker positions each blank and names it, so the answer binds by name and moving a clause cannot rebind it. Each answer a blank recognizes carries its own assess, exactly as a choice option does - so alternates, partial credit for a near-miss, and a rationale explaining a wrong answer are all available."
     }
   ]
 }

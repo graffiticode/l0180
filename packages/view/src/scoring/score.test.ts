@@ -190,8 +190,22 @@ describe("scoreTextEntry", () => {
     baseType: "string",
     points: 2,
     mapping: {
-      france: { correct: true, points: 1, accept: ["Paris"], caseSensitive: false },
-      italy: { correct: true, points: 1, accept: ["Rome", "Roma"], caseSensitive: false },
+      france: {
+        points: 1,
+        caseSensitive: false,
+        responses: [
+          { response: "Paris", correct: true, points: 1 },
+          { response: "Lyon", points: 0, rationale: "The largest city after Paris." },
+        ],
+      },
+      italy: {
+        points: 1,
+        caseSensitive: false,
+        responses: [
+          { response: "Rome", correct: true, points: 1 },
+          { response: "Roma", correct: true, points: 1 },
+        ],
+      },
     },
   };
 
@@ -218,7 +232,9 @@ describe("scoreTextEntry", () => {
       responseProcessing: "map_response",
       baseType: "string",
       points: 1,
-      mapping: { a: { correct: true, points: 1, accept: ["NASA"], caseSensitive: true } },
+      mapping: {
+        a: { points: 1, caseSensitive: true, responses: [{ response: "NASA", correct: true, points: 1 }] },
+      },
     };
     expect(scoreTextEntry({ response: { a: "NASA" }, validation: strict }).points).toBe(1);
     expect(scoreTextEntry({ response: { a: "nasa" }, validation: strict }).points).toBe(0);
@@ -231,7 +247,13 @@ describe("scoreTextEntry", () => {
       responseProcessing: "map_response",
       baseType: "string",
       points: 1,
-      mapping: { a: { correct: true, points: 1, accept: ["Cape Canaveral"], caseSensitive: false } },
+      mapping: {
+        a: {
+          points: 1,
+          caseSensitive: false,
+          responses: [{ response: "Cape Canaveral", correct: true, points: 1 }],
+        },
+      },
     };
     expect(scoreTextEntry({ response: { a: "Cape   Canaveral" }, validation: spaced }).points).toBe(1);
   });
@@ -243,7 +265,9 @@ describe("scoreTextEntry", () => {
       responseProcessing: "map_response",
       baseType: "string",
       points: 1,
-      mapping: { a: { correct: true, points: 1, accept: ["can't"], caseSensitive: false } },
+      mapping: {
+        a: { points: 1, caseSensitive: false, responses: [{ response: "can't", correct: true, points: 1 }] },
+      },
     };
     expect(scoreTextEntry({ response: { a: "cant" }, validation: v }).points).toBe(0);
     expect(scoreTextEntry({ response: { a: "can't" }, validation: v }).points).toBe(1);
@@ -254,6 +278,66 @@ describe("scoreTextEntry", () => {
     expect(scoreTextEntry({ response: {}, validation: TWO }).points).toBe(0);
     expect(scoreTextEntry({ response: null, validation: TWO }).points).toBe(0);
     expect(scoreTextEntry({ response: { gone: "Paris" }, validation: TWO }).points).toBe(0);
+  });
+
+  test("a recognized wrong answer earns its points and reports its rationale", () => {
+    const s = scoreTextEntry({ response: { france: "Lyon", italy: "Rome" }, validation: TWO });
+    expect(s.points).toBe(1);
+    expect(s.options?.france).toMatchObject({
+      selected: true,
+      correct: false,
+      points: 0,
+      rationale: "The largest city after Paris.",
+    });
+  });
+
+  test("an unanticipated answer earns nothing and carries no rationale", () => {
+    const s = scoreTextEntry({ response: { france: "Berlin", italy: "Rome" }, validation: TWO });
+    expect(s.options?.france).toMatchObject({ selected: true, correct: false, points: 0 });
+    expect(s.options?.france.rationale).toBeUndefined();
+  });
+
+  test("a near-miss earns its partial credit", () => {
+    const partial: Validation = {
+      responseProcessing: "map_response",
+      baseType: "string",
+      points: 2,
+      mapping: {
+        a: {
+          points: 2,
+          caseSensitive: false,
+          responses: [
+            { response: "Paris", correct: true, points: 2 },
+            { response: "Paris France", points: 1 },
+          ],
+        },
+      },
+    };
+    expect(scoreTextEntry({ response: { a: "Paris France" }, validation: partial })).toMatchObject({
+      points: 1,
+      correct: false,
+    });
+  });
+
+  test("a penalty subtracts, and the item floors at zero", () => {
+    const penal: Validation = {
+      responseProcessing: "map_response",
+      baseType: "string",
+      points: 1,
+      mapping: {
+        a: {
+          points: 1,
+          caseSensitive: false,
+          responses: [
+            { response: "Paris", correct: true, points: 1 },
+            { response: "London", points: -1 },
+          ],
+        },
+      },
+    };
+    const s = scoreTextEntry({ response: { a: "London" }, validation: penal });
+    expect(s.rawPoints).toBe(-1);
+    expect(s.points).toBe(0);
   });
 
   test("under match_correct every blank must be right", () => {
@@ -287,8 +371,8 @@ describe("scoreHuman", () => {
     responseProcessing: "human",
     points: 2,
     rubric: [
-      { score: 2, descriptor: "Full." },
-      { score: 0, descriptor: "None." },
+      { points: 2, descriptor: "Full." },
+      { points: 0, descriptor: "None." },
     ],
   };
 

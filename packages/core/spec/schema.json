@@ -198,7 +198,7 @@
           "enum": ["single", "multiple"]
         },
         "baseType": {
-          "description": "What the response is made of: identifiers the candidate selected, or the string they typed. Decides whether `mapping` keys name options or blanks, and whether entries carry `accept`.",
+          "description": "What the response is made of: identifiers the candidate selected, or the string they typed. Decides whether `mapping` keys name options or blanks, and whether entries carry the answers they recognize.",
           "enum": ["identifier", "string"]
         },
         "responseProcessing": {
@@ -224,11 +224,27 @@
                 "description": "What selecting this option is worth. Negative penalizes.",
                 "type": "number"
               },
-              "accept": {
-                "description": "baseType string only: every answer that counts as right for this blank.",
+              "responses": {
+                "description": "baseType string only: the answers this blank recognizes, in authored order. Each is a mapping value plus the `response` that identifies it — QTI's mapKey — so a recognized wrong answer carries its points and its rationale.",
                 "type": "array",
                 "minItems": 1,
-                "items": { "type": "string" }
+                "items": {
+                  "type": "object",
+                  "required": ["response", "points"],
+                  "properties": {
+                    "response": { "description": "The answer this entry recognizes.", "type": "string" },
+                    "correct": {
+                      "description": "Present and true when typing this is a right answer.",
+                      "type": "boolean"
+                    },
+                    "points": { "description": "What typing it is worth. Negative penalizes.", "type": "number" },
+                    "rationale": {
+                      "description": "Why it is wrong. Shown only once the candidate has typed it.",
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                }
               },
               "caseSensitive": {
                 "description": "baseType string only: whether capitals must match. Resolved at compile time from the interaction's default and any per-response override, so nothing inherits at score time.",
@@ -259,9 +275,9 @@
           "minItems": 2,
           "items": {
             "type": "object",
-            "required": ["score", "descriptor"],
+            "required": ["points", "descriptor"],
             "properties": {
-              "score": { "description": "What this band earns.", "type": "number" },
+              "points": { "description": "What this band earns.", "type": "number" },
               "descriptor": { "description": "What a response has to do to earn it.", "type": "string" }
             },
             "additionalProperties": false
