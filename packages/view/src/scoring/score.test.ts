@@ -452,6 +452,80 @@ describe("scoreTextEntry over numbers", () => {
   });
 });
 
+describe("scoreTextEntry when the form is part of the question", () => {
+  const asFraction: Validation = {
+    responseProcessing: "map_response",
+    cardinality: "single",
+    points: 1,
+    mapping: {
+      a: {
+        baseType: "float",
+        points: 1,
+        inputFormats: ["fraction"],
+        responses: [{ response: "0.5", correct: true, points: 1 }],
+      },
+    },
+  };
+  const at = (typed: string) => scoreTextEntry({ response: { a: typed }, validation: asFraction });
+
+  test("the wanted form earns the point", () => {
+    for (const typed of ["1/2", "2/4", " 3/6 "]) expect(at(typed).points, typed).toBe(1);
+  });
+
+  test("the right value in another form earns nothing", () => {
+    for (const typed of ["0.5", "0.50", ".5", "5e-1"]) expect(at(typed).points, typed).toBe(0);
+  });
+
+  test("and is reported as a form problem, not as a wrong answer", () => {
+    // The difference matters to whoever reads the outcome: this candidate did the arithmetic.
+    // Folding it into a bare zero would tell them, and any report built on this, otherwise.
+    const out = at("0.5");
+    expect(out.options.a.wrongFormat).toEqual(["fraction"]);
+    expect(out.options.a.correct).toBe(false);
+  });
+
+  test("a genuinely wrong value is still just wrong, in any form", () => {
+    for (const typed of ["1/3", "0.6"]) {
+      expect(scoreTextEntry({ response: { a: typed }, validation: asFraction }).options.a.wrongFormat, typed)
+        .toBeUndefined();
+    }
+  });
+
+  test("more than one form may be accepted", () => {
+    const either: Validation = {
+      ...asFraction,
+      mapping: { a: { ...asFraction.mapping!.a, inputFormats: ["decimal", "scientific"] } },
+    };
+    for (const typed of ["0.5", "5e-1"]) {
+      expect(scoreTextEntry({ response: { a: typed }, validation: either }).points, typed).toBe(1);
+    }
+    expect(scoreTextEntry({ response: { a: "1/2" }, validation: either }).options.a.wrongFormat)
+      .toEqual(["decimal", "scientific"]);
+  });
+
+  test("no inputFormats means every form, which is what the default compiles to", () => {
+    const any: Validation = {
+      ...asFraction,
+      mapping: { a: { baseType: "float", points: 1, responses: asFraction.mapping!.a.responses } },
+    };
+    for (const typed of ["0.5", "1/2", "5e-1"]) {
+      expect(scoreTextEntry({ response: { a: typed }, validation: any }).points, typed).toBe(1);
+    }
+  });
+
+  test("the form is checked against the value, not against the tolerance", () => {
+    // A tolerance still widens which values count; it has nothing to say about how they are
+    // written, and the two must not quietly interact.
+    const near: Validation = {
+      ...asFraction,
+      mapping: { a: { ...asFraction.mapping!.a, tolerance: 0.01 } },
+    };
+    expect(scoreTextEntry({ response: { a: "50/99" }, validation: near }).points).toBe(1);
+    expect(scoreTextEntry({ response: { a: "0.505" }, validation: near }).options.a.wrongFormat)
+      .toEqual(["fraction"]);
+  });
+});
+
 describe("scoreHuman", () => {
   const WRITTEN: Validation = {
     responseProcessing: "human",

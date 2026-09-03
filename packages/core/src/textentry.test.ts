@@ -59,6 +59,16 @@ text-entry [
   ] {}
 ]`;
 
+/** A numeric blank carrying one extra attribute, for the errors that need one. */
+const numeric = (extra: string) => `
+text-entry [
+  text "Half of one is {{half}}."
+  blanks [
+    [ id "half" base-type "float" ${extra}
+      responses [ [ response "0.5" assess [ correct ] ] ] {} ]
+  ] {}
+]`;
+
 describe("interaction", () => {
   test("the sentence arrives cut into text and blanks", async () => {
     const { interaction } = await compile(ONE);
@@ -243,5 +253,19 @@ describe("errors name the fix, not just the fault", () => {
         blanks [ [ id "a" responses [ [ text "x" assess [ correct ] ] ] {} ] ] {} ]`);
     expect(msg).toContain("is not an attribute of response");
     expect(msg).toContain("It takes: response, assess");
+  });
+
+  test("a form nobody has heard of names the ones that exist", async () => {
+    const msg = await errorOf(numeric('input-formats [ "octal" ]'));
+    expect(msg).toContain('"octal" is not one of the values `input-formats` takes');
+    expect(msg).toContain("numeric, decimal, fraction, scientific");
+  });
+
+  test("a bare string says a list is wanted, and shows real values in the example", async () => {
+    // A closed set that illustrated itself with `["First." "Second."]` would be teaching the
+    // generator to guess, in the one message it reads when it has already guessed wrong.
+    const msg = await errorOf(numeric('input-formats "fraction"'));
+    expect(msg).toContain("expected a list of strings");
+    expect(msg).toContain('input-formats ["numeric" "decimal"]');
   });
 });

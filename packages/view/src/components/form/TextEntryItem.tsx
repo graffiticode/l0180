@@ -30,6 +30,20 @@ interface Interaction {
   segments?: Segment[];
 }
 
+/** "as a fraction", "as a decimal or in scientific notation" — the forms, in plain English. */
+const FORM_NAMES: Record<string, string> = {
+  decimal: "as a decimal",
+  fraction: "as a fraction",
+  scientific: "in scientific notation",
+};
+
+function askFor(formats: string[]): string {
+  const names = formats.map((f) => FORM_NAMES[f] ?? `as ${f}`);
+  const list =
+    names.length > 1 ? `${names.slice(0, -1).join(", ")} or ${names[names.length - 1]}` : names[0];
+  return `That is the right value. Give it ${list}.`;
+}
+
 export function TextEntryItem({
   interaction,
   validation,
@@ -83,9 +97,18 @@ export function TextEntryItem({
 
   // Only for an answer the author anticipated and the candidate actually typed — the same rule
   // `OptionRow` follows for a distractor. An unanticipated answer gets a ✗ and nothing else.
+  //
+  // A right value in the wrong form joins them, because it is the same kind of remark: the
+  // author asked for a fraction and got a decimal, and "incorrect" alone would be a lie about
+  // which part of the work went wrong. The scorer reports the accepted forms; naming them in
+  // English is presentation, so it lives here.
   const showFeedbackLines = Object.entries(outcomes?.options ?? {})
-    .filter(([, o]) => o.rationale && !o.correct)
-    .map(([id, o]) => ({ id, rationale: o.rationale as string }));
+    .map(([id, o]) => {
+      if (o.wrongFormat) return { id, rationale: askFor(o.wrongFormat) };
+      if (o.rationale && !o.correct) return { id, rationale: o.rationale };
+      return null;
+    })
+    .filter((l): l is { id: string; rationale: string } => l !== null);
 
   let nth = 0;
   return (

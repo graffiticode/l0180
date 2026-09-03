@@ -297,6 +297,12 @@
                 "description": "Numeric blanks only: how far a typed answer may be from an expected one and still count. Absolute, symmetric, compared in decimal.",
                 "type": "number",
                 "minimum": 0
+              },
+              "inputFormats": {
+                "description": "Numeric blanks only, and only when it constrains: the written forms this blank accepts. The author's `numeric` umbrella is already expanded here, so absent means all of them and present means a right value written another way scores zero.",
+                "type": "array",
+                "minItems": 1,
+                "items": { "enum": ["decimal", "fraction", "scientific"] }
               }
             },
             "additionalProperties": false

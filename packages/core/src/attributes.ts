@@ -70,6 +70,15 @@ export const SELECTION_SCOPES = ["stimulus"] as const;
  */
 export const BASE_TYPES = ["string", "float", "integer"] as const;
 
+/**
+ * The written forms a numeric blank will accept.
+ *
+ * `numeric` is the umbrella — any of the others — and is what a blank gets when it says
+ * nothing. The named forms are for a question where the form IS the point: "express your
+ * answer as a fraction" cannot be asked without them.
+ */
+export const INPUT_FORMATS = ["numeric", "decimal", "fraction", "scientific"] as const;
+
 /** Authored spelling -> the QTI template identifier emitted in `validation`. */
 export const templateId = (word: string): string => word.replace(/-/g, "_");
 
@@ -150,6 +159,13 @@ export const attributeFields: Record<string, AttributeMeta> = {
     oneOf: BASE_TYPES,
     description:
       "What this blank's answers are: `string` (the default) compares text, `float` and `integer` compare numbers.",
+  },
+  INPUT_FORMATS: {
+    field: "inputFormats",
+    expects: "strings",
+    oneOf: INPUT_FORMATS,
+    description:
+      "Which written forms a numeric blank accepts: `numeric` (any, the default), or a list of `decimal`, `fraction` and `scientific`.",
   },
   TOLERANCE: {
     field: "tolerance",
@@ -244,7 +260,7 @@ export const validAttributes: Record<string, string[]> = {
   ],
   selection: ["quote", "assess"],
   "text-entry": ["prompt", "text", "case-sensitive", "blanks"],
-  blank: ["id", "responses", "case-sensitive", "base-type", "tolerance"],
+  blank: ["id", "responses", "case-sensitive", "base-type", "tolerance", "input-formats"],
   // The member container and its value word are both `response`, so an error reads
   // "It takes: response, assess". Repetitive, and accurate.
   response: ["response", "assess"],
@@ -313,11 +329,25 @@ export function checkValue(name: string, meta: AttributeMeta, raw: any): string 
   }
   if (meta.expects === "strings") {
     if (!Array.isArray(raw) || !raw.length) {
-      return `${word}: expected a list of strings, e.g. ${word} ["First." "Second."].`;
+      // A closed set shows its own values rather than a placeholder, so the example is the
+      // answer: a generator reading `["First." "Second."]` for `input-formats` learns nothing.
+      const eg = meta.oneOf ? meta.oneOf.slice(0, 2) : ["First.", "Second."];
+      return `${word}: expected a list of strings, e.g. ${word} [${eg.map((v) => `"${v}"`).join(" ")}].`;
     }
     const bad = raw.findIndex((s) => typeof s !== "string" || !s.trim());
     if (bad >= 0) {
       return `${word}: entry ${bad + 1} is ${showValue(raw[bad])}; every entry must be a non-empty string.`;
+    }
+    if (meta.oneOf) {
+      // A closed set over a list is checked entry by entry. It used to be tested against the
+      // value as a whole, which silently passed anything once the value became a list.
+      const unknown = raw.findIndex((v: string) => !meta.oneOf!.includes(v));
+      if (unknown >= 0) {
+        return (
+          `${word}: ${showValue(raw[unknown])} is not one of the values \`${word}\` takes: ` +
+          `${meta.oneOf.join(", ")}.`
+        );
+      }
     }
     return null;
   }

@@ -45,6 +45,13 @@ export interface OptionValidation {
   caseSensitive?: boolean;
   /** Numeric only: how far a typed answer may be and still count. Absolute and symmetric. */
   tolerance?: number;
+  /**
+   * Numeric only: the written forms this blank accepts, already expanded by the compiler.
+   *
+   * Absent means any of them. Present, a typed answer written another way is refused even when
+   * its value is right — which is how "express your answer as a fraction" is asked.
+   */
+  inputFormats?: string[];
 }
 
 /**
@@ -122,12 +129,20 @@ export interface OptionOutcome {
   points: number;
   correct: boolean;
   /**
-   * `baseType: "string"` only: why the recognized answer they typed is wrong.
+   * Typed answers only: why the recognized answer they typed is wrong.
    *
    * Reported here so the renderer does not repeat the match to find it — the scorer already
    * knows which response entry was hit.
    */
   rationale?: string;
+  /**
+   * The value was right and the way it was written was not.
+   *
+   * A distinct outcome from being wrong: the candidate did the work and presented it in a form
+   * the question did not ask for, and telling them so is different from telling them they are
+   * incorrect. Carries the forms that would have been accepted.
+   */
+  wrongFormat?: string[];
 }
 
 /** How an item's parts combine into its score. */
@@ -259,12 +274,13 @@ export function scoreTextEntry({
     const answered = typeof typed === "string" && typed.trim().length > 0;
     // First match wins. The compiler refuses two responses that would recognize the same input,
     // so at most one can match — this order only decides anything if that check was bypassed.
-    const hit = answered ? recognize(entry, typed) : undefined;
+    const { hit, wrongFormat } = answered ? recognize(entry, typed) : {};
     options[id] = {
       selected: answered,
       points: hit?.points ?? 0,
       correct: hit?.correct === true,
       ...(hit?.rationale ? { rationale: hit.rationale } : {}),
+      ...(wrongFormat ? { wrongFormat } : {}),
     };
     if (hit) rawPoints += hit.points;
   }
@@ -284,19 +300,29 @@ export function scoreTextEntry({
  * Numbers are compared as numbers, which is the whole point: `0.50`, `.5` and `1/2` are all
  * `0.5`, and no enumeration of spellings could have covered them. Text is compared as text.
  */
-function recognize(entry: OptionValidation | undefined, typed: unknown) {
+function recognize(
+  entry: OptionValidation | undefined,
+  typed: unknown,
+): { hit?: { response: string; correct?: boolean; points: number; rationale?: string }; wrongFormat?: string[] } {
   const answers = entry?.responses || [];
   if (entry?.baseType === "float" || entry?.baseType === "integer") {
-    const value = parseNumber(typed);
-    if (!value) return undefined;
-    return answers.find((r) => {
+    const parsed = parseNumber(typed);
+    if (!parsed) return {};
+    const hit = answers.find((r) => {
       const want = parseNumber(r.response);
-      return want ? sameNumber(value, want, entry.tolerance) : false;
+      return want ? sameNumber(parsed.value, want.value, entry.tolerance) : false;
     });
+    if (!hit) return {};
+    // The value is right. Whether it counts depends on how they wrote it, and if it does not,
+    // that is worth saying rather than folding into a bare wrong.
+    if (entry.inputFormats && !entry.inputFormats.includes(parsed.format)) {
+      return { wrongFormat: entry.inputFormats };
+    }
+    return { hit };
   }
   const cs = entry?.caseSensitive === true;
   const want = normalize(typed, cs);
-  return answers.find((r) => normalize(r.response, cs) === want);
+  return { hit: answers.find((r) => normalize(r.response, cs) === want) };
 }
 
 /**

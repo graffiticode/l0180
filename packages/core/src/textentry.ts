@@ -16,7 +16,7 @@
  * How an answer is compared lives in `matching.ts`, shared with the scorer so a collision this
  * module refuses cannot become a match at score time.
  */
-import { normalize, parseNumber } from "./matching.js";
+import { NUMBER_FORMATS, normalize, parseNumber, permittedFormats } from "./matching.js";
 
 /** One run of the sentence: literal text, or a blank the candidate types into. */
 export interface Segment {
@@ -48,6 +48,7 @@ export interface Blank {
   caseSensitive?: boolean;
   baseType?: "string" | "float" | "integer";
   tolerance?: number;
+  inputFormats?: string[];
 }
 
 /** What one recognized answer is worth. The shape of a choice mapping value, plus its text. */
@@ -72,6 +73,13 @@ export interface Entry {
   caseSensitive?: boolean;
   /** Numeric only, and only when authored. Absent means an exact decimal comparison. */
   tolerance?: number;
+  /**
+   * Numeric only, and only when it constrains something.
+   *
+   * Absent means every form is accepted, which is what `numeric` expands to — so the common
+   * key stays small and the field appears exactly when a question is asking for a form.
+   */
+  inputFormats?: string[];
   responses: Recognized[];
 }
 
@@ -132,6 +140,23 @@ export function cut(
     if (b.tolerance !== undefined && b.tolerance < 0) {
       throw new Error(`${at}: tolerance ${b.tolerance} is negative. It is a distance, so it cannot be.`);
     }
+    if (!numeric && b.inputFormats !== undefined) {
+      throw new Error(
+        `${at}: \`input-formats\` means nothing on a text blank — it says how a NUMBER may be ` +
+          'written. Add `base-type "float"`, or remove it.',
+      );
+    }
+    if (b.inputFormats && b.inputFormats.includes("numeric") && b.inputFormats.length > 1) {
+      throw new Error(
+        `${at}: \`numeric\` already means every form, so listing it beside ` +
+          `${b.inputFormats.filter((x) => x !== "numeric").map((x) => `\`${x}\``).join(" and ")} ` +
+          "says two different things. List the forms you want, or just `numeric`.",
+      );
+    }
+    // `numeric` expands here, so the scorer is handed the forms themselves and has no umbrella
+    // to remember. Omitted when it permits everything, which is the common case.
+    const allowed = permittedFormats(b.inputFormats);
+    const constrains = allowed.length < NUMBER_FORMATS.length;
 
     const cs = numeric ? false : b.caseSensitive !== undefined ? b.caseSensitive === true : caseSensitive;
     const recognized: Recognized[] = [];
@@ -154,7 +179,7 @@ export function cut(
               "and symbols are not.",
           );
         }
-        if (baseType === "integer" && !parsed.isInteger()) {
+        if (baseType === "integer" && !parsed.value.isInteger()) {
           throw new Error(
             `${rat}: "${value}" is not a whole number, but the blank says \`base-type "integer"\`. ` +
               'Use `base-type "float"`, or give a whole number.',
@@ -163,7 +188,7 @@ export function cut(
         // Two answers collide when one typed value could match both — for numbers, when their
         // tolerance intervals overlap, which is a gap of at most twice the tolerance.
         const reach = b.tolerance !== undefined ? b.tolerance * 2 : 0;
-        const clash = numbers.find((prev) => prev.value!.sub(parsed).abs().lte(reach));
+        const clash = numbers.find((prev) => prev.value!.value.sub(parsed.value).abs().lte(reach));
         if (clash) {
           throw new Error(
             `${rat}: "${value}" is the same answer as response ${clash.at} ("${clash.text}")` +
@@ -226,9 +251,10 @@ export function cut(
       baseType,
       points: Math.max(...correct.map((r) => r.points)),
       ...(numeric
-        ? b.tolerance !== undefined
-          ? { tolerance: b.tolerance }
-          : {}
+        ? {
+            ...(b.tolerance !== undefined ? { tolerance: b.tolerance } : {}),
+            ...(constrains ? { inputFormats: [...allowed] } : {}),
+          }
         : { caseSensitive: cs }),
       responses: recognized,
     });

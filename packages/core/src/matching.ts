@@ -27,9 +27,26 @@ export function normalize(s: unknown, caseSensitive: boolean): string {
   return caseSensitive ? t : t.toLowerCase();
 }
 
+/**
+ * The ways a number may be written.
+ *
+ * `numeric` is not one of them — it is the umbrella an author writes to mean all of them, and
+ * it is what `input-formats` defaults to. Adding a form here widens `numeric` automatically,
+ * which is what "any of the possible forms" has to mean.
+ */
+export const NUMBER_FORMATS = ["decimal", "fraction", "scientific"] as const;
+export type NumberFormat = (typeof NUMBER_FORMATS)[number];
+
+/** A parsed number: what it is worth, and how it was written. */
+export interface ParsedNumber {
+  value: Decimal;
+  format: NumberFormat;
+}
+
 /** `1,000` is a number; `1,2` is a typo. Only real thousands groupings are stripped. */
 const THOUSANDS = /^([+-]?)(\d{1,3}(?:,\d{3})+)(\.\d*)?$/;
 const DECIMAL = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/;
+const SCIENTIFIC = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)[eE][+-]?\d+$/;
 
 function decimalOnly(s: string): Decimal | null {
   const t = s.trim();
@@ -59,15 +76,39 @@ function decimalOnly(s: string): Decimal | null {
  * Returns null for anything else — an expression, a unit, a symbol. That boundary is where
  * L0176 reaches for Learnosity's math engine, and where this stops on purpose.
  */
-export function parseNumber(s: unknown): Decimal | null {
+export function parseNumber(s: unknown): ParsedNumber | null {
   const t = String(s ?? "").trim();
   if (!t) return null;
+
   const slash = t.indexOf("/");
-  if (slash < 0) return decimalOnly(t);
-  const numerator = decimalOnly(t.slice(0, slash));
-  const denominator = decimalOnly(t.slice(slash + 1));
-  if (!numerator || !denominator || denominator.isZero()) return null;
-  return numerator.div(denominator);
+  if (slash >= 0) {
+    const numerator = decimalOnly(t.slice(0, slash));
+    const denominator = decimalOnly(t.slice(slash + 1));
+    if (!numerator || !denominator || denominator.isZero()) return null;
+    return { value: numerator.div(denominator), format: "fraction" };
+  }
+
+  if (SCIENTIFIC.test(t)) {
+    try {
+      return { value: new Decimal(t), format: "scientific" };
+    } catch {
+      return null;
+    }
+  }
+
+  const plain = decimalOnly(t);
+  return plain ? { value: plain, format: "decimal" } : null;
+}
+
+/**
+ * Which forms an `input-formats` list permits.
+ *
+ * `numeric` means all of them, so it is expanded here rather than carried around as a special
+ * case for every caller to remember.
+ */
+export function permittedFormats(formats: readonly string[] | undefined): readonly NumberFormat[] {
+  if (!formats || !formats.length || formats.includes("numeric")) return NUMBER_FORMATS;
+  return NUMBER_FORMATS.filter((f) => formats.includes(f));
 }
 
 /**

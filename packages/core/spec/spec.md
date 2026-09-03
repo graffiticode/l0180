@@ -54,6 +54,7 @@ Two words depart from that, both deliberately:
 | `case-sensitive` | `<boolean: record>` | Whether capitals must match |
 | `base-type` | `<string: record>` | What a blank's answers are — string, float or integer |
 | `tolerance` | `<number: record>` | How far a numeric answer may be and still count |
+| `input-formats` | `<list: record>` | Which written forms a numeric blank accepts |
 | `extended-text` | `<list: record>` | A written response, marked by a person |
 | `rubric` | `<list record: record>` | The bands a written response is marked against |
 | `descriptor` | `<string: record>` | What earns that band |
@@ -269,8 +270,13 @@ text-entry [
 A blank is worth its best correct answer; the interaction is worth the sum of its blanks.
 Capitals are ignored unless `case-sensitive true` is set, on the interaction or on one blank.
 
-`base-type "float"` compares a blank's answers as numbers, so `0.5`, `0.50`, `.5` and `1/2` are
-one answer rather than four. `tolerance` widens that to accept a rounded one.
+`base-type "float"` compares a blank's answers as numbers, so `0.5`, `0.50`, `.5`, `1/2` and
+`5e-1` are one answer rather than five. `tolerance` widens that to accept a rounded one.
+
+`input-formats` narrows which of those written forms count, for a question where the form is
+what is being asked. The forms are `decimal`, `fraction` and `scientific`; the default is
+`numeric`, meaning any of them. A right value in a form the blank does not accept scores zero
+and is reported as a form problem rather than as a wrong answer.
 
 ```
 text-entry [
@@ -278,7 +284,7 @@ text-entry [
   blanks [
     [ id "pi" base-type "float" tolerance 0.005
       responses [ [ response "3.14" assess [ correct ] ] ] {} ]
-    [ id "half" base-type "float"
+    [ id "half" base-type "float" input-formats [ "fraction" ]
       responses [ [ response "1/2" assess [ correct ] ] ] {} ]
   ] {}
 ]..

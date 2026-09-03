@@ -276,6 +276,51 @@ describe("numeric blanks", () => {
     expect(msg).toContain("is the same answer as response 1");
   });
 
+  test("input-formats narrows what may be typed, and is emitted expanded", () => {
+    const { mapping } = cut("{{a}}", num("a", [ok("0.5")], { inputFormats: ["fraction"] }), false, "t");
+    expect(mapping.a.inputFormats).toEqual(["fraction"]);
+  });
+
+  test("the default accepts every form, and says so by absence", () => {
+    // `numeric` is the umbrella, so it expands to all three and then earns no key at all —
+    // the same rule tolerance follows. A field that is always present says nothing.
+    for (const formats of [undefined, ["numeric"]]) {
+      const { mapping } = cut("{{a}}", num("a", [ok("0.5")], { inputFormats: formats }), false, "t");
+      expect(mapping.a.inputFormats, String(formats)).toBeUndefined();
+    }
+  });
+
+  test("several forms may be listed, in a stable order", () => {
+    const { mapping } = cut(
+      "{{a}}",
+      num("a", [ok("0.5")], { inputFormats: ["scientific", "decimal"] }),
+      false,
+      "t",
+    );
+    expect(mapping.a.inputFormats).toEqual(["decimal", "scientific"]);
+  });
+
+  test("numeric beside a particular form is a contradiction, not a widening", () => {
+    const msg = err(() =>
+      cut("{{a}}", num("a", [ok("0.5")], { inputFormats: ["numeric", "fraction"] }), false, "t"),
+    );
+    expect(msg).toContain("already means every form");
+    expect(msg).toContain("`fraction`");
+  });
+
+  test("input-formats on a text blank is refused", () => {
+    const msg = err(() =>
+      cut("{{a}}", [{ id: "a", responses: [ok("Paris")], inputFormats: ["fraction"] }], false, "t"),
+    );
+    expect(msg).toContain("how a NUMBER may be written");
+  });
+
+  test("the authored answer is not constrained by input-formats", () => {
+    // It says what may be TYPED. Asking for a fraction while writing the key as 0.5 is the
+    // ordinary case, and refusing it would force authors to write keys they do not mean.
+    expect(err(() => cut("{{a}}", num("a", [ok("0.5")], { inputFormats: ["fraction"] }), false, "t"))).toBe("");
+  });
+
   test("collision follows the tolerance, since that is what decides a match", () => {
     // 0.5 and 0.55 are 0.05 apart. At a tolerance of 0.1 each reaches the other, so one typed
     // value could match both; at 0.01 they are safely distinct.

@@ -42,6 +42,7 @@ to configure: `options [...] {}`. Every other word here takes exactly one argume
 | `case-sensitive` | `<boolean: record>` | Whether capitals must match. Defaults to false |
 | `base-type` | `<string: record>` | What a blank's answers are: `string` (default), `float` or `integer` |
 | `tolerance` | `<number: record>` | How far a numeric answer may be and still count |
+| `input-formats` | `<list: record>` | Which written forms a numeric blank accepts: `numeric` (any, the default), or a list of `decimal`, `fraction` and `scientific` |
 | `extended-text` | `<list: record>` | A written response, marked by a person against a rubric |
 | `rubric` | `<list record: record>` | The bands a written response is marked against |
 | `descriptor` | `<string: record>` | What a response must do to earn that band |
@@ -74,7 +75,7 @@ to configure: `options [...] {}`. Every other word here takes exactly one argume
 | `hottext` | prompt, text, within, granularity, min-choices, max-choices, response-processing, upper-bound, selections |
 | `selection` | quote, assess |
 | `text-entry` | prompt, text, case-sensitive, blanks |
-| `blank` | id, responses, case-sensitive, base-type, tolerance |
+| `blank` | id, responses, case-sensitive, base-type, tolerance, input-formats |
 | `response` | response, assess |
 | `extended-text` | prompt, rubric, exemplar |
 | `band` | points, descriptor |
@@ -317,9 +318,9 @@ text-entry [
 different strings and four of them are marked wrong — which is why a numeric answer should never
 be left as text.
 
-Whole numbers, decimals, a leading sign and simple fractions are understood, and `1,000` may be
-written with its comma. Expressions (`1/2 + 1/3`), units (`5 cm`) and symbols (`x/2`) are not;
-ask for the form you want.
+Whole numbers, decimals, a leading sign, simple fractions and scientific notation are
+understood, and `1,000` may be written with its comma. Expressions (`1/2 + 1/3`), units (`5 cm`)
+and symbols (`x/2`) are not; ask for the form you want.
 
 `base-type "integer"` is the same but refuses an authored answer that is not whole — useful when
 "how many" is the question.
@@ -339,7 +340,35 @@ text-entry [
 
 Arithmetic is decimal, not binary, so a tolerance means exactly what it says at its edge.
 
-`case-sensitive` has no meaning on a numeric blank and `tolerance` none on a text one; either
+### Asking for a particular form
+
+Sometimes the form *is* the question — "express your answer as a fraction" is asking for
+something a decimal does not demonstrate. `input-formats` says which written forms count:
+
+```
+text-entry [
+  prompt "Express your answer as a fraction in lowest terms."
+  text "Half of one is {{half}}."
+  blanks [
+    [ id "half" base-type "float" input-formats [ "fraction" ]
+      responses [ [ response "0.5" assess [ correct ] ] ] {} ]
+  ] {}
+]..
+```
+
+`1/2` earns the point; `0.5` does not, and the candidate is told a fraction was wanted rather
+than simply marked wrong. The forms are `decimal` (which covers whole numbers and `1,000`),
+`fraction` and `scientific`, and more than one may be listed.
+
+The default is `numeric`, which means **any** of them — so leaving `input-formats` off accepts
+every form, and that is right whenever the value is what is being asked for. Writing `numeric`
+beside a particular form is a compile error, since it says two different things.
+
+`input-formats` constrains what a candidate may type, not what you may author: the answer above
+is written `0.5` and still asks for a fraction.
+
+`case-sensitive` and `input-formats` have no meaning on the blank the other belongs to —
+numbers have no case, and text has no form — and `tolerance` none on a text one; any such
 combination is a compile error rather than a setting that quietly does nothing.
 
 Every mismatch is a compile error: a marker no blank declares, a blank with no marker, a marker

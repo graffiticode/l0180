@@ -8,10 +8,10 @@
  * a silent first-match at score time — is now impossible rather than watched.
  */
 import { test, describe, expect } from "vitest";
-import { Decimal } from "decimal.js";
-import { normalize, parseNumber, sameNumber } from "./matching.js";
+import { normalize, parseNumber, permittedFormats, sameNumber } from "./matching.js";
 
-const n = (s: string) => parseNumber(s)?.toString();
+const n = (s: string) => parseNumber(s)?.value.toString();
+const f = (s: string) => parseNumber(s)?.format;
 
 describe("parseNumber accepts", () => {
   test("integers and a leading sign", () => {
@@ -27,6 +27,12 @@ describe("parseNumber accepts", () => {
     expect(n("0.50")).toBe("0.5");
     expect(n("0.500000")).toBe("0.5");
     expect(n("-0.25")).toBe("-0.25");
+  });
+
+  test("scientific notation", () => {
+    expect(n("5e-1")).toBe("0.5");
+    expect(n("-1.5E3")).toBe("-1500");
+    expect(n("6.02e23")).toBe("6.02e+23");
   });
 
   test("simple fractions", () => {
@@ -53,7 +59,6 @@ describe("parseNumber rejects", () => {
     ["units", "5 cm"],
     ["a symbol", "x/2"],
     ["percent, which is ambiguous", "50%"],
-    ["scientific notation, deliberately out", "5e-1"],
     ["division by zero", "1/0"],
     ["a comma that is not a grouping", "1,2"],
     ["two slashes", "1/2/3"],
@@ -69,28 +74,59 @@ describe("parseNumber rejects", () => {
   }
 });
 
+describe("parseNumber reports how the number was written", () => {
+  // The value is what scores; the form is what `input-formats` may constrain. Keeping both
+  // is what lets a blank ask for a fraction and still compare in base 10.
+  test("each form is named", () => {
+    expect(f("0.5")).toBe("decimal");
+    expect(f("1,000")).toBe("decimal");
+    expect(f("1/2")).toBe("fraction");
+    expect(f("5e-1")).toBe("scientific");
+  });
+
+  test("the same value can arrive in three forms", () => {
+    for (const written of ["0.5", "1/2", "5e-1"]) {
+      expect(n(written), written).toBe("0.5");
+    }
+    expect(new Set(["0.5", "1/2", "5e-1"].map(f)).size).toBe(3);
+  });
+});
+
+describe("permittedFormats", () => {
+  test("numeric means all of them, and is what an unconstrained blank gets", () => {
+    expect(permittedFormats(["numeric"])).toEqual(["decimal", "fraction", "scientific"]);
+    expect(permittedFormats(undefined)).toEqual(["decimal", "fraction", "scientific"]);
+    expect(permittedFormats([])).toEqual(["decimal", "fraction", "scientific"]);
+  });
+
+  test("a subset is honoured in a stable order", () => {
+    expect(permittedFormats(["fraction"])).toEqual(["fraction"]);
+    expect(permittedFormats(["scientific", "decimal"])).toEqual(["decimal", "scientific"]);
+  });
+});
+
 describe("arithmetic is decimal, not binary", () => {
   test("0.1 + 0.2 equals 0.3, which is false in binary floating point", () => {
     // 0.1 + 0.2 === 0.30000000000000004 as JS numbers. That difference is small until it lands
     // on a tolerance boundary and decides a grade.
     expect(0.1 + 0.2 === 0.3).toBe(false);
-    const sum = (parseNumber("0.1") as Decimal).add(parseNumber("0.2") as Decimal);
-    expect(sameNumber(sum, parseNumber("0.3") as Decimal)).toBe(true);
+    const sum = parseNumber("0.1")!.value.add(parseNumber("0.2")!.value);
+    expect(sameNumber(sum, parseNumber("0.3")!.value)).toBe(true);
   });
 
   test("a third is a third", () => {
-    expect(sameNumber(parseNumber("1/3") as Decimal, parseNumber("1/3") as Decimal)).toBe(true);
+    expect(sameNumber(parseNumber("1/3")!.value, parseNumber("1/3")!.value)).toBe(true);
   });
 
   test("a rounded third is not, without a tolerance", () => {
-    const third = parseNumber("1/3") as Decimal;
-    expect(sameNumber(third, parseNumber("0.333") as Decimal)).toBe(false);
-    expect(sameNumber(third, parseNumber("0.333") as Decimal, 0.001)).toBe(true);
+    const third = parseNumber("1/3")!.value;
+    expect(sameNumber(third, parseNumber("0.333")!.value)).toBe(false);
+    expect(sameNumber(third, parseNumber("0.333")!.value, 0.001)).toBe(true);
   });
 });
 
 describe("sameNumber", () => {
-  const d = (s: string) => parseNumber(s) as Decimal;
+  const d = (s: string) => parseNumber(s)!.value;
 
   test("exact when no tolerance is given, and that is already enough", () => {
     expect(sameNumber(d("0.5"), d("0.50"))).toBe(true);

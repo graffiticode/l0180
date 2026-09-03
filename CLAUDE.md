@@ -182,13 +182,35 @@ no exact binary representation, `0.1 + 0.2 !== 0.3`, and a tolerance comparison 
 would land either side of the line depending on the values. An assessment scorer is the wrong
 place for that.
 
-`base-type "float"` with no tolerance already makes `0.50`, `.5` and `1/2` equal `0.5`, because
-all four parse to the same number. Tolerance is for rounding on top of that, and it is absolute
-and symmetric — QTI's `absolute` mode.
+`base-type "float"` with no tolerance already makes `0.50`, `.5`, `1/2` and `5e-1` equal `0.5`,
+because all five parse to the same number. Tolerance is for rounding on top of that, and it is
+absolute and symmetric — QTI's `absolute` mode.
 
-Whole numbers, decimals, a sign and simple fractions are understood. Expressions, units and
-symbols are not, and that boundary is deliberate: it is where L0176 reaches for Learnosity's
-math engine.
+Whole numbers, decimals, a sign, simple fractions and scientific notation are understood.
+Expressions, units and symbols are not, and that boundary is deliberate: it is where L0176
+reaches for Learnosity's math engine.
+
+### `input-formats` constrains the writing, never the value
+
+`parseNumber` returns both what a number is worth and **how it was written**, because "express
+your answer as a fraction" is a real question and a decimal does not answer it. `input-formats`
+lists the accepted forms; the comparison is still base 10, so `2/4` counts for `1/2` and the
+form check is a separate gate on top of a match.
+
+Three rules keep it from becoming a second answer key:
+
+- **The default is `numeric`, the umbrella meaning all forms,** and it *expands at compile time*.
+  `permittedFormats` turns it into the concrete list, and `inputFormats` is emitted only when it
+  is a strict subset — the same rule `tolerance` and `upperBound` follow. A field always present
+  says nothing; a field present only when it constrains is readable. `numeric` beside a
+  particular form is refused as a contradiction rather than silently widened.
+- **It constrains what is typed, not what is authored.** The key for a fraction question is
+  ordinarily written `0.5`. Constraining the author too would force keys that mean something
+  other than what they say, and the word says *input*.
+- **A right value in the wrong form is its own outcome**, `wrongFormat`, not a bare zero. The
+  candidate did the arithmetic; a report that cannot tell that apart from not knowing the answer
+  is reporting the wrong thing. The scorer returns the accepted forms and the renderer names
+  them in English — the phrasing is presentation, so it stays out of the DOM-free module.
 
 ### Two response-processing templates, named for QTI's
 
@@ -422,9 +444,9 @@ so the candidate would watch a selection vanish for no stated reason.
 
 ## Not built yet
 
-Ordering, matching, classification, inline-choice dropdowns, hotspot, sliders. Numeric and
-symbolic answer matching — a typed answer is compared as text, so `0.5` does not match `1/2`;
-`baseType` makes `integer`/`float` additive when that is wanted. QTI export, which the `interaction`/`validation` split is deliberately shaped
+Ordering, matching, classification, inline-choice dropdowns, hotspot, sliders. Symbolic answer
+matching — expressions, units and algebraic equivalence, and whether a fraction is in lowest
+terms; numbers themselves are compared as numbers. QTI export, which the `interaction`/`validation` split is deliberately shaped
 to allow later; now that the compiled shape carries QTI's own field names, that is a serializer
 rather than a translation.
 
