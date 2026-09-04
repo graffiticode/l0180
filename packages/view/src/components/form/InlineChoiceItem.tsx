@@ -10,7 +10,9 @@
  * selection is discrete, like a click, so it can be reported the moment it is made and read
  * back off the model. Only typing needs a draft, because a keystroke is not an answer.
  */
+import { useMemo } from "react";
 import { cx, Stem } from "./itemKit";
+import { shuffled } from "./shuffling";
 import { scoreInlineChoice } from "../../scoring";
 import type { Validation } from "../../scoring";
 
@@ -19,12 +21,14 @@ interface Segment {
   id?: string;
   /** Present on a dropdown. */
   choice?: boolean;
-  options?: { id: string; text: string }[];
+  options?: { id: string; text: string; anchored?: boolean }[];
 }
 
 interface Interaction {
   type: string;
   prompt?: string;
+  /** One flag for the sentence; each menu still shuffles independently. */
+  shuffle?: boolean;
   segments?: Segment[];
 }
 
@@ -43,6 +47,26 @@ export function InlineChoiceItem({
   showResult?: boolean;
 }) {
   const segments = interaction.segments ?? [];
+
+  // Every menu's order computed in ONE memo, keyed on the joined ids of all of them. A
+  // `useMemo` inside the `segments.map` below would be a hook in a loop, and a fresh shuffle
+  // on each render would move the options under the cursor between opening a menu and picking
+  // from it.
+  const menus = useMemo(() => {
+    const out: Record<string, { id: string; text: string; anchored?: boolean }[]> = {};
+    for (const seg of segments) {
+      if (!seg.choice || !seg.id) continue;
+      const options = seg.options ?? [];
+      out[seg.id] = interaction.shuffle === true ? shuffled(options) : options;
+    }
+    return out;
+    // Keyed on a string built from the ids rather than on `segments` itself: the model hands
+    // down a fresh array every render, and keying on it would reshuffle continuously.
+  }, [
+    segments.map((s) => `${s.id ?? ""}:${(s.options ?? []).map((o) => o.id).join(",")}`).join(" "),
+    interaction.shuffle,
+  ]);
+
   const given: Record<string, string[]> =
     response !== null && typeof response === "object" ? (response as any) : {};
 
@@ -109,7 +133,7 @@ export function InlineChoiceItem({
                 {/* An empty first entry, so an untouched menu is not silently answered by
                     whichever option happens to be first. */}
                 <option value="">Choose…</option>
-                {(seg.options ?? []).map((o) => (
+                {(menus[id] ?? seg.options ?? []).map((o) => (
                   <option key={o.id} value={o.id}>
                     {o.text}
                   </option>

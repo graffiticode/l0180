@@ -8,14 +8,17 @@
  * what `formModel: "live"` means, and it is why L0180 does not need L0166's `"loaded"` escape
  * hatch.
  */
-import { useId, useMemo } from "react";
+import { useId } from "react";
 import { OptionRow, ResultBanner, Stem } from "./itemKit";
+import { useShuffled } from "./shuffling";
 import { correctIds, scoreChoice, selectedIds } from "../../scoring";
 import type { Validation } from "../../scoring";
 
 interface Option {
   id: string;
   text?: string;
+  /** Set by the compiler on an option that stays last however the rest is shuffled. */
+  anchored?: boolean;
 }
 
 interface Interaction {
@@ -27,27 +30,6 @@ interface Interaction {
   options?: Option[];
 }
 
-/**
- * Fisher-Yates, shuffled once per mount.
- *
- * Deliberately not stable across mounts: re-ordering on revisit is the point of `shuffle`.
- * It is memoized on the option ids so a re-render caused by answering does not reshuffle the
- * list under the learner's cursor mid-item, which would be worse than not shuffling at all.
- */
-function useOrder(options: Option[], shuffle: boolean): Option[] {
-  const key = options.map((o) => o.id).join(" ");
-  return useMemo(() => {
-    if (!shuffle) return options;
-    const out = options.slice();
-    for (let i = out.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [out[i], out[j]] = [out[j], out[i]];
-    }
-    return out;
-    // Keyed on the joined ids rather than the `options` array itself: a new array identity
-    // on every render would reshuffle continuously.
-  }, [key, shuffle]);
-}
 
 /**
  * "Select exactly 2" when the floor and the ceiling agree, which is what an exact-set item
@@ -86,7 +68,7 @@ export function ChoiceItem({
   const options = interaction.options ?? [];
   const maxChoices = interaction.maxChoices ?? 1;
   const multiple = maxChoices > 1;
-  const ordered = useOrder(options, interaction.shuffle === true);
+  const ordered = useShuffled(options, interaction.shuffle === true);
   const selected = selectedIds(response);
 
   const toggle = (id: string) => {

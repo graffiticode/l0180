@@ -112,7 +112,9 @@ export const attributeFields: Record<string, AttributeMeta> = {
   SHUFFLE: {
     field: "shuffle",
     expects: "boolean",
-    description: "Present the options in a random order. Defaults to false.",
+    description:
+      "Present the list in a random order — a choice's options, a dropdown's options, or an " +
+      "order's elements. Defaults to true; `shuffle false` keeps the authored order.",
   },
   MIN_CHOICES: {
     field: "minChoices",
@@ -292,11 +294,11 @@ export const validAttributes: Record<string, string[]> = {
   "text-entry": ["prompt", "text", "case-sensitive", "blanks"],
   // A dropdown cloze. The sentence and its markers are text-entry's; what fills a hole is
   // choice's, so a dropdown takes `options` and its options are read exactly as choice's are.
-  "inline-choice": ["prompt", "text", "dropdowns"],
+  "inline-choice": ["prompt", "shuffle", "text", "dropdowns"],
   dropdown: ["id", "options"],
   // Sequencing. The elements are authored in the order they are PRESENTED, and each says where
   // it belongs — see the ORDER transformer for why the key cannot be the authored order.
-  order: ["prompt", "elements"],
+  order: ["prompt", "shuffle", "elements"],
   element: ["id", "text", "assess"],
   blank: ["id", "responses", "case-sensitive", "base-type", "tolerance", "input-formats"],
   // The member container and its value word are both `response`, so an error reads

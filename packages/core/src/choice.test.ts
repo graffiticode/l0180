@@ -51,6 +51,8 @@ choice [
 
 describe("interaction", () => {
   test("carries the stem, the options, and nothing about the answer", async () => {
+    // `shuffle` is false here for a reason worth naming: 3, 4, 5 is an ascending numeric list,
+    // and a list whose order is already information keeps it. Every other item shuffles.
     const { interaction } = await compile(BASIC);
     expect(interaction).toEqual({
       type: "choice",
@@ -367,5 +369,89 @@ describe("the response round trip", () => {
     expect(val.interaction.prompt).toBe("What is 2 + 2?");
     // ...while the learner's own response survives untouched.
     expect(val.response).toEqual(["B"]);
+  });
+});
+
+describe("presentation is randomized unless the order means something", () => {
+  test("an ordinary list shuffles, with no `shuffle` written anywhere", async () => {
+    const { interaction } = await compile(`
+      choice [
+        prompt "Which planet is closest to the Sun?"
+        options [ [ text "Mercury" assess [ correct ] ] [ text "Venus" ] [ text "Mars" ] ] {}
+      ]`);
+    expect(interaction.shuffle).toBe(true);
+  });
+
+  test("`shuffle false` keeps the authored order", async () => {
+    const { interaction } = await compile(`
+      choice [
+        shuffle false
+        options [ [ text "Mercury" assess [ correct ] ] [ text "Venus" ] ] {}
+      ]`);
+    expect(interaction.shuffle).toBe(false);
+  });
+
+  test("numbers in sequence keep theirs, and the author can override that", async () => {
+    const ordered = await compile(`
+      choice [ options [ [ text "2" ] [ text "4" assess [ correct ] ] [ text "8" ] ] {} ]`);
+    expect(ordered.interaction.shuffle).toBe(false);
+    // What the author wrote always wins, in either direction.
+    const forced = await compile(`
+      choice [ shuffle true options [ [ text "2" ] [ text "4" assess [ correct ] ] [ text "8" ] ] {} ]`);
+    expect(forced.interaction.shuffle).toBe(true);
+  });
+
+  test("numbers OUT of sequence are evidence nobody chose an order", async () => {
+    const { interaction } = await compile(`
+      choice [ options [ [ text "9" ] [ text "2" assess [ correct ] ] [ text "11" ] ] {} ]`);
+    expect(interaction.shuffle).toBe(true);
+  });
+
+  test("true/false keeps its conventional order", async () => {
+    const { interaction } = await compile(`
+      choice [
+        prompt "The Pacific is the largest ocean."
+        options [ [ text "True" assess [ correct ] ] [ text "False" ] ] {}
+      ]`);
+    expect(interaction.shuffle).toBe(false);
+  });
+
+  test("an anchored option is marked, and the rest still shuffles around it", async () => {
+    const { interaction } = await compile(`
+      choice [
+        prompt "Which of these are mammals?"
+        options [
+          [ text "Whale" ]
+          [ text "Shark" ]
+          [ text "All of the above" assess [ correct ] ]
+        ] {}
+      ]`);
+    expect(interaction.shuffle).toBe(true);
+    expect(interaction.options).toEqual([
+      { id: "A", text: "Whale" },
+      { id: "B", text: "Shark" },
+      { id: "C", text: "All of the above", anchored: true },
+    ]);
+  });
+
+  test("the ordered-list rule reads the options that are NOT anchored", async () => {
+    // 2, 4, 8 is still an ordered numeric list with "None of the above" on the end.
+    const { interaction } = await compile(`
+      choice [
+        options [
+          [ text "2" ] [ text "4" assess [ correct ] ] [ text "8" ]
+          [ text "None of the above" ]
+        ] {}
+      ]`);
+    expect(interaction.shuffle).toBe(false);
+    expect(interaction.options[3].anchored).toBe(true);
+  });
+
+  test("nothing about anchoring reaches `validation`", async () => {
+    const { validation } = await compile(`
+      choice [
+        options [ [ text "Whale" assess [ correct ] ] [ text "All of the above" ] ] {}
+      ]`);
+    expect(JSON.stringify(validation)).not.toContain("anchored");
   });
 });

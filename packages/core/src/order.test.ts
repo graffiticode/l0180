@@ -68,6 +68,40 @@ describe("interaction — what the candidate sees", () => {
   });
 });
 
+describe("presentation", () => {
+  test("the starting order is randomized by default", async () => {
+    const { interaction } = await compile(CYCLE);
+    expect(interaction.shuffle).toBe(true);
+  });
+
+  test("`shuffle false` presents them exactly as authored", async () => {
+    const { interaction } = await compile(`
+      order [
+        shuffle false
+        elements [
+          [ text "First" assess [ position 1 ] ]
+          [ text "Second" assess [ position 2 ] ]
+        ] {}
+      ]`);
+    expect(interaction.shuffle).toBe(false);
+    expect(interaction.elements.map((e: any) => e.text)).toEqual(["First", "Second"]);
+  });
+
+  test("shuffling does not weaken the reason `position` exists", async () => {
+    // The renderer shuffles; the ARRAY still ships in authored order, so an author who listed
+    // the elements correctly would still be shipping the answer inside `interaction` if the
+    // key were the order rather than `position`.
+    const { interaction, validation } = await compile(CYCLE);
+    expect(interaction.elements.map((e: any) => e.text)).toEqual([
+      "Condensation",
+      "Evaporation",
+      "Collection",
+      "Precipitation",
+    ]);
+    expect(validation.correctResponse).toEqual(["B", "A", "D", "C"]);
+  });
+});
+
 describe("validation — the sequence", () => {
   test("the key is the ids in the right order, all or nothing", async () => {
     const { validation } = await compile(CYCLE);

@@ -15,6 +15,7 @@
  */
 import type { ReactNode } from "react";
 import { cx, Stem } from "./itemKit";
+import { useShuffled } from "./shuffling";
 import { scoreOrder } from "../../scoring";
 import type { Validation } from "../../scoring";
 
@@ -26,6 +27,8 @@ interface Element {
 interface Interaction {
   type: string;
   prompt?: string;
+  /** Randomize the starting order, which is the default. */
+  shuffle?: boolean;
   elements?: Element[];
 }
 
@@ -46,11 +49,17 @@ export function OrderItem({
   const elements = interaction.elements ?? [];
   const byId = new Map(elements.map((e) => [e.id, e]));
 
-  // The candidate's order if they have moved anything, the presented one until then. Ids the
+  // The starting order, shuffled once per mount. `avoid` is the answer where we have it: a
+  // shuffle that lands on the right sequence would hand the candidate the point for doing
+  // nothing. In a graded delivery `validation` is withheld, so there it is 1-in-n! and cannot
+  // be helped from here.
+  const start = useShuffled(elements, interaction.shuffle === true, validation?.correctResponse);
+
+  // The candidate's order if they have moved anything, the starting one until then. Ids the
   // interaction no longer has are dropped and missing ones appended, so an order that outlived
   // an edit to the item still renders every element exactly once.
   const given = Array.isArray(response) ? (response as string[]).filter((id) => byId.has(id)) : [];
-  const order = [...given, ...elements.map((e) => e.id).filter((id) => !given.includes(id))];
+  const order = [...given, ...start.map((e) => e.id).filter((id) => !given.includes(id))];
 
   const move = (from: number, to: number) => {
     if (to < 0 || to >= order.length) return;

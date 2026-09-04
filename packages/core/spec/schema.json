@@ -63,9 +63,9 @@
           "type": "integer",
           "minimum": 1
         },
-        "shuffle": { "description": "Present the options in random order.", "type": "boolean" },
+        "shuffle": { "description": "Present the options in a random order, which is the default. False when the author asked for the authored order, or when the list is one whose order is already information — numbers in sequence, or True/False.", "type": "boolean" },
         "options": {
-          "description": "The options offered, in authored order.",
+          "description": "The options offered. Presentation order is the renderer's, not this list's, whenever `shuffle` is true.",
           "type": "array",
           "minItems": 1,
           "items": {
@@ -76,7 +76,11 @@
                 "description": "Identifier, derived as A, B, C… unless authored.",
                 "type": "string"
               },
-              "text": { "description": "The option's visible text.", "type": "string" }
+              "text": { "description": "The option's visible text.", "type": "string" },
+              "anchored": {
+                "description": "True on an option that must stay last however the rest is shuffled — \"All of the above\" and its kin. Presentation rather than key material, so it survives a graded delivery.",
+                "const": true
+              }
             },
             "additionalProperties": false
           }
@@ -181,6 +185,7 @@
         },
         "type": { "const": "inline-choice" },
         "prompt": { "description": "The question stem.", "type": "string" },
+        "shuffle": { "description": "Present each dropdown's options in a random order, which is the default. One flag for every menu in the sentence; each still shuffles independently.", "type": "boolean" },
         "segments": {
           "description": "The sentence in order: literal runs and the dropdowns between them.",
           "type": "array",
@@ -192,7 +197,7 @@
               "id": { "description": "On a dropdown: the id its response is keyed by.", "type": "string" },
               "choice": { "description": "True on a dropdown.", "const": true },
               "options": {
-                "description": "What the menu offers, in authored order. Ids are scoped to this dropdown, so the same id may appear in another one. Nothing here says what an option is worth.",
+                "description": "What the menu offers. Presentation order is the renderer's whenever `shuffle` is true. Ids are scoped to this dropdown, so the same id may appear in another one. Nothing here says what an option is worth.",
                 "type": "array",
                 "minItems": 1,
                 "items": {
@@ -200,7 +205,11 @@
                   "required": ["id", "text"],
                   "properties": {
                     "id": { "type": "string" },
-                    "text": { "type": "string" }
+                    "text": { "type": "string" },
+                    "anchored": {
+                      "description": "True on an option that must stay last however the rest is shuffled.",
+                      "const": true
+                    }
                   },
                   "additionalProperties": false
                 }
@@ -228,8 +237,9 @@
         },
         "type": { "const": "order" },
         "prompt": { "description": "The question stem.", "type": "string" },
+        "shuffle": { "description": "Present the elements in a random order, which is the default. The renderer also reshuffles a presentation that happens to equal the answer, where it has the key to compare against.", "type": "boolean" },
         "elements": {
-          "description": "The things to be placed, in the order the candidate first sees them.",
+          "description": "The things to be placed, in the order the author wrote them. This is NOT the answer — the right sequence is the key's `correctResponse` — and it is not the presentation either when `shuffle` is true.",
           "type": "array",
           "minItems": 2,
           "items": {

@@ -12,7 +12,7 @@ Three rules cover the whole surface. There is no per-word syntax to memorize.
 | :----------- | :---------------- |
 | an object | an attribute list — `assess [correct points 2]` |
 | a list of objects | a list of attribute lists — `options [[text "A"] [text "B"]] {}` |
-| a scalar | the value itself — `prompt "What is 2 + 2?"`, `shuffle true` |
+| a scalar | the value itself — `prompt "What is 2 + 2?"`, `shuffle false` |
 
 Every word is the kebab-case spelling of the field it emits, and means the same thing at any
 depth. Lists are space-separated (`[1 2 3]`, not `[1, 2, 3]`). Every program ends with `..`.
@@ -64,7 +64,7 @@ to configure: `options [...] {}`. Every other word here takes exactly one argume
 | `correct` | `<: record>` | Marks an option as a right answer. Takes no value |
 | `points` | `<number: record>` | What an option is worth. Defaults to 1 with `correct` |
 | `rationale` | `<string: record>` | Why an option is wrong. Shown once the candidate picks it |
-| `shuffle` | `<boolean: record>` | Present the options in random order. Defaults to false |
+| `shuffle` | `<boolean: record>` | Present the list in random order. Defaults to true |
 | `min-choices` | `<number: record>` | Fewest options selectable. Defaults to 0 |
 | `max-choices` | `<number: record>` | Most options selectable. Defaults to 1 (single-select) |
 | `response-processing` | `<string: record>` | How the response scores: `map-response` (default) or `match-correct` |
@@ -81,9 +81,9 @@ to configure: `options [...] {}`. Every other word here takes exactly one argume
 | `selection` | quote, assess |
 | `text-entry` | prompt, text, case-sensitive, blanks |
 | `blank` | id, responses, case-sensitive, base-type, tolerance, input-formats |
-| `inline-choice` | prompt, text, dropdowns |
+| `inline-choice` | prompt, shuffle, text, dropdowns |
 | `dropdown` | id, options |
-| `order` | prompt, elements |
+| `order` | prompt, shuffle, elements |
 | `element` | id, text, assess |
 | `response` | response, assess |
 | `extended-text` | prompt, rubric, exemplar |
@@ -494,6 +494,47 @@ the end, or an element with no position at all is a compile error naming the fix
 would say nothing further and `points` would disagree with the item's own. It is equally an
 error anywhere else — on a choice option, a hottext selection or a typed response — rather than
 a word that merges and is read by nobody.
+
+## The order things are presented in
+
+**Every list a candidate picks from is presented in a random order.** A `choice`'s options, each
+dropdown's menu in an `inline-choice`, and an `order`'s elements: all three shuffle, and none of
+them needs asking for. A fixed order is a scoring artifact — candidates favour the first
+plausible option, and a key that sits in the same slot across an activity is learnable.
+
+`shuffle false` keeps the authored order:
+
+```
+choice [
+  prompt "Which step comes first when washing hands?"
+  shuffle false
+  options [
+    [ text "Wet your hands" assess [ correct ] ]
+    [ text "Apply soap" ]
+    [ text "Rinse" ]
+  ] {}
+]..
+```
+
+Two kinds of list keep their order without being asked, because in them the order is
+information rather than an accident:
+
+- **Numbers in sequence.** `2, 4, 5, 9, 11` reads as a set to scan; scrambled it reads as a
+  trick. Ascending or descending both count; a list that is not sorted is evidence nobody
+  chose an order, and it shuffles.
+- **True/false and yes/no.** A two-option item written in that order is conventional, and
+  reversed it looks like a mistake rather than a randomization.
+
+An **anchored** option — "All of the above", "None of the above" and their kin — is pinned last
+however the rest is shuffled, and the compiled option carries `anchored: true` to say so. Nothing
+needs writing for that either. The phrases are a closed English list, so a near-miss like "None
+of these apply", which is an ordinary answer, shuffles like any other option.
+
+Writing `shuffle` yourself always wins, in either direction: `shuffle true` randomizes a numeric
+list, `shuffle false` fixes an ordinary one.
+
+Hot text is never shuffled — it is a passage, and sentences in a random order are not prose —
+and neither are an item's parts, since Part A before Part B is the question's structure.
 
 ## A written response
 

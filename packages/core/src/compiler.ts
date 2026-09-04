@@ -23,6 +23,7 @@ import {
 } from "./attributes.js";
 import { resolveSelections, sentenceUnits, wordUnits } from "./hottext.js";
 import type { Paragraph, Unit } from "./hottext.js";
+import { isAnchored, keepsOrder } from "./anchors.js";
 import { optionLabel } from "./labels.js";
 import { cut } from "./textentry.js";
 import { cut as cutDropdowns, totalPoints } from "./inlinechoice.js";
@@ -117,6 +118,36 @@ for (const [name, meta] of Object.entries(attributeFields)) {
 // Derived ids live in `labels.ts` so `inlinechoice.ts` can hand out the same ones without
 // importing the compiler. Re-exported here because that is where callers have always found it.
 export { optionLabel };
+
+/**
+ * Whether a list is presented in a random order.
+ *
+ * Randomizing is the default: a fixed order is a scoring artifact, since position bias is real
+ * and a key that sits in the same slot is learnable. What the author wrote always wins, in
+ * either direction; `keepsOrder` only decides the case where they wrote nothing, and it reads
+ * the UNANCHORED options — a numeric list ending in "None of the above" is still a numeric
+ * list, and the anchor is pinned separately.
+ */
+function resolveShuffle(authored: unknown, options: { text: string; anchored?: true }[]): boolean {
+  if (typeof authored === "boolean") return authored;
+  return !keepsOrder(options.filter((o) => !o.anchored).map((o) => o.text));
+}
+
+/**
+ * True when EVERY dropdown in a sentence is a list whose order is already information.
+ *
+ * One flag covers the whole interaction, so a sentence mixing an ordered menu with an
+ * unordered one has to choose. It shuffles: leaving every menu fixed to protect one of them
+ * gives up the randomization on all the others, and the author who wanted the ordered menu
+ * left alone can say `shuffle false`.
+ */
+function menusKeepOrder(segments: any[]): boolean {
+  const menus = segments.filter((s: any) => s.choice).map((s: any) => s.options ?? []);
+  if (!menus.length) return false;
+  return menus.every((opts: any[]) =>
+    keepsOrder(opts.filter((o: any) => !o.anchored).map((o: any) => String(o.text ?? ""))),
+  );
+}
 
 /* ------------------------------------------------------------- Containers */
 
@@ -534,6 +565,10 @@ Transformer.prototype.INLINE_CHOICE = function (this: any, node: any, options: a
         interaction: {
           type: "inline-choice",
           ...(attrs.prompt !== undefined ? { prompt: attrs.prompt } : {}),
+          // One flag for the interaction, applying to every dropdown in the sentence — the
+          // arrangement `case-sensitive` already has on `text-entry`. Each menu still shuffles
+          // independently; what is shared is the decision, not the order.
+          shuffle: typeof attrs.shuffle === "boolean" ? attrs.shuffle : !menusKeepOrder(segments),
           segments,
         },
         validation: {
@@ -622,6 +657,10 @@ Transformer.prototype.ORDER = function (this: any, node: any, options: any, resu
         interaction: {
           type: "order",
           ...(attrs.prompt !== undefined ? { prompt: attrs.prompt } : {}),
+          // Randomized unless the author says otherwise, and there is no `keepsOrder` case
+          // here: an order's elements have no meaningful presentation order by construction —
+          // if they did, the question would already be answered.
+          shuffle: typeof attrs.shuffle === "boolean" ? attrs.shuffle : true,
           elements,
         },
         validation: {
@@ -850,14 +889,24 @@ Transformer.prototype.CHOICE = function (this: any, node: any, options: any, res
         throw new Error(`choice: min-choices (${minChoices}) is greater than max-choices (${maxChoices}).`);
       }
 
+      // Presentation, decided here so the renderer needs no rules of its own. An anchored
+      // option ("All of the above") is marked and pinned; a list whose order is already
+      // information (numbers in sequence, True/False) is not shuffled at all. An authored
+      // `shuffle` beats both — the rules only decide what happens when nobody said.
+      const options = withIds.map(({ id, text }) => {
+        const label = text !== undefined ? text : "";
+        return { id, text: label, ...(isAnchored(label) ? { anchored: true as const } : {}) };
+      });
+      const shuffle = resolveShuffle(attrs.shuffle, options);
+
       resume(err, {
         interaction: {
           type: "choice",
           ...(attrs.prompt !== undefined ? { prompt: attrs.prompt } : {}),
           minChoices,
           maxChoices,
-          shuffle: attrs.shuffle !== undefined ? attrs.shuffle : false,
-          options: withIds.map(({ id, text }) => ({ id, text: text !== undefined ? text : "" })),
+          shuffle,
+          options,
         },
         validation: {
           responseProcessing: templateId(template),

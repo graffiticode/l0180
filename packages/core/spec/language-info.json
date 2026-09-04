@@ -1,6 +1,6 @@
 {
   "id": "0180",
-  "description": "Authors web-based assessment items — quizzes, tests, practice questions and self-checks that render and score in a browser with no assessment platform behind them. Produces a choice interaction (single-select multiple choice, multi-select, or true/false) a hottext interaction (clicking a sentence or a word inside the passage itself), a text-entry interaction (fill in the blank, where each recognized answer carries its own score and explanation, and a numeric blank compares answers as numbers so 0.50 and 1/2 both count as 0.5, and can require a particular written form when the question asks for one), an inline-choice interaction (the same sentence with a dropdown at each hole, for an answer to be recognized rather than recalled), an order interaction (put these in the right sequence, scored all or nothing), or an extended-text interaction (a written response collected and held for a person to mark against a rubric), optionally wrapped in a multi-part item with a reading passage and conjunctive scoring, with per-option points, weighted answers, penalized distractors, exact-set scoring for a \"choose exactly these\" question, a rationale explaining each wrong answer, optional shuffling, and an answer key kept separate from the presentation so a graded delivery can withhold it. This is the general-purpose assessment language: use it whenever the request is a quiz, test or practice question and no particular vendor or platform is named.",
+  "description": "Authors web-based assessment items — quizzes, tests, practice questions and self-checks that render and score in a browser with no assessment platform behind them. Produces a choice interaction (single-select multiple choice, multi-select, or true/false) a hottext interaction (clicking a sentence or a word inside the passage itself), a text-entry interaction (fill in the blank, where each recognized answer carries its own score and explanation, and a numeric blank compares answers as numbers so 0.50 and 1/2 both count as 0.5, and can require a particular written form when the question asks for one), an inline-choice interaction (the same sentence with a dropdown at each hole, for an answer to be recognized rather than recalled), an order interaction (put these in the right sequence, scored all or nothing), or an extended-text interaction (a written response collected and held for a person to mark against a rubric), optionally wrapped in a multi-part item with a reading passage and conjunctive scoring, with per-option points, weighted answers, penalized distractors, exact-set scoring for a \"choose exactly these\" question, a rationale explaining each wrong answer, randomized presentation by default, and an answer key kept separate from the presentation so a graded delivery can withhold it. This is the general-purpose assessment language: use it whenever the request is a quiz, test or practice question and no particular vendor or platform is named.",
   "supported_item_types": [
     "choice",
     "hottext",
@@ -22,9 +22,9 @@
       "notes": "Exercises weighted scoring and a penalized distractor — assess [correct points 2] alongside assess [points -1]."
     },
     {
-      "prompt": "Select all the prime numbers from 2, 4, 5, 9 and 11 — 2, 5 and 11 are correct. Shuffle the options.",
+      "prompt": "Select all the prime numbers from 2, 4, 5, 9 and 11 — 2, 5 and 11 are correct.",
       "produces": "choice",
-      "notes": "Multi-select: raises max-choices, marks three options correct, and randomizes presentation order."
+      "notes": "Multi-select: raises max-choices and marks three options correct. Note what shuffling does here — the options are numbers in sequence, so the language leaves them in it; every other option list is randomized without being asked."
     },
     {
       "prompt": "True or false: the Pacific is the largest ocean. True is correct.",

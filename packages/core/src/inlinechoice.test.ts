@@ -95,6 +95,65 @@ describe("interaction — the sentence, and nothing about the answer", () => {
   });
 });
 
+describe("presentation", () => {
+  test("every menu shuffles by default, under one flag for the sentence", async () => {
+    const { interaction } = await compile(ONE);
+    expect(interaction.shuffle).toBe(true);
+  });
+
+  test("`shuffle false` keeps every menu as authored", async () => {
+    const { interaction } = await compile(`
+      inline-choice [
+        shuffle false
+        text "Plants absorb {{gas}}."
+        dropdowns [ [ id "gas" options [ [ text "carbon dioxide" assess [ correct ] ] [ text "oxygen" ] ] {} ] ] {}
+      ]`);
+    expect(interaction.shuffle).toBe(false);
+  });
+
+  test("a menu of numbers in sequence is left alone", async () => {
+    const { interaction } = await compile(`
+      inline-choice [
+        text "A triangle has {{n}} sides."
+        dropdowns [ [ id "n" options [ [ text "2" ] [ text "3" assess [ correct ] ] [ text "4" ] ] {} ] ] {}
+      ]`);
+    expect(interaction.shuffle).toBe(false);
+  });
+
+  test("one unordered menu beside an ordered one shuffles both", async () => {
+    // One flag covers the sentence, so a mixture has to choose. Leaving every menu fixed to
+    // protect one gives up the randomization on all the others.
+    const { interaction } = await compile(`
+      inline-choice [
+        text "A triangle has {{n}} sides and is drawn in {{colour}}."
+        dropdowns [
+          [ id "n" options [ [ text "2" ] [ text "3" assess [ correct ] ] [ text "4" ] ] {} ]
+          [ id "colour" options [ [ text "red" assess [ correct ] ] [ text "blue" ] ] {} ]
+        ] {}
+      ]`);
+    expect(interaction.shuffle).toBe(true);
+  });
+
+  test("an anchored option in a menu is marked", async () => {
+    const { interaction } = await compile(`
+      inline-choice [
+        text "The answer is {{a}}."
+        dropdowns [
+          [ id "a" options [
+              [ text "Whale" assess [ correct ] ]
+              [ text "Shark" ]
+              [ text "None of the above" ]
+            ] {} ]
+        ] {}
+      ]`);
+    expect(interaction.segments[1].options[2]).toEqual({
+      id: "C",
+      text: "None of the above",
+      anchored: true,
+    });
+  });
+});
+
 describe("validation — a choice key, one per hole", () => {
   test("a dropdown's key is keyed by option id and looks like a choice mapping", async () => {
     const { validation } = await compile(ONE);

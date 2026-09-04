@@ -35,7 +35,7 @@ Keeping them apart is what lets a graded delivery withhold the key and score on 
 | `assess`  | 1 | Scoring for an option. Its presence turns scoring on |
 | `correct` | 0 | Marks an option as a right answer. Takes no value |
 | `points`  | 1 | What an option is worth. Defaults to 1 with `correct`; negative penalizes |
-| `shuffle` | 1 | Present the options in random order |
+| `shuffle` | 1 | Present the list in random order. Defaults to true |
 | `min-choices` / `max-choices` | 1 | Selection limits. `max-choices` above 1 is multi-select |
 
 Weighted answers, partial credit and penalized distractors all live in `assess`:

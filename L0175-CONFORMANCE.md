@@ -58,7 +58,7 @@ The mapping as built:
 | QTI | L0180 compiled field |
 | :-- | :-- |
 | `itemBody` | `interaction` |
-| `maxChoices` / `minChoices` / `shuffle` | same names |
+| `maxChoices` / `minChoices` / `shuffle` | same names. `shuffle` DIVERGES on its default: QTI's is false, L0180's is true, because a fixed option order is a scoring artifact and an author who wants one can say so |
 | `cardinality` | `interaction.cardinality` — derived from `maxChoices`, never authored |
 | `responseProcessing` template | `validation.responseProcessing` |
 | `mapping` / `mapEntry` | `validation.mapping` |

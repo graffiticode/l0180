@@ -493,11 +493,13 @@ should — a key says how to score, not what drew it.
 QTI keeps the two interactions apart, and a member word taking both `responses` and `options`
 would let one blank be written half each way. A question needing both is two parts of an item.
 
-### `order`: the authored order is what the candidate SEES
+### `order`: the authored order is never the answer
 
-This is the one decision `order` turns on. The elements are written in PRESENTATION order and
-each says where it belongs with `assess [ position N ]` — key material inside `assess`, exactly
-where `correct` sits on an option.
+This is the one decision `order` turns on. The elements are written in an order that is NOT the
+answer, and each says where it belongs with `assess [ position N ]` — key material inside
+`assess`, exactly where `correct` sits on an option. (Since presentation became randomized, the
+authored order is only what a candidate sees when `shuffle false` is set; the argument below is
+unchanged by that, because the array still ships as authored.)
 
 The obvious alternative, authoring them in the right order, ships the answer inside
 `interaction`: the half a graded delivery sends to the browser would BE the key, in array order.
@@ -524,6 +526,42 @@ compile clean — the silent no-op the attribute table exists to prevent.
 The renderer moves elements with buttons rather than drag-and-drop: a candidate on a phone, a
 keyboard or a screen reader has to be able to answer the question, and up/down works for all
 three with no library.
+
+### Every list is randomized, and two kinds are not
+
+A fixed option order is a scoring artifact: position bias is real, and a key that sits in the
+same slot across an activity is learnable. So `shuffle` **defaults to true** — for a `choice`'s
+options, each menu of an `inline-choice`, and an `order`'s elements. This diverges from QTI,
+whose default is false, deliberately.
+
+`hottext` is never shuffled (it is a passage; sentences in a random order are not prose) and
+neither are an item's `parts` (Part A before Part B is the question's structure). Both still
+reject `shuffle` as an unknown attribute, and the three tests asserting that are the guard that
+it did not leak further.
+
+**`anchors.ts` holds the two cases where randomizing is wrong**, and both only decide what
+happens when the author wrote nothing — an explicit `shuffle` always wins, in either direction:
+
+- **An anchored option is pinned last.** "All of the above" in position 2 is a broken item. The
+  compiler marks those `anchored: true` and the renderer partitions on the flag. The phrases are
+  a closed English set rather than a pattern, because the failure to avoid is catching a
+  plausible answer by accident — "None of these apply" is a real answer and must shuffle.
+- **A list already in an order keeps it**: numbers in sequence, or the pair True/False. Both are
+  item-writing conventions, and `2, 4, 5, 9, 11` scrambled to `9, 2, 11, 4, 5` reads as a trick.
+  The rule is evaluated over the UNANCHORED options, so a numeric list ending in "None of the
+  above" is still a numeric list. Note where this lands: the language's own flagship example,
+  "What is 2 + 2? → 3, 4, 5", keeps its order for exactly this reason.
+
+**The shuffle happens at render, once per mount** — `packages/view/src/components/form/shuffling.ts`,
+the one shuffle in the package. Not at compile time, for the reason `order` already documents:
+`PROG` recompiles on every response, so a compile-time order would reshuffle under the candidate
+as they answer. And it is memoized on the joined ids, because the model hands down a fresh array
+every render and keying on the array itself would reshuffle continuously — moving the list under
+the cursor mid-answer, which is worse than not shuffling at all.
+
+`shuffled()` takes its RNG so it can be tested with a seeded one; `useShuffled` is the thin React
+wrapper. `OrderItem` passes `correctResponse` as `avoid`, so a shuffle that lands on the answer
+is redrawn — possible only in a practice delivery, since a graded one withholds the key.
 
 ### A hottext resolves in two phases, and that is not optional
 

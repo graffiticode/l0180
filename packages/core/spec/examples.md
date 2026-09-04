@@ -3,7 +3,7 @@
 
 131 example prompts for training a RAG model on L0180, the web-based assessment language —
 covering multiple choice, true/false, multi-select, exact-set scoring, weighted scoring,
-penalized distractors, presentation options, unscored polls, per-option rationale, clicking
+penalized distractors, presentation and option order, unscored polls, per-option rationale, clicking
 sentences and words inside a passage, fill-in-the-blank including numeric answers and the form they must be written in, dropdown
 cloze, sequencing, written responses marked against a rubric, and multi-part items over a reading passage.
 
@@ -74,15 +74,15 @@ L0180 grows further interaction types, this file grows categories with them.
 47. Which word is spelled correctly? Deduct a point for the common misspelling.
 48. Ask a chemistry question where the plausible-but-wrong answer carries a one-point penalty.
 
-## Category 6: Presentation — Shuffling and Ids (49–56)
+## Category 6: Presentation — Order and Ids (49–56)
 
-49. Select all the prime numbers from 2, 4, 5, 9 and 11, and shuffle the options.
-50. A multiple-choice question on the capital of Japan with the options presented in random order.
+49. Select all the prime numbers from 2, 4, 5, 9 and 11, keeping them in numeric order.
+50. A multiple-choice question on the capital of Japan.
 51. Ask which of four animals is a mammal and give the options readable ids like "whale" and "shark".
-52. Create a question about the water cycle with shuffled options so it can be reused across a class.
-53. A four-option history question with the options shuffled and the correct answer worth 2 points.
+52. A four-option question about which animals are mammals whose last option is "All of the above".
+53. A four-option history question where the correct answer is worth 2 points and the options must stay in the order I wrote them.
 54. Ask which shape has four equal sides, naming the options "square", "rect", "tri" and "circle".
-55. Make a true/false item with the options in random order.
+55. Make a true/false item whose two options are presented in a random order rather than true first.
 56. A multi-select on programming languages with authored ids so results can be reported per language.
 
 ## Category 7: Unscored Polls (57–60)

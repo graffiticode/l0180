@@ -75,7 +75,7 @@ Two words depart from that, both deliberately:
 | `correct` | `<: record>` | Marks a right answer |
 | `points` | `<number: record>` | What an option is worth |
 | `rationale` | `<string: record>` | Why an option is wrong, shown once it is picked |
-| `shuffle` | `<boolean: record>` | Randomize option order |
+| `shuffle` | `<boolean: record>` | Randomize the presented order. Defaults to true |
 | `min-choices` | `<number: record>` | Fewest options selectable |
 | `max-choices` | `<number: record>` | Most options selectable |
 | `response-processing` | `<string: record>` | How the response scores — map-response or match-correct |
@@ -361,6 +361,32 @@ from 1 to the number of elements; anything else is a compile error.
 
 It is the only word an order element's `assess` takes, and it is refused in any other `assess` —
 a `position` on a choice option would otherwise merge and be read by nobody.
+
+### shuffle
+
+Whether a list is presented in a random order. **The default is true** for a `choice`'s options,
+an `inline-choice`'s menus and an `order`'s elements; `shuffle false` keeps the authored order.
+
+Two lists keep their order without being asked: numbers in sequence (`2, 4, 5, 9, 11`), and the
+two-option pairs True/False and Yes/No. In both the order is information, and scrambling it
+makes the item worse. An authored `shuffle` overrides that in either direction.
+
+An option reading "All of the above", "None of the above" or a close variant is **anchored**: it
+carries `anchored: true` in the compiled option and stays last however the rest is shuffled.
+
+```
+choice [
+  shuffle false
+  options [
+    [ text "Wet your hands" assess [ correct ] ]
+    [ text "Apply soap" ]
+  ] {}
+]..
+```
+
+Shuffling happens when the item is rendered, never in the compiled output — the elements of an
+`order` ship in the order they were authored, which is why the key is `position` and not that
+order. `hottext` and an item's `parts` are never shuffled.
 
 ### extended-text
 

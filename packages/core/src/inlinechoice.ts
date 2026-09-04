@@ -15,6 +15,7 @@
  * `inlineChoiceInteraction` apart, and a member word that took both `responses` and `options`
  * would let a blank be written half one way and half the other.
  */
+import { isAnchored } from "./anchors.js";
 import { assertAssessWords } from "./attributes.js";
 import { optionLabel } from "./labels.js";
 import { cutMarkers, type MarkerWords, type TextSegment } from "./textentry.js";
@@ -60,7 +61,7 @@ export interface Entry {
 export interface DropdownSegment {
   id: string;
   choice: true;
-  options: { id: string; text: string }[];
+  options: { id: string; text: string; anchored?: true }[];
 }
 
 export type Segment = TextSegment | DropdownSegment;
@@ -87,7 +88,10 @@ const WORDS: MarkerWords = {
  * `CHOICE` asserts about an option, and it has to stay that way. An author who can explain a
  * wrong multiple-choice option must be able to explain a wrong dropdown option the same way.
  */
-function readOptions(d: Dropdown, at: string): { entry: Entry; menu: { id: string; text: string }[] } {
+function readOptions(
+  d: Dropdown,
+  at: string,
+): { entry: Entry; menu: { id: string; text: string; anchored?: true }[] } {
   const opts = Array.isArray(d.options) ? d.options : [];
   if (!opts.length) {
     throw new Error(
@@ -97,7 +101,7 @@ function readOptions(d: Dropdown, at: string): { entry: Entry; menu: { id: strin
 
   const seen = new Map<string, number>();
   const options: Record<string, OptionValue> = {};
-  const menu: { id: string; text: string }[] = [];
+  const menu: { id: string; text: string; anchored?: true }[] = [];
   const correct: number[] = [];
 
   opts.forEach((opt, i) => {
@@ -113,7 +117,9 @@ function readOptions(d: Dropdown, at: string): { entry: Entry; menu: { id: strin
     if (!text.trim()) {
       throw new Error(`${at}: option ${i + 1} needs the \`text\` the candidate reads in the menu.`);
     }
-    menu.push({ id, text });
+    // Marked here rather than in the renderer: "All of the above" belongs last whatever else
+    // is shuffled, and which phrases mean that is a rule, not a rendering detail.
+    menu.push({ id, text, ...(isAnchored(text) ? { anchored: true as const } : {}) });
 
     const assess = opt.assess;
     if (assess === undefined) return; // a plain distractor, worth nothing and unexplained
