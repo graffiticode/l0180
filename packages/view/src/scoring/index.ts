@@ -6,6 +6,7 @@ export {
   scoreHuman,
   scoreTextEntry,
   scoreInlineChoice,
+  scoreOrder,
   selectedIds,
   correctIds,
 } from "./score.js";

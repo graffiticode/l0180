@@ -12,6 +12,7 @@
  * segmentation, the `<paragraphId>.<n>` addressing and the tolerant quote matching. Two
  * behaviours deliberately differ; both are marked below.
  */
+import { assertAssessWords } from "./attributes.js";
 
 /** One selectable (or merely rendered) span of the text. */
 export interface Unit {
@@ -242,6 +243,7 @@ export function resolveSelections(units: Unit[], selections: Selection[], where:
 
     const assess = sel.assess;
     if (assess === undefined) return; // a plain distractor: clickable, worth nothing, unexplained
+    assertAssessWords(assess, ["correct", "points", "rationale"], at);
     const isCorrect = assess.correct === true;
     const hasPoints = typeof assess.points === "number";
     const hasRationale = typeof assess.rationale === "string";

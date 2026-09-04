@@ -102,6 +102,18 @@ const containers = {
     "<list record: record>",
     "The dropdowns in an inline-choice's sentence, each named by the marker that positions it.",
   ),
+  order: fn(
+    "ORDER",
+    1,
+    "<list: record>",
+    "An order interaction: elements the candidate puts into the right sequence.",
+  ),
+  elements: fn(
+    "ELEMENTS",
+    2,
+    "<list record: record>",
+    "The things an order interaction sequences, in the order they are presented.",
+  ),
   "extended-text": fn(
     "EXTENDED_TEXT",
     1,

@@ -10,6 +10,7 @@ import {
   scoreHuman,
   scoreInlineChoice,
   scoreInteraction,
+  scoreOrder,
   scoreTextEntry,
   selectedIds,
   type Validation,
@@ -644,5 +645,79 @@ describe("scoreInlineChoice", () => {
       response: ["B"],
     });
     expect(s).toMatchObject({ points: 2, correct: true });
+  });
+});
+
+describe("scoreOrder", () => {
+  /** The validation half of the water-cycle example in core's order.test.ts. */
+  const CYCLE: Validation = {
+    responseProcessing: "match_correct",
+    cardinality: "ordered",
+    baseType: "identifier",
+    points: 1,
+    correctResponse: ["B", "A", "D", "C"],
+  };
+
+  test("the right sequence earns the point", () => {
+    expect(scoreOrder({ response: ["B", "A", "D", "C"], validation: CYCLE })).toMatchObject({
+      points: 1,
+      maxPoints: 1,
+      correct: true,
+    });
+  });
+
+  test("one pair swapped earns nothing — a sequence is not most of the way right", () => {
+    expect(scoreOrder({ response: ["B", "A", "C", "D"], validation: CYCLE })).toMatchObject({
+      points: 0,
+      correct: false,
+    });
+  });
+
+  test("the same elements in another order are a different answer", () => {
+    // The whole difference from scoreChoice under the same template, where these are equal.
+    const backwards = scoreOrder({ response: ["C", "D", "A", "B"], validation: CYCLE });
+    expect(backwards.correct).toBe(false);
+    expect(scoreChoice({ response: ["C", "D", "A", "B"], validation: CYCLE }).correct).toBe(true);
+  });
+
+  test("an incomplete sequence earns nothing", () => {
+    expect(scoreOrder({ response: ["B", "A"], validation: CYCLE })).toMatchObject({
+      points: 0,
+      correct: false,
+    });
+  });
+
+  test("per element, `correct` says whether it is standing in its own place", () => {
+    const s = scoreOrder({ response: ["B", "A", "C", "D"], validation: CYCLE });
+    expect(s.options?.B).toMatchObject({ correct: true, selected: true });
+    expect(s.options?.A).toMatchObject({ correct: true });
+    expect(s.options?.D).toMatchObject({ correct: false });
+    expect(s.options?.C).toMatchObject({ correct: false });
+  });
+
+  test("an empty response scores zero without throwing", () => {
+    expect(scoreOrder({ response: undefined, validation: CYCLE })).toMatchObject({
+      points: 0,
+      correct: false,
+      maxPoints: 1,
+    });
+  });
+
+  test("scoreInteraction dispatches on cardinality, which is where QTI puts it", () => {
+    expect(
+      scoreInteraction({
+        interaction: { type: "order" },
+        validation: CYCLE,
+        response: ["B", "A", "D", "C"],
+      }),
+    ).toMatchObject({ points: 1, correct: true });
+    // Without the ordered cardinality it would be scored as a set, and this would pass.
+    expect(
+      scoreInteraction({
+        interaction: { type: "order" },
+        validation: CYCLE,
+        response: ["C", "D", "A", "B"],
+      }),
+    ).toMatchObject({ points: 0, correct: false });
   });
 });

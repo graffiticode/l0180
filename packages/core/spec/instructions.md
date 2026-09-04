@@ -45,6 +45,9 @@ to configure: `options [...] {}`. Every other word here takes exactly one argume
 | `input-formats` | `<list: record>` | Which written forms a numeric blank accepts: `numeric` (any, the default), or a list of `decimal`, `fraction` and `scientific` |
 | `inline-choice` | `<list: record>` | A sentence with dropdowns the candidate picks from |
 | `dropdowns` | `<list record: record>` | The dropdowns in an inline-choice's sentence, each named by its marker |
+| `order` | `<list: record>` | Elements the candidate puts into the right sequence |
+| `elements` | `<list record: record>` | The things an order sequences, in the order they are presented |
+| `position` | `<number: record>` | Where an element belongs in the right sequence, counting from 1 |
 | `extended-text` | `<list: record>` | A written response, marked by a person against a rubric |
 | `rubric` | `<list record: record>` | The bands a written response is marked against |
 | `descriptor` | `<string: record>` | What a response must do to earn that band |
@@ -80,11 +83,13 @@ to configure: `options [...] {}`. Every other word here takes exactly one argume
 | `blank` | id, responses, case-sensitive, base-type, tolerance, input-formats |
 | `inline-choice` | prompt, text, dropdowns |
 | `dropdown` | id, options |
+| `order` | prompt, elements |
+| `element` | id, text, assess |
 | `response` | response, assess |
 | `extended-text` | prompt, rubric, exemplar |
 | `band` | points, descriptor |
 | an option | id, text, assess |
-| `assess` | correct, points, rationale |
+| `assess` | correct, points, rationale, position |
 
 A word written in the wrong container is a compile error naming where it belongs, not a
 silent no-op.
@@ -455,6 +460,40 @@ interaction — put them in two parts of an item if a question needs both.
 The same cross-checks apply, in the dropdown's own words: a marker no dropdown declares, a
 dropdown with no marker, a marker used twice, text with no marker at all, and a dropdown with
 nothing marked `correct` are each a compile error naming the fix.
+
+## Putting things in order
+
+`order` asks the candidate to sequence things. Each element says where it belongs, with
+`position` inside its `assess`:
+
+```
+order [
+  prompt "Put the stages of the water cycle in order."
+  elements [
+    [ text "Condensation" assess [ position 2 ] ]
+    [ text "Evaporation" assess [ position 1 ] ]
+    [ text "Collection" assess [ position 4 ] ]
+    [ text "Precipitation" assess [ position 3 ] ]
+  ] {}
+]..
+```
+
+**Write the elements in the order the candidate should SEE them, not the right order.** The
+list is the presentation; `position` is the answer. This is not a style preference: the two
+halves of a compiled item are separate so a graded delivery can withhold the key, and elements
+emitted in their correct order would be the key, sitting in the half that ships to the browser.
+
+Scoring is all or nothing — a sequence with one pair swapped is not most of the way right — and
+the interaction is worth one point. Wrap it in a conjunctive item to combine it with another
+part; put it in an additive item to have it scored beside one.
+
+Positions count from 1 and each element holds one. A repeat, a gap, a fraction, a position past
+the end, or an element with no position at all is a compile error naming the fix.
+
+`position` is the only thing an order element's `assess` takes: it is the answer, so `correct`
+would say nothing further and `points` would disagree with the item's own. It is equally an
+error anywhere else — on a choice option, a hottext selection or a typed response — rather than
+a word that merges and is read by nobody.
 
 ## A written response
 

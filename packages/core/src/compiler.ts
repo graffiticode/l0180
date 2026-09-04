@@ -13,6 +13,7 @@ import {
 
 import {
   attributeFields,
+  assertAssessWords,
   assertKnownAttributes,
   checkValue,
   mergeAttributes,
@@ -25,6 +26,7 @@ import type { Paragraph, Unit } from "./hottext.js";
 import { optionLabel } from "./labels.js";
 import { cut } from "./textentry.js";
 import { cut as cutDropdowns, totalPoints } from "./inlinechoice.js";
+import { sequence } from "./order.js";
 
 /* ------------------------------------------------------------------ Checker */
 
@@ -65,6 +67,8 @@ Checker.prototype.BLANKS = checkBoth;
 Checker.prototype.RESPONSES = checkBoth;
 Checker.prototype.INLINE_CHOICE = checkChild;
 Checker.prototype.DROPDOWNS = checkBoth;
+Checker.prototype.ORDER = checkChild;
+Checker.prototype.ELEMENTS = checkBoth;
 Checker.prototype.ITEM = checkChild;
 Checker.prototype.PARTS = checkBoth;
 
@@ -549,6 +553,95 @@ Transformer.prototype.INLINE_CHOICE = function (this: any, node: any, options: a
 };
 
 /**
+ * A member list of the things an order interaction sequences.
+ *
+ * The list order is the PRESENTATION order — what the candidate is shown before touching
+ * anything. `ORDER` explains why it cannot also be the answer.
+ */
+Transformer.prototype.ELEMENTS = function (this: any, node: any, options: any, resume: any) {
+  this.visit(node.elts[0], options, (e0: any, v0: any) => {
+    this.visit(node.elts[1], options, (e1: any, v1: any) => {
+      const err = ([] as any[]).concat(e0 || [], e1 || []);
+      const raw = toPlainObject(v0);
+      if (!Array.isArray(raw)) {
+        resume(
+          err.concat(
+            'elements: expected a list of elements, e.g. elements [[text "First" assess [position 1]]] {}.',
+          ),
+          {},
+        );
+        return;
+      }
+      try {
+        const els = raw.map((entry: any, i: number) => {
+          const el = mergeAttributes(entry, `element ${i + 1}`);
+          assertKnownAttributes("element", el);
+          return el;
+        });
+        resume(err, { ...(toPlainObject(v1) || {}), elements: els });
+      } catch (e: any) {
+        resume(err.concat(String((e && e.message) || e)), {});
+      }
+    });
+  });
+};
+
+/**
+ * Put these in the right order: QTI's order interaction.
+ *
+ * The response is a sequence, so `cardinality` is `ordered` and the key is a `correctResponse`
+ * listing the ids in the right order. Scoring is all-or-nothing, which is what
+ * `match_correct` already means and what a sequence needs — an order with one pair swapped is
+ * not most of the way right, and QTI's partial-credit variants for ordering are a mapping over
+ * position pairs that nothing in this language would read.
+ *
+ * Worth one point, the figure `match_correct` fixes for `choice` and `hottext` too. An item
+ * that should be worth more wraps it in a conjunctive item, which is what that word is for.
+ *
+ * **Authored order is presentation order.** See `order.ts` — emitting the elements in their
+ * correct order would ship the answer inside `interaction`, where a graded delivery cannot
+ * withhold it.
+ */
+Transformer.prototype.ORDER = function (this: any, node: any, options: any, resume: any) {
+  this.visit(node.elts[0], options, (e0: any, v0: any) => {
+    const err = ([] as any[]).concat(e0 || []);
+    try {
+      const attrs = mergeAttributes(toPlainObject(v0), "order");
+      assertKnownAttributes("order", attrs);
+
+      if (!Array.isArray(attrs.elements) || !attrs.elements.length) {
+        throw new Error(
+          "order: needs the things to be put in order, e.g. " +
+            'elements [[text "First" assess [position 1]] [text "Second" assess [position 2]]] {}.',
+        );
+      }
+
+      const { elements, correctResponse } = sequence(attrs.elements, "order");
+
+      resume(err, {
+        interaction: {
+          type: "order",
+          ...(attrs.prompt !== undefined ? { prompt: attrs.prompt } : {}),
+          elements,
+        },
+        validation: {
+          responseProcessing: "match_correct",
+          // The one place cardinality is neither single nor multiple: the response is a
+          // sequence, and two candidates picking the same elements in different orders have not
+          // given the same answer.
+          cardinality: "ordered",
+          baseType: "identifier",
+          points: 1,
+          correctResponse,
+        },
+      });
+    } catch (e: any) {
+      resume(err.concat(String((e && e.message) || e)), {});
+    }
+  });
+};
+
+/**
  * A written response, scored by a person against a rubric.
  *
  * `responseProcessing: "human"` is the third template, and it is NOT the same as an unscored
@@ -672,6 +765,7 @@ Transformer.prototype.CHOICE = function (this: any, node: any, options: any, res
       for (const opt of withIds) {
         const assess = opt.assess;
         if (assess === undefined) continue;
+        assertAssessWords(assess, ["correct", "points", "rationale"], `option "${opt.id}"`);
         assessed += 1;
         const isCorrect = assess.correct === true;
         const hasPoints = typeof assess.points === "number";

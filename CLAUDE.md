@@ -493,6 +493,38 @@ should — a key says how to score, not what drew it.
 QTI keeps the two interactions apart, and a member word taking both `responses` and `options`
 would let one blank be written half each way. A question needing both is two parts of an item.
 
+### `order`: the authored order is what the candidate SEES
+
+This is the one decision `order` turns on. The elements are written in PRESENTATION order and
+each says where it belongs with `assess [ position N ]` — key material inside `assess`, exactly
+where `correct` sits on an option.
+
+The obvious alternative, authoring them in the right order, ships the answer inside
+`interaction`: the half a graded delivery sends to the browser would BE the key, in array order.
+Shuffling at compile time is not a way out either. A deterministic scramble is invertible by
+anyone who knows the rule, and a random one would reshuffle under the candidate on every
+recompile, because `PROG` recompiles on each response.
+
+`cardinality "ordered"` is the third value of a field that only ever said `single` or
+`multiple`, and it is the one thing the scorer dispatches on — deliberately, because it is a
+property of the response variable rather than of the interaction that collected it, and QTI
+branches in the same place. `scoreChoice` under `match_correct` compares sets; two candidates
+with the same elements in different orders have not given the same answer.
+
+Positions are whole, unique and run `1..n`, so they are a permutation and a gap is impossible —
+which is why nothing checks for one. Scoring is all or nothing at one point, the figure
+`match_correct` already fixes everywhere.
+
+**`position` is refused in any other `assess`.** `validAttributes` cannot catch that: `assess`
+is checked under that one name wherever it appears, so it cannot tell an order element from a
+choice option. `assertAssessWords` is the check, called from all five readers, and it exists
+because `assess [position 2]` on a choice option would otherwise merge, be read by nobody, and
+compile clean — the silent no-op the attribute table exists to prevent.
+
+The renderer moves elements with buttons rather than drag-and-drop: a candidate on a phone, a
+keyboard or a screen reader has to be able to answer the question, and up/down works for all
+three with no library.
+
 ### A hottext resolves in two phases, and that is not optional
 
 Children transform before parents: `PARTS` visits each interaction, then `ITEM` merges. So when
@@ -521,7 +553,7 @@ so the candidate would watch a selection vanish for no stated reason.
 
 ## Not built yet
 
-Ordering, matching, classification, hotspot, sliders. Symbolic answer
+Matching, classification, hotspot, sliders. Symbolic answer
 matching — expressions, units and algebraic equivalence, and whether a fraction is in lowest
 terms; numbers themselves are compared as numbers. QTI export, which the `interaction`/`validation` split is deliberately shaped
 to allow later; now that the compiled shape carries QTI's own field names, that is a serializer

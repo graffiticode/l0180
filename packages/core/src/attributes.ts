@@ -227,7 +227,37 @@ export const attributeFields: Record<string, AttributeMeta> = {
     description:
       "Why this option is right or wrong. Shown against it once the candidate has selected it.",
   },
+  POSITION: {
+    field: "position",
+    expects: "number",
+    description:
+      "`order` only: where this element belongs in the right sequence, counting from 1.",
+  },
 };
+
+/**
+ * Reject an `assess` word its container has no use for.
+ *
+ * `validAttributes` cannot do this one: `assess` is checked under that name wherever it
+ * appears, so it has no idea whether its parent is an option or an order element. Without this
+ * check `assess [position 2]` on a choice option would merge, be read by nobody, and compile
+ * clean — the silent no-op the whole table exists to prevent. `position` is the first word to
+ * need it, because it is the first scoring word that belongs to one interaction alone.
+ */
+export function assertAssessWords(
+  assess: Record<string, any> | undefined,
+  allowed: string[],
+  where: string,
+): void {
+  if (!assess) return;
+  const stray = Object.keys(assess).find((w) => !allowed.includes(w));
+  if (stray === undefined) return;
+  throw new Error(
+    `${where}: \`${fieldWord(stray)}\` is not part of an \`assess\` here. ` +
+      `It takes: ${allowed.map(fieldWord).join(", ")}.` +
+      (stray === "position" ? " `position` belongs on an `order` element." : ""),
+  );
+}
 
 /** The signature string the generated spec renders, derived so it cannot drift from the row. */
 export const typeOf = (meta: AttributeMeta): string => {
@@ -264,6 +294,10 @@ export const validAttributes: Record<string, string[]> = {
   // choice's, so a dropdown takes `options` and its options are read exactly as choice's are.
   "inline-choice": ["prompt", "text", "dropdowns"],
   dropdown: ["id", "options"],
+  // Sequencing. The elements are authored in the order they are PRESENTED, and each says where
+  // it belongs — see the ORDER transformer for why the key cannot be the authored order.
+  order: ["prompt", "elements"],
+  element: ["id", "text", "assess"],
   blank: ["id", "responses", "case-sensitive", "base-type", "tolerance", "input-formats"],
   // The member container and its value word are both `response`, so an error reads
   // "It takes: response, assess". Repetitive, and accurate.
@@ -271,7 +305,7 @@ export const validAttributes: Record<string, string[]> = {
   "extended-text": ["prompt", "rubric", "exemplar"],
   band: ["points", "descriptor"],
   option: ["id", "text", "assess"],
-  assess: ["correct", "points", "rationale"],
+  assess: ["correct", "points", "rationale", "position"],
 };
 
 /** Source spelling for a tag, so an error names the word the author wrote. */
@@ -410,7 +444,7 @@ const fieldToWord: Record<string, string> = Object.entries(attributeFields).redu
   // container rejects one of them.
   {
     options: "options", parts: "parts", selections: "selections", rubric: "rubric",
-    responses: "responses", blanks: "blanks", dropdowns: "dropdowns",
+    responses: "responses", blanks: "blanks", dropdowns: "dropdowns", elements: "elements",
   },
 );
 const fieldWord = (field: string): string => fieldToWord[field] || field;

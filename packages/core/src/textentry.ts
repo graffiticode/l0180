@@ -16,6 +16,7 @@
  * How an answer is compared lives in `matching.ts`, shared with the scorer so a collision this
  * module refuses cannot become a match at score time.
  */
+import { assertAssessWords } from "./attributes.js";
 import { NUMBER_FORMATS, normalize, parseNumber, permittedFormats, terminates } from "./matching.js";
 
 /**
@@ -246,6 +247,7 @@ export function cut(
             '`assess [rationale "…"]` to explain a wrong one.',
         );
       }
+      assertAssessWords(assess, ["correct", "points", "rationale"], rat);
       const isCorrect = assess.correct === true;
       const hasPoints = typeof assess.points === "number";
       const hasRationale = typeof assess.rationale === "string";

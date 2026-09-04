@@ -15,6 +15,7 @@
  * `inlineChoiceInteraction` apart, and a member word that took both `responses` and `options`
  * would let a blank be written half one way and half the other.
  */
+import { assertAssessWords } from "./attributes.js";
 import { optionLabel } from "./labels.js";
 import { cutMarkers, type MarkerWords, type TextSegment } from "./textentry.js";
 
@@ -116,6 +117,7 @@ function readOptions(d: Dropdown, at: string): { entry: Entry; menu: { id: strin
 
     const assess = opt.assess;
     if (assess === undefined) return; // a plain distractor, worth nothing and unexplained
+    assertAssessWords(assess, ["correct", "points", "rationale"], `${at}: option "${id}"`);
     const isCorrect = assess.correct === true;
     const hasPoints = typeof assess.points === "number";
     const hasRationale = typeof assess.rationale === "string";

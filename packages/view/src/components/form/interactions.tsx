@@ -12,6 +12,7 @@ import { HottextItem } from "./HottextItem";
 import { ExtendedTextItem } from "./ExtendedTextItem";
 import { TextEntryItem } from "./TextEntryItem";
 import { InlineChoiceItem } from "./InlineChoiceItem";
+import { OrderItem } from "./OrderItem";
 import { ErrorList } from "./itemKit";
 
 export interface InteractionProps {
@@ -29,6 +30,7 @@ const RENDERERS: Record<string, (p: InteractionProps) => JSX.Element> = {
   "extended-text": ExtendedTextItem as any,
   "text-entry": TextEntryItem as any,
   "inline-choice": InlineChoiceItem as any,
+  order: OrderItem as any,
 };
 
 export function InteractionView(props: InteractionProps) {

@@ -13,6 +13,7 @@
         { "$ref": "#/$defs/hottextInteraction" },
         { "$ref": "#/$defs/textEntryInteraction" },
         { "$ref": "#/$defs/inlineChoiceInteraction" },
+        { "$ref": "#/$defs/orderInteraction" },
         { "$ref": "#/$defs/extendedTextInteraction" },
         { "$ref": "#/$defs/itemInteraction" }
       ]
@@ -215,6 +216,35 @@
       },
       "additionalProperties": false
     },
+    "orderInteraction": {
+      "title": "Order interaction",
+      "description": "Elements to be put in the right sequence. They are listed in PRESENTATION order and carry nothing about where they belong — the right order is the key's `correctResponse`, so a graded delivery that withholds `validation` withholds the answer.",
+      "type": "object",
+      "required": ["type", "elements"],
+      "properties": {
+        "id": {
+          "description": "Present only when this interaction is a part of an item, where it keys the response.",
+          "type": "string"
+        },
+        "type": { "const": "order" },
+        "prompt": { "description": "The question stem.", "type": "string" },
+        "elements": {
+          "description": "The things to be placed, in the order the candidate first sees them.",
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "object",
+            "required": ["id", "text"],
+            "properties": {
+              "id": { "type": "string" },
+              "text": { "type": "string" }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
     "extendedTextInteraction": {
       "title": "Extended-text interaction",
       "description": "A written response. Nothing scores it here — a person marks it against the rubric in `validation`, which is why its key is responseProcessing \"human\" rather than an unscored key.",
@@ -272,6 +302,7 @@
                   { "$ref": "#/$defs/hottextInteraction" },
                   { "$ref": "#/$defs/textEntryInteraction" },
                   { "$ref": "#/$defs/inlineChoiceInteraction" },
+                  { "$ref": "#/$defs/orderInteraction" },
                   { "$ref": "#/$defs/extendedTextInteraction" }
                 ]
               },
@@ -289,8 +320,8 @@
       "required": ["responseProcessing", "points"],
       "properties": {
         "cardinality": {
-          "description": "QTI cardinality of the response variable, derived from maxChoices. Absent on a human-scored key, which declares no response variable.",
-          "enum": ["single", "multiple"]
+          "description": "QTI cardinality of the response variable, derived from maxChoices — or `ordered` for a sequence, where the same identifiers in another order are a different answer. Absent on a human-scored key, which declares no response variable.",
+          "enum": ["single", "multiple", "ordered"]
         },
         "baseType": {
           "description": "What the response is made of: identifiers the candidate selected, or the string they typed. Decides whether `mapping` keys name options or blanks, and whether entries carry the answers they recognize.",
@@ -389,7 +420,7 @@
           "type": "number"
         },
         "correctResponse": {
-          "description": "match_correct only: the identifiers that must all be selected, and no others.",
+          "description": "match_correct only: the identifiers that must all be selected, and no others. Under `ordered` cardinality the order of this list is part of the answer.",
           "type": "array",
           "minItems": 1,
           "items": { "type": "string" }

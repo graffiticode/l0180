@@ -51,6 +51,8 @@ Two words depart from that, both deliberately:
 | `blanks` | `<list record: record>` | The blanks in a text-entry's sentence |
 | `inline-choice` | `<list: record>` | A sentence with dropdowns to pick from |
 | `dropdowns` | `<list record: record>` | The dropdowns in an inline-choice's sentence |
+| `order` | `<list: record>` | Elements to put in the right sequence |
+| `elements` | `<list record: record>` | The things an order sequences, as presented |
 | `responses` | `<list record: record>` | The answers a blank recognizes |
 | `response` | `<string: record>` | One answer a blank recognizes |
 | `case-sensitive` | `<boolean: record>` | Whether capitals must match |
@@ -328,6 +330,37 @@ it makes the whole sentence worth one.
 Use `inline-choice` when the answer should be recognized and `text-entry` when it should be
 recalled — a menu gives the answer to anyone who reads it. The two do not mix in one sentence;
 a question needing both is two parts of an item.
+
+### order
+
+Elements the candidate puts in sequence. Each carries `assess [position N]` saying where it
+belongs, counting from 1.
+
+```
+order [
+  prompt "Put the stages of the water cycle in order."
+  elements [
+    [ text "Condensation" assess [ position 2 ] ]
+    [ text "Evaporation" assess [ position 1 ] ]
+    [ text "Precipitation" assess [ position 3 ] ]
+  ] {}
+]..
+```
+
+The elements are authored in the order they are **presented**, never in the right one: the
+compiled `interaction` is the half a graded delivery ships, and elements in their correct order
+would be the answer key sitting inside it. The key is `responseProcessing "match_correct"` with
+`cardinality "ordered"` and a `correctResponse` listing the ids in sequence.
+
+All or nothing, worth one point. One pair swapped earns zero.
+
+### position
+
+Where an element belongs in an `order`, counting from 1. Positions are whole, unique, and run
+from 1 to the number of elements; anything else is a compile error.
+
+It is the only word an order element's `assess` takes, and it is refused in any other `assess` —
+a `position` on a choice option would otherwise merge and be read by nobody.
 
 ### extended-text
 

@@ -1,11 +1,11 @@
 <!-- SPDX-License-Identifier: CC-BY-4.0 -->
 # L0180 RAG Training Examples
 
-122 example prompts for training a RAG model on L0180, the web-based assessment language —
+131 example prompts for training a RAG model on L0180, the web-based assessment language —
 covering multiple choice, true/false, multi-select, exact-set scoring, weighted scoring,
 penalized distractors, presentation options, unscored polls, per-option rationale, clicking
 sentences and words inside a passage, fill-in-the-blank including numeric answers and the form they must be written in, dropdown
-cloze, written responses marked against a rubric, and multi-part items over a reading passage.
+cloze, sequencing, written responses marked against a rubric, and multi-part items over a reading passage.
 
 Each numbered line is a prompt in the author's own voice. Prompts describe WHAT to build,
 never how to write it: an author asks for a question, not for a `choice [...]` program. When
@@ -180,3 +180,16 @@ L0180 grows further interaction types, this file grows categories with them.
 120. Complete a sentence about photosynthesis with three dropdowns, where all three must be right for the point.
 121. A Spanish sentence with a dropdown for the article and one for the adjective ending.
 122. A sentence about the parts of a plant with one dropdown, where the two wrong options each explain themselves.
+
+
+## Category 17: Putting Things in Order (123-131)
+
+123. Ask the student to put the four stages of the water cycle in order: evaporation, condensation, precipitation, collection.
+124. A question that asks students to sequence the events of a story they have just read.
+125. Put these five numbers in order from smallest to largest.
+126. Ask the student to order the steps of long division.
+127. A history question: put these four events of the American Revolution in chronological order.
+128. Order the planets from closest to the sun to furthest.
+129. Ask students to arrange the words into a correct sentence.
+130. A two-part item where the student first picks the right definition and then puts the steps in order, both required for the point.
+131. Put the stages of a butterfly's life cycle in the right sequence.

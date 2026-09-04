@@ -1,11 +1,12 @@
 {
   "id": "0180",
-  "description": "Authors web-based assessment items — quizzes, tests, practice questions and self-checks that render and score in a browser with no assessment platform behind them. Produces a choice interaction (single-select multiple choice, multi-select, or true/false) a hottext interaction (clicking a sentence or a word inside the passage itself), a text-entry interaction (fill in the blank, where each recognized answer carries its own score and explanation, and a numeric blank compares answers as numbers so 0.50 and 1/2 both count as 0.5, and can require a particular written form when the question asks for one), an inline-choice interaction (the same sentence with a dropdown at each hole, for an answer to be recognized rather than recalled), or an extended-text interaction (a written response collected and held for a person to mark against a rubric), optionally wrapped in a multi-part item with a reading passage and conjunctive scoring, with per-option points, weighted answers, penalized distractors, exact-set scoring for a \"choose exactly these\" question, a rationale explaining each wrong answer, optional shuffling, and an answer key kept separate from the presentation so a graded delivery can withhold it. This is the general-purpose assessment language: use it whenever the request is a quiz, test or practice question and no particular vendor or platform is named.",
+  "description": "Authors web-based assessment items — quizzes, tests, practice questions and self-checks that render and score in a browser with no assessment platform behind them. Produces a choice interaction (single-select multiple choice, multi-select, or true/false) a hottext interaction (clicking a sentence or a word inside the passage itself), a text-entry interaction (fill in the blank, where each recognized answer carries its own score and explanation, and a numeric blank compares answers as numbers so 0.50 and 1/2 both count as 0.5, and can require a particular written form when the question asks for one), an inline-choice interaction (the same sentence with a dropdown at each hole, for an answer to be recognized rather than recalled), an order interaction (put these in the right sequence, scored all or nothing), or an extended-text interaction (a written response collected and held for a person to mark against a rubric), optionally wrapped in a multi-part item with a reading passage and conjunctive scoring, with per-option points, weighted answers, penalized distractors, exact-set scoring for a \"choose exactly these\" question, a rationale explaining each wrong answer, optional shuffling, and an answer key kept separate from the presentation so a graded delivery can withhold it. This is the general-purpose assessment language: use it whenever the request is a quiz, test or practice question and no particular vendor or platform is named.",
   "supported_item_types": [
     "choice",
     "hottext",
     "text-entry",
     "inline-choice",
+    "order",
     "extended-text",
     "item"
   ],
@@ -79,6 +80,11 @@
       "prompt": "A fill-in-the-blank question: \"The ___ is the powerhouse of the cell\", where the answer is mitochondria.",
       "produces": "text-entry",
       "notes": "Fill in the blank. A {{id}} marker positions each blank and names it, so the answer binds by name and moving a clause cannot rebind it. Each answer a blank recognizes carries its own assess, exactly as a choice option does - so alternates, partial credit for a near-miss, and a rationale explaining a wrong answer are all available."
+    },
+    {
+      "prompt": "Ask the student to put the four stages of the water cycle in order: evaporation, condensation, precipitation, collection.",
+      "produces": "order",
+      "notes": "Sequencing. The elements are authored in the order the candidate SEES them and each carries assess [position N] saying where it belongs - the right order lives only in the key, so a graded delivery withholds it. All or nothing, worth one point: one pair swapped earns zero."
     },
     {
       "prompt": "Complete the sentence with dropdowns: plants absorb ___ and release ___, choosing between carbon dioxide, oxygen and nitrogen.",

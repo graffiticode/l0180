@@ -95,8 +95,13 @@ export interface Validation {
   responseProcessing?: ResponseProcessing;
   /** The maximum achievable. Under `map_response`, the sum of the `correct` options only. */
   points: number;
-  /** QTI cardinality of the response variable. Absent on a human-scored key. */
-  cardinality?: "single" | "multiple";
+  /**
+   * QTI cardinality of the response variable. Absent on a human-scored key.
+   *
+   * `ordered` is the sequence case: the same ids in a different order are a different answer,
+   * which is why it is the one thing the scorer dispatches on.
+   */
+  cardinality?: "single" | "multiple" | "ordered";
   /** What the response is made of. Absent means `identifier`. */
   baseType?: BaseType;
   /** `map_response` only: what each identifier is worth. */
@@ -372,6 +377,37 @@ export function scoreInlineChoice({
 }
 
 /**
+ * Score a sequence. The response is the element ids in the order the candidate left them.
+ *
+ * All or nothing, against `correctResponse` read in order — which is the difference between
+ * this and `scoreChoice` under the same template, where the same ids in any order are the same
+ * answer. An ordering with one pair swapped is not most of the way right.
+ *
+ * Per element, `correct` says whether it is standing in its own place. That is the same
+ * feedback `ChoiceItem` gives an option under `match_correct`, and no more revealing.
+ */
+export function scoreOrder({
+  response,
+  validation,
+}: {
+  response: unknown;
+  validation: Validation | null | undefined;
+}): Score {
+  const want = validation?.correctResponse ?? [];
+  const maxPoints = typeof validation?.points === "number" ? validation.points : 0;
+  const given = selectedIds(response);
+
+  const options: Record<string, OptionOutcome> = {};
+  want.forEach((id, i) => {
+    options[id] = { selected: given.includes(id), points: 0, correct: given[i] === id };
+  });
+
+  const correct = want.length > 0 && given.length === want.length && want.every((id, i) => given[i] === id);
+  const points = correct ? maxPoints : 0;
+  return { points, rawPoints: points, maxPoints, correct, options };
+}
+
+/**
  * A written response: nothing here can score it.
  *
  * The points are real and are reported as the maximum, so a host can show "0 / 2, pending"
@@ -404,6 +440,10 @@ const isPicked = (v: Validation | null | undefined): boolean =>
 
 function scorePart(response: unknown, validation: Validation | null | undefined): Score {
   if (validation?.responseProcessing === "human") return scoreHuman({ validation });
+  // The one dispatch on a declared field, and the one that should be: `ordered` is a property
+  // of the response variable, not of the interaction that collected it, and QTI branches on it
+  // in the same place.
+  if (validation?.cardinality === "ordered") return scoreOrder({ response, validation });
   if (isTyped(validation)) return scoreTextEntry({ response, validation });
   if (isPicked(validation)) return scoreInlineChoice({ response, validation });
   return scoreChoice({ response, validation });
