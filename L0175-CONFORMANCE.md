@@ -194,13 +194,60 @@ literals ≥16 chars against the spec. It cannot see structure, answer keys or o
 catches elision but never hallucination — an EBSR item collapsed into a single choice reports
 full coverage because every string survived. Treat it as an elision alarm only.
 
-**The round-trip harness remains unbuilt.** Modelled on
-`graffiticode-mcp-server/scripts/eval-cross-language.ts` (which already does this for
-0166→0158): take real items from `l0175/packages/core/spec/examples/` across T4, T9 and T8 so
-both hot-text shapes and both answer kinds appear; `get_spec` each; `create_item("0180", …)`;
-compile; assert equal scores for a set of candidate responses; report per-type fidelity so a
-regression names the type that broke. `conformance.test.ts` is the in-repo stand-in — it
-proves L0180 *can* express each shape, not that a generated one does.
+**The round-trip harness is `packages/core/tools/roundtrip/`.** `conformance.test.ts` proves
+L0180 *can* express each shape — it compiles programs a person wrote. This asks whether a
+GENERATED one scores the same, over five real L0175 items (T8 multiple-choice, T9 multi-select,
+T4 EBSR, T8 hot text, T9 short text — every type in `SCORING`, across three passages).
+
+Three steps, separate because only the middle one needs the platform:
+
+| | |
+|---|---|
+| `npm run roundtrip:fixtures` | compile the five examples with L0175's own compiler into `fixtures/*.l0175.json` |
+| `npm run roundtrip:prompts` | print the item in English — passage, stems, options, key, scoring rule |
+| `npm run roundtrip` | compile `generated/*.gc`, score both sides, report per type |
+
+The generation between them is whatever produced `generated/<example>.gc` — `create_item("0180", …)`
+over MCP, the console, or a person — and the programs are committed, with `generated/index.json`
+recording the item id and the language the platform routed each request to. A regression then
+reads as a diff of what the generator did, next to what it now scores.
+
+**Responses are semantic and the expectation is L0175's.** L0175 keys `A`, `B`, `C`; L0180
+derives its own ids and a generator may order the options differently, so a case says "pick the
+option that reads like this" and `compare.ts` aligns by normalized text — which is also how
+content loss becomes visible rather than a comparison that quietly skips. The expected score is
+L0175's rule, not L0180's output: one point, all or nothing. The battery is therefore mostly
+near-misses — a subset, a superset, one part of two — because that is where per-option scoring
+and all-or-nothing come apart. An additive EBSR out of 2 that pays 1 for half passes every shape
+check and fails here.
+
+**The prompt is composed from L0175's compiled item, not from `get_spec`.** This is the one
+departure from the design note above, and §6 is the reason: `get_spec` describes L0175's
+unparsed claims-and-evidence superset, so a round trip through it measures that gap rather than
+this repo's fidelity. Composing from the compiled item isolates the question L0180 can answer —
+given a faithful description, does the generated program score the way L0175 says.
+
+**`compare.test.ts` gates it offline**, with the fixtures committed so it needs neither the
+sibling repo nor a network. `port.ts` builds the mechanical L0180 program for each fixture and
+all five score identically; four negative controls prove the comparison bites — an additive
+EBSR, per-option credit on an exact-set part, a dropped option, a dropped passage, and a
+short-text delivered as an auto-scored blank.
+
+### What the first run found (2026-09-04)
+
+**Four of five round trips score identically**, on the first generation, with no retries. The
+EBSR came back conjunctive; the multi-select and the hot text both came back
+`response-processing "match-correct"` with the choice counts set; the hot text used
+`within "stimulus"` and quoted three sentences. Every option aligned — 4/4, 6/6, 8/8, 8/8.
+
+**The fifth never reached L0180.** `create_item("0180", …)` for the short-text item was
+re-routed by the platform to **L0175**, which returned a claims-and-evidence program. The prompt
+is a passage plus a written-response question and a rubric — the shape L0175 authors — so the
+composer read it as content to compose rather than an item to deliver. Nothing about L0180's
+expressiveness is implicated: `conformance.test.ts` scores that same shape as an `extended-text`,
+and `port.ts` does it mechanically. It is a routing failure, reported as `ROUTED` rather than as
+a compile error so nobody goes looking in the compiler, and it belongs with the other open
+items in §6.
 
 ---
 
@@ -220,6 +267,11 @@ directly:
 - Consider raising L0175's `spec` tier in `console/src/lib/model-priority.ts`; it defaults to
   fast/Haiku, and `console/CLAUDE.md` advises raising it for a dialect whose spec asks for
   more than verbalizing the content.
+- **A delivery request for a written response routes to L0175, not here.** The round trip's
+  short-text prompt — a passage, a question, a rubric — asked for 0180 and came back an L0175
+  program (§5). Content-shaped input is being read as a request to author content, where it was
+  a request to deliver an item somebody already authored. The routing corpus is in
+  `graffiticode-mcp-server`, not in either language.
 
 ## 7. Out of scope
 

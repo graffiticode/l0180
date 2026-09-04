@@ -1,0 +1,15 @@
+{
+  "_comment": "Provenance for the programs beside this file: what create_item(\"0180\", <the prompt `run.ts prompts` printed>) returned. `language` is what the PLATFORM routed the request to, which is not always what was asked for — see c1-t9-tm5-shorttext.",
+  "generated": "2026-09-04",
+  "items": {
+    "c1-t8-tm1-multiplechoice": { "itemId": "juVYyHb1cfCbxMKNNxXM", "language": "L0180" },
+    "c1-t9-tm2-multiselect": { "itemId": "P5R34ICvMoWUnfSfS0Qc", "language": "L0180" },
+    "c1-t4-tm1-ebsr": { "itemId": "7Rw4QqYoqzoqUyjQ5j2G", "language": "L0180" },
+    "c1-t8-tm3-hottext": { "itemId": "5uOYIM4Y5mMgiTlzXgf1", "language": "L0180" },
+    "c1-t9-tm5-shorttext": {
+      "itemId": "90YeteZwMTIT1jQFbKEy",
+      "language": "L0175",
+      "note": "Asked for 0180, routed to 0175. The prompt is a passage plus a written-response question with a rubric — the shape L0175 authors — so the composer read it as content to compose rather than an item to deliver. The file beside this one is the L0175 program it returned, kept verbatim as the evidence."
+    }
+  }
+}

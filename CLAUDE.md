@@ -371,6 +371,29 @@ program per delivered shape and asserts the scorer against L0175's own `SCORING`
 because L0175's own coverage check substring-matches string literals — an EBSR item collapsed
 into a single choice passes it.
 
+### The round trip asks the other half of the question
+
+`conformance.test.ts` proves L0180 *can* express each shape — the programs in it were written by
+hand. `packages/core/tools/roundtrip/` asks whether a **generated** one scores the same, over
+five real L0175 items covering every type in `SCORING`. `npm run roundtrip:fixtures` compiles
+them with L0175's own compiler (the sibling repo, loaded by path — it must never become a
+dependency), `npm run roundtrip:prompts` prints each as English, and `npm run roundtrip` scores
+both sides of whatever was generated into `generated/*.gc`.
+
+Two rules make a comparison across the language boundary mean anything:
+
+- **A case says what was picked, not which id.** L0175 keys `A`, `B`, `C` and L0180 derives its
+  own, so `compare.ts` aligns by normalized text — hottext's rule, for hottext's reason. An
+  option with no counterpart is a finding, never a silently skipped case.
+- **The expectation is L0175's rule, not L0180's output.** One point, all or nothing, so the
+  battery is mostly near-misses: a subset, a superset, one part of two. An additive EBSR out of 2
+  that pays 1 for half an answer passes every shape check there is and fails this.
+
+`compare.test.ts` gates it offline against committed fixtures — `port.ts` builds the mechanical
+program for each and all five score identically, and five negative controls prove the comparison
+bites. The first live run scored 4/5; the fifth request was routed by the platform to L0175 and
+never reached this language, which the report says as `ROUTED` rather than as a compile error.
+
 **Every L0175 item type is covered**: `multiple-choice`, `multi-select` (exact-set), `ebsr`,
 all three `hot-text` shapes, and `short-text`. `conformance.test.ts` asserts each against
 L0175's rules, and its last test lists the words that must exist — the place a new L0175 item
