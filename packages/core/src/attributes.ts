@@ -260,6 +260,10 @@ export const validAttributes: Record<string, string[]> = {
   ],
   selection: ["quote", "assess"],
   "text-entry": ["prompt", "text", "case-sensitive", "blanks"],
+  // A dropdown cloze. The sentence and its markers are text-entry's; what fills a hole is
+  // choice's, so a dropdown takes `options` and its options are read exactly as choice's are.
+  "inline-choice": ["prompt", "text", "dropdowns"],
+  dropdown: ["id", "options"],
   blank: ["id", "responses", "case-sensitive", "base-type", "tolerance", "input-formats"],
   // The member container and its value word are both `response`, so an error reads
   // "It takes: response, assess". Repetitive, and accurate.
@@ -404,7 +408,10 @@ const fieldToWord: Record<string, string> = Object.entries(attributeFields).redu
   },
   // Container words are not rows in the table, but they must still be nameable when a
   // container rejects one of them.
-  { options: "options", parts: "parts", selections: "selections", rubric: "rubric", responses: "responses", blanks: "blanks" },
+  {
+    options: "options", parts: "parts", selections: "selections", rubric: "rubric",
+    responses: "responses", blanks: "blanks", dropdowns: "dropdowns",
+  },
 );
 const fieldWord = (field: string): string => fieldToWord[field] || field;
 

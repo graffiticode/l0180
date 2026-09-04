@@ -22,7 +22,9 @@ import {
 } from "./attributes.js";
 import { resolveSelections, sentenceUnits, wordUnits } from "./hottext.js";
 import type { Paragraph, Unit } from "./hottext.js";
+import { optionLabel } from "./labels.js";
 import { cut } from "./textentry.js";
+import { cut as cutDropdowns, totalPoints } from "./inlinechoice.js";
 
 /* ------------------------------------------------------------------ Checker */
 
@@ -61,6 +63,8 @@ Checker.prototype.RUBRIC = checkBoth;
 Checker.prototype.TEXT_ENTRY = checkChild;
 Checker.prototype.BLANKS = checkBoth;
 Checker.prototype.RESPONSES = checkBoth;
+Checker.prototype.INLINE_CHOICE = checkChild;
+Checker.prototype.DROPDOWNS = checkBoth;
 Checker.prototype.ITEM = checkChild;
 Checker.prototype.PARTS = checkBoth;
 
@@ -106,16 +110,9 @@ for (const [name, meta] of Object.entries(attributeFields)) {
 
 /* ------------------------------------------------------------- Option ids */
 
-/** A, B, ... Z, AA, AB, ... — enough labels for any option list, in a familiar order. */
-export function optionLabel(index: number): string {
-  let n = index;
-  let out = "";
-  do {
-    out = String.fromCharCode(65 + (n % 26)) + out;
-    n = Math.floor(n / 26) - 1;
-  } while (n >= 0);
-  return out;
-}
+// Derived ids live in `labels.ts` so `inlinechoice.ts` can hand out the same ones without
+// importing the compiler. Re-exported here because that is where callers have always found it.
+export { optionLabel };
 
 /* ------------------------------------------------------------- Containers */
 
@@ -451,6 +448,97 @@ Transformer.prototype.TEXT_ENTRY = function (this: any, node: any, options: any,
           cardinality: "single",
           // Each blank contributes its own best correct answer; the interaction is their sum.
           points: Object.values(mapping).reduce((n: number, e: any) => n + e.points, 0),
+          mapping,
+        },
+      });
+    } catch (e: any) {
+      resume(err.concat(String((e && e.message) || e)), {});
+    }
+  });
+};
+
+/**
+ * A member list of the dropdowns in a sentence, each named by the marker that positions it.
+ *
+ * The same skeleton as `BLANKS`, because it is the same construct: a named hole. What a hole
+ * holds is the only difference, and that lives one level down.
+ */
+Transformer.prototype.DROPDOWNS = function (this: any, node: any, options: any, resume: any) {
+  this.visit(node.elts[0], options, (e0: any, v0: any) => {
+    this.visit(node.elts[1], options, (e1: any, v1: any) => {
+      const err = ([] as any[]).concat(e0 || [], e1 || []);
+      const raw = toPlainObject(v0);
+      if (!Array.isArray(raw)) {
+        resume(
+          err.concat(
+            'dropdowns: expected a list of dropdowns, e.g. dropdowns [[id "gas" options [...] {}]] {}.',
+          ),
+          {},
+        );
+        return;
+      }
+      try {
+        const ds = raw.map((entry: any, i: number) => {
+          const d = mergeAttributes(entry, `dropdown ${i + 1}`);
+          assertKnownAttributes("dropdown", d);
+          return d;
+        });
+        resume(err, { ...(toPlainObject(v1) || {}), dropdowns: ds });
+      } catch (e: any) {
+        resume(err.concat(String((e && e.message) || e)), {});
+      }
+    });
+  });
+};
+
+/**
+ * A sentence with dropdowns: QTI's inline-choice interaction.
+ *
+ * Half text-entry and half choice, deliberately. The sentence, the `{{id}}` markers and the
+ * cross-checks over them are text-entry's, shared through `cutMarkers` — a dropdown is a named
+ * hole in a sentence, exactly as a blank is. What fills the hole is choice's: the response is
+ * an option the candidate SELECTED, so `baseType` is `identifier` and an option carries the
+ * same `assess` a multiple-choice option does.
+ *
+ * Always `map_response`, and for text-entry's reason: each dropdown is worth its own points, so
+ * a sentence with three holes gives partial credit. All-or-nothing across them is a conjunctive
+ * item around it.
+ */
+Transformer.prototype.INLINE_CHOICE = function (this: any, node: any, options: any, resume: any) {
+  this.visit(node.elts[0], options, (e0: any, v0: any) => {
+    const err = ([] as any[]).concat(e0 || []);
+    try {
+      const attrs = mergeAttributes(toPlainObject(v0), "inline-choice");
+      assertKnownAttributes("inline-choice", attrs);
+
+      if (typeof attrs.text !== "string" || !attrs.text.trim()) {
+        throw new Error(
+          'inline-choice: needs the sentence its dropdowns sit in, e.g. text "Plants absorb ' +
+            '{{gas}} and release oxygen." Put {{<id>}} where each dropdown goes.',
+        );
+      }
+      if (!Array.isArray(attrs.dropdowns) || !attrs.dropdowns.length) {
+        throw new Error(
+          "inline-choice: needs at least one dropdown, e.g. " +
+            'dropdowns [[id "gas" options [[text "carbon dioxide" assess [correct]]] {}]] {}.',
+        );
+      }
+
+      const { segments, mapping } = cutDropdowns(attrs.text, attrs.dropdowns, "inline-choice");
+
+      resume(err, {
+        interaction: {
+          type: "inline-choice",
+          ...(attrs.prompt !== undefined ? { prompt: attrs.prompt } : {}),
+          segments,
+        },
+        validation: {
+          responseProcessing: "map_response",
+          // Cardinality does not vary: every dropdown takes one selection. `baseType` rides on
+          // each mapping entry, as text-entry's does — one response variable per hole, and in
+          // QTI each carries its own declaration.
+          cardinality: "single",
+          points: totalPoints(mapping),
           mapping,
         },
       });

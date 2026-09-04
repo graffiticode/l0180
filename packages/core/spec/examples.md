@@ -1,11 +1,11 @@
 <!-- SPDX-License-Identifier: CC-BY-4.0 -->
 # L0180 RAG Training Examples
 
-113 example prompts for training a RAG model on L0180, the web-based assessment language —
+122 example prompts for training a RAG model on L0180, the web-based assessment language —
 covering multiple choice, true/false, multi-select, exact-set scoring, weighted scoring,
 penalized distractors, presentation options, unscored polls, per-option rationale, clicking
-sentences and words inside a passage, fill-in-the-blank including numeric answers and the form they must be written in, written
-responses marked against a rubric, and multi-part items over a reading passage.
+sentences and words inside a passage, fill-in-the-blank including numeric answers and the form they must be written in, dropdown
+cloze, written responses marked against a rubric, and multi-part items over a reading passage.
 
 Each numbered line is a prompt in the author's own voice. Prompts describe WHAT to build,
 never how to write it: an author asks for a question, not for a `choice [...]` program. When
@@ -168,3 +168,15 @@ L0180 grows further interaction types, this file grows categories with them.
 111. Convert one half to a decimal — a fraction is not an acceptable answer here.
 112. Ask what one divided by three is, where only a fraction is accepted as the answer.
 113. A division question whose answer is two thirds, accepting a decimal rounded to two places.
+
+## Category 16: Dropdown Cloze (114-122)
+
+114. Complete the sentence "Plants absorb ___ and release ___" with dropdowns, choosing between carbon dioxide, oxygen and nitrogen.
+115. A grammar question where the student picks the right verb form from a dropdown inside the sentence.
+116. Give a sentence about the water cycle with two dropdowns, and explain the wrong option in the first one.
+117. A sentence about the American Revolution with a dropdown for the year and another for the place.
+118. Ask the student to complete "The mitochondrion is the ___ of the cell" by choosing from four options in the sentence.
+119. A dropdown cloze about fractions where the wrong choice costs a point.
+120. Complete a sentence about photosynthesis with three dropdowns, where all three must be right for the point.
+121. A Spanish sentence with a dropdown for the article and one for the adjective ending.
+122. A sentence about the parts of a plant with one dropdown, where the two wrong options each explain themselves.

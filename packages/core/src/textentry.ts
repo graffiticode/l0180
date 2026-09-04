@@ -18,6 +18,16 @@
  */
 import { NUMBER_FORMATS, normalize, parseNumber, permittedFormats, terminates } from "./matching.js";
 
+/**
+ * A literal run of the sentence.
+ *
+ * Every marker model has these; what sits BETWEEN them is what differs, which is why
+ * `cutMarkers` is generic over the hole and not over the text around it.
+ */
+export interface TextSegment {
+  text: string;
+}
+
 /** One run of the sentence: literal text, or a blank the candidate types into. */
 export interface Segment {
   /** Present on a literal run. */
@@ -274,7 +284,65 @@ export function cut(
     });
   });
 
-  const segments: Segment[] = [];
+  return {
+    segments: cutMarkers(text, declared, TEXT_ENTRY_WORDS, where, (id, entry) => ({
+      id,
+      blank: true,
+      ...(entry.baseType !== "string" ? { numeric: true as const } : {}),
+    })),
+    mapping: Object.fromEntries(declared),
+  };
+}
+
+/* ------------------------------------------------------ Markers, shared with inline-choice */
+
+/**
+ * What to call a hole in the sentence, so an error names the reader's own word.
+ *
+ * A typed blank and a dropdown are the same construct — a named hole positioned by a marker —
+ * and the cross-checks over them are identical. What differs is vocabulary: one is filled in,
+ * the other is chosen from. Passing the nouns in keeps one implementation of the checks
+ * without an error message that talks about blanks to somebody writing dropdowns.
+ */
+export interface MarkerWords {
+  /** The hole, singular: "blank", "dropdown". */
+  one: string;
+  /** The member list that declares them: "blanks", "dropdowns". */
+  list: string;
+  /** A marker to show in an error, e.g. "{{capital}}". */
+  marker: string;
+  /** A whole sentence to show in an error. */
+  sentence: string;
+  /** What one hole is one of: "input", "menu". */
+  unit: string;
+  /** Completes "so nothing can …": "be typed into it", "be chosen for it". */
+  fill: string;
+}
+
+const TEXT_ENTRY_WORDS: MarkerWords = {
+  one: "blank",
+  list: "blanks",
+  marker: "{{capital}}",
+  sentence: "The capital of France is {{capital}}.",
+  unit: "input",
+  fill: "be typed into it",
+};
+
+/**
+ * Cut the text at its markers, and check that markers and holes account for each other.
+ *
+ * Every mismatch is a compile error naming the fix. Named binding is what makes these checks
+ * possible at all — a positional model cannot say which answer is orphaned, and L0176 does not
+ * even check that the marker count matches the answer count.
+ */
+export function cutMarkers<T, S>(
+  text: string,
+  declared: Map<string, T>,
+  words: MarkerWords,
+  where: string,
+  segmentFor: (id: string, entry: T) => S,
+): (TextSegment | S)[] {
+  const segments: (TextSegment | S)[] = [];
   const seen = new Map<string, number>();
   let last = 0;
   let n = 0;
@@ -284,25 +352,25 @@ export function cut(
     const id = m[1].trim();
     if (!id) {
       throw new Error(
-        `${where}: a marker at position ${m.index} names no blank. Write {{<id>}}, ` +
-          'e.g. {{capital}}, matching an id in `blanks`.',
+        `${where}: a marker at position ${m.index} names no ${words.one}. Write {{<id>}}, ` +
+          `e.g. ${words.marker}, matching an id in \`${words.list}\`.`,
       );
     }
     if (!declared.has(id)) {
       throw new Error(
-        `${where}: the text has {{${id}}} but no blank declares that id. ` +
-          `\`blanks\` declares: ${[...declared.keys()].join(", ") || "nothing"}.`,
+        `${where}: the text has {{${id}}} but no ${words.one} declares that id. ` +
+          `\`${words.list}\` declares: ${[...declared.keys()].join(", ") || "nothing"}.`,
       );
     }
     if (seen.has(id)) {
       throw new Error(
-        `${where}: {{${id}}} appears twice. One blank is one input — give the second its ` +
-          "own id and its own entry in `blanks`.",
+        `${where}: {{${id}}} appears twice. One ${words.one} is one ${words.unit} — give the ` +
+          `second its own id and its own entry in \`${words.list}\`.`,
       );
     }
     seen.set(id, n);
     if (m.index > last) segments.push({ text: text.slice(last, m.index) });
-    segments.push({ id, blank: true, ...(declared.get(id)!.baseType !== "string" ? { numeric: true as const } : {}) });
+    segments.push(segmentFor(id, declared.get(id)!));
     last = m.index + m[0].length;
   }
 
@@ -310,8 +378,8 @@ export function cut(
     // L0176 guards this one too, and it is worth having: the item renders as a plain sentence
     // with nothing to fill in, and nothing downstream complains.
     throw new Error(
-      `${where}: \`text\` has no {{…}} marker, so the item renders with no blank to fill in. ` +
-        'Put {{<id>}} where the answer goes, e.g. "The capital of France is {{capital}}."',
+      `${where}: \`text\` has no {{…}} marker, so the item renders with nothing to fill in. ` +
+        `Put {{<id>}} where the answer goes, e.g. "${words.sentence}"`,
     );
   }
   if (last < text.length) segments.push({ text: text.slice(last) });
@@ -319,10 +387,10 @@ export function cut(
   const orphan = [...declared.keys()].find((id) => !seen.has(id));
   if (orphan !== undefined) {
     throw new Error(
-      `${where}: blank "${orphan}" has no {{${orphan}}} in the text, so nothing can be ` +
-        "typed into it. Add the marker, or remove the blank.",
+      `${where}: ${words.one} "${orphan}" has no {{${orphan}}} in the text, so nothing can ` +
+        `${words.fill}. Add the marker, or remove the ${words.one}.`,
     );
   }
 
-  return { segments, mapping: Object.fromEntries(declared) };
+  return segments;
 }

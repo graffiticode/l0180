@@ -466,6 +466,33 @@ drag the compiler and `@graffiticode/l0000` in, while `./matching` brings only t
 decimal.js. It is `score.ts`'s one and only import, and vitest in both packages aliases it to
 source so tests never require a build first.
 
+### `inline-choice` is text-entry's sentence with choice's answers
+
+A dropdown and a typed blank are the same construct — a named hole a `{{id}}` marker positions —
+so the marker model is shared rather than copied. `cutMarkers` in `textentry.ts` owns the cutting
+and the three cross-checks (a marker no hole declares, a hole with no marker, a marker used
+twice), and takes the nouns to use in its errors, so somebody writing dropdowns is never told
+about blanks. Everything below the hole differs and lives in `inlinechoice.ts`.
+
+**What fills the hole is a choice option, unchanged.** Same `id`, `text` and `assess`, same
+meanings, same derived A, B, C — `optionLabel` moved to `labels.ts` for that, because the two
+derivations were written separately and agreed only for the first twenty-six options. An author
+who can explain a wrong multiple-choice option explains a wrong dropdown option identically.
+
+**Option ids are scoped to their dropdown**, so `A` in one hole and `A` in the next are different
+options. That is why the key nests — `mapping[hole].options[id]` — and why a rationale sits on the
+option rather than in the flat `feedback` map `choice` uses. Same shape of answer as text-entry's
+rationale-on-the-response, and the same reason: a flat map cannot key an identifier that repeats.
+
+The scorer's dispatch is structural, as `isTyped` already was: a mapping entry carrying
+`responses` is typed, one carrying `options` is picked, and a `choice` key maps ids straight to
+values and carries neither. Nothing in `validation` names the interaction type, and nothing
+should — a key says how to score, not what drew it.
+
+**A sentence is one or the other.** A typed blank and a dropdown cannot mix in one interaction:
+QTI keeps the two interactions apart, and a member word taking both `responses` and `options`
+would let one blank be written half each way. A question needing both is two parts of an item.
+
 ### A hottext resolves in two phases, and that is not optional
 
 Children transform before parents: `PARTS` visits each interaction, then `ITEM` merges. So when
@@ -494,7 +521,7 @@ so the candidate would watch a selection vanish for no stated reason.
 
 ## Not built yet
 
-Ordering, matching, classification, inline-choice dropdowns, hotspot, sliders. Symbolic answer
+Ordering, matching, classification, hotspot, sliders. Symbolic answer
 matching — expressions, units and algebraic equivalence, and whether a fraction is in lowest
 terms; numbers themselves are compared as numbers. QTI export, which the `interaction`/`validation` split is deliberately shaped
 to allow later; now that the compiled shape carries QTI's own field names, that is a serializer

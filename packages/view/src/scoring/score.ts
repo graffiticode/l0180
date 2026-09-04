@@ -52,6 +52,14 @@ export interface OptionValidation {
    * its value is right — which is how "express your answer as a fraction" is asked.
    */
   inputFormats?: string[];
+  /**
+   * Dropdowns only: the options this one offers, keyed by option id.
+   *
+   * Nested rather than flat because option ids are scoped to their dropdown — "oxygen" may be
+   * `A` in one hole and `A` in the next — so the flat map a `choice` uses cannot key them. The
+   * same reason a typed answer's rationale rides on the response.
+   */
+  options?: Record<string, { correct?: boolean; points: number; rationale?: string }>;
 }
 
 /**
@@ -326,6 +334,44 @@ function recognize(
 }
 
 /**
+ * Score selections made in a sentence. The response is a map of dropdown id to what was picked.
+ *
+ * One selection per dropdown, so a dropdown earns its selected option's points and nothing
+ * more; the interaction is their sum, which is where the partial credit in a three-hole
+ * sentence comes from.
+ */
+export function scoreInlineChoice({
+  response,
+  validation,
+}: {
+  response: unknown;
+  validation: Validation | null | undefined;
+}): Score {
+  const key = validation?.mapping || {};
+  const maxPoints = typeof validation?.points === "number" ? validation.points : 0;
+  const given = response !== null && typeof response === "object" ? (response as any) : {};
+
+  const options: Record<string, OptionOutcome> = {};
+  let rawPoints = 0;
+  for (const id of Object.keys(key)) {
+    // A dropdown is single-select, so only the first selection can count. A renderer reporting
+    // a bare string rather than a list of one is accepted, as `selectedIds` accepts it.
+    const picked = selectedIds(given[id])[0];
+    const hit = picked !== undefined ? key[id]?.options?.[picked] : undefined;
+    options[id] = {
+      selected: picked !== undefined,
+      points: hit?.points ?? 0,
+      correct: hit?.correct === true,
+      ...(hit?.rationale ? { rationale: hit.rationale } : {}),
+    };
+    if (hit) rawPoints += hit.points;
+  }
+
+  const points = Math.max(0, rawPoints);
+  return { points, rawPoints, maxPoints, correct: maxPoints > 0 && points >= maxPoints, options };
+}
+
+/**
  * A written response: nothing here can score it.
  *
  * The points are real and are reported as the maximum, so a host can show "0 / 2, pending"
@@ -346,9 +392,20 @@ export function scoreHuman({ validation }: { validation: Validation | null | und
 const isTyped = (v: Validation | null | undefined): boolean =>
   Object.values(v?.mapping ?? {}).some((e) => Array.isArray(e?.responses));
 
+/**
+ * A picked-in-a-sentence key is the one whose mapping entries carry a menu of their own.
+ *
+ * Structural for the same reason `isTyped` is: what varies between a blank and a dropdown is
+ * per hole, so there is no single declared field at the top to branch on. A `choice` key maps
+ * option id straight to a value and has no nested menu, so the two cannot be confused.
+ */
+const isPicked = (v: Validation | null | undefined): boolean =>
+  Object.values(v?.mapping ?? {}).some((e) => e?.options !== undefined && !Array.isArray(e?.responses));
+
 function scorePart(response: unknown, validation: Validation | null | undefined): Score {
   if (validation?.responseProcessing === "human") return scoreHuman({ validation });
   if (isTyped(validation)) return scoreTextEntry({ response, validation });
+  if (isPicked(validation)) return scoreInlineChoice({ response, validation });
   return scoreChoice({ response, validation });
 }
 

@@ -43,6 +43,8 @@ to configure: `options [...] {}`. Every other word here takes exactly one argume
 | `base-type` | `<string: record>` | What a blank's answers are: `string` (default), `float` or `integer` |
 | `tolerance` | `<number: record>` | How far a numeric answer may be and still count |
 | `input-formats` | `<list: record>` | Which written forms a numeric blank accepts: `numeric` (any, the default), or a list of `decimal`, `fraction` and `scientific` |
+| `inline-choice` | `<list: record>` | A sentence with dropdowns the candidate picks from |
+| `dropdowns` | `<list record: record>` | The dropdowns in an inline-choice's sentence, each named by its marker |
 | `extended-text` | `<list: record>` | A written response, marked by a person against a rubric |
 | `rubric` | `<list record: record>` | The bands a written response is marked against |
 | `descriptor` | `<string: record>` | What a response must do to earn that band |
@@ -76,6 +78,8 @@ to configure: `options [...] {}`. Every other word here takes exactly one argume
 | `selection` | quote, assess |
 | `text-entry` | prompt, text, case-sensitive, blanks |
 | `blank` | id, responses, case-sensitive, base-type, tolerance, input-formats |
+| `inline-choice` | prompt, text, dropdowns |
+| `dropdown` | id, options |
 | `response` | response, assess |
 | `extended-text` | prompt, rubric, exemplar |
 | `band` | points, descriptor |
@@ -397,6 +401,60 @@ combination is a compile error rather than a setting that quietly does nothing.
 Every mismatch is a compile error: a marker no blank declares, a blank with no marker, a marker
 used twice, text with no marker at all, a blank with nothing marked `correct`, or two responses
 that would recognize the same typed answer.
+
+## Picking inside the sentence
+
+`inline-choice` is the same sentence with dropdowns instead of blanks. The marker model is
+text-entry's — `{{id}}` positions a hole and names it — and what fills the hole is `choice`'s:
+
+```
+inline-choice [
+  prompt "Complete the sentence."
+  text "Plants absorb {{gas}} during photosynthesis."
+  dropdowns [
+    [ id "gas"
+      options [
+        [ text "carbon dioxide" assess [ correct ] ]
+        [ text "oxygen" assess [ rationale "Oxygen is what plants release, not what they take in." ] ]
+        [ text "nitrogen" ]
+      ] {} ]
+  ] {}
+]..
+```
+
+**A dropdown's options are a choice's options.** They take the same `id`, `text` and `assess`,
+they derive the same A, B, C ids, and they mean the same things: `assess [correct]` marks the
+answer, `assess [points -1]` penalizes a distractor, `assess [rationale "…"]` explains one once
+the candidate has picked it. An option with no `assess` is simply a distractor worth nothing.
+
+Ids are scoped to their dropdown, so `A` in one hole and `A` in the next are different options.
+That is why nothing is keyed flat here the way `choice` keys its feedback.
+
+A dropdown is worth its **best** correct option — only one thing can be chosen in it — and the
+interaction is worth the sum of its dropdowns:
+
+```
+inline-choice [
+  text "Plants absorb {{in}} and release {{out}}."
+  dropdowns [
+    [ id "in" options [ [ text "carbon dioxide" assess [ correct ] ] [ text "oxygen" ] ] {} ]
+    [ id "out" options [ [ text "oxygen" assess [ correct ] ] [ text "nitrogen" ] ] {} ]
+  ] {}
+]..
+```
+
+Two holes, two points, and half of it is half the marks. Wrap it in a conjunctive item to make
+the whole sentence worth one.
+
+**Use `inline-choice` when the answer should be recognizable and `text-entry` when it should be
+recalled.** A dropdown gives the answer away to anyone who reads the menu; a blank does not.
+
+A sentence is one or the other. A typed blank and a dropdown cannot be mixed in one
+interaction — put them in two parts of an item if a question needs both.
+
+The same cross-checks apply, in the dropdown's own words: a marker no dropdown declares, a
+dropdown with no marker, a marker used twice, text with no marker at all, and a dropdown with
+nothing marked `correct` are each a compile error naming the fix.
 
 ## A written response
 

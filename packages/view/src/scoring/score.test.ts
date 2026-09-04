@@ -8,6 +8,8 @@ import {
   correctIds,
   scoreChoice,
   scoreHuman,
+  scoreInlineChoice,
+  scoreInteraction,
   scoreTextEntry,
   selectedIds,
   type Validation,
@@ -547,5 +549,100 @@ describe("scoreHuman", () => {
     expect(unscored.pending).toBeUndefined();
     expect(unscored.maxPoints).toBe(0);
     expect(scoreHuman({ validation: WRITTEN }).maxPoints).toBe(2);
+  });
+});
+
+describe("scoreInlineChoice", () => {
+  /** The validation half of the two-dropdown example in core's inlinechoice.test.ts. */
+  const TWO: Validation = {
+    responseProcessing: "map_response",
+    cardinality: "single",
+    points: 2,
+    mapping: {
+      in: {
+        baseType: "identifier",
+        points: 1,
+        options: {
+          A: { correct: true, points: 1 },
+          B: { points: 0, rationale: "Oxygen is what plants release." },
+        },
+      },
+      out: {
+        baseType: "identifier",
+        points: 1,
+        options: { A: { correct: true, points: 1 }, B: { points: -1 } },
+      },
+    },
+  };
+
+  test("both right earns the ceiling", () => {
+    const s = scoreInlineChoice({ response: { in: ["A"], out: ["A"] }, validation: TWO });
+    expect(s).toMatchObject({ points: 2, maxPoints: 2, correct: true });
+  });
+
+  test("one right, one wrong is partial credit — the reason a hole is its own variable", () => {
+    const s = scoreInlineChoice({ response: { in: ["A"], out: ["B"] }, validation: TWO });
+    expect(s).toMatchObject({ points: 0, rawPoints: 0, maxPoints: 2, correct: false });
+    // The penalty is real, and it lands on the hole that earned it.
+    expect(s.options?.out).toMatchObject({ selected: true, points: -1, correct: false });
+    expect(s.options?.in).toMatchObject({ selected: true, points: 1, correct: true });
+  });
+
+  test("an unanswered dropdown is not a wrong one", () => {
+    const s = scoreInlineChoice({ response: { in: ["A"] }, validation: TWO });
+    expect(s).toMatchObject({ points: 1, correct: false });
+    expect(s.options?.out).toMatchObject({ selected: false, points: 0, correct: false });
+  });
+
+  test("a rationale comes back only for the option actually chosen", () => {
+    const wrong = scoreInlineChoice({ response: { in: ["B"], out: ["A"] }, validation: TWO });
+    expect(wrong.options?.in.rationale).toContain("Oxygen is what plants release");
+    const right = scoreInlineChoice({ response: { in: ["A"], out: ["A"] }, validation: TWO });
+    expect(right.options?.in.rationale).toBeUndefined();
+  });
+
+  test("a bare id is accepted, the way a single-select UI reports one", () => {
+    const s = scoreInlineChoice({ response: { in: "A", out: "A" }, validation: TWO });
+    expect(s).toMatchObject({ points: 2, correct: true });
+  });
+
+  test("only the first selection in a dropdown can count", () => {
+    // A single-select menu should never report two, but a key that scored both would be paying
+    // twice for one hole.
+    const s = scoreInlineChoice({ response: { in: ["A", "B"], out: ["A"] }, validation: TWO });
+    expect(s).toMatchObject({ points: 2, correct: true });
+  });
+
+  test("an empty response scores zero without throwing", () => {
+    expect(scoreInlineChoice({ response: undefined, validation: TWO })).toMatchObject({
+      points: 0,
+      correct: false,
+      maxPoints: 2,
+    });
+  });
+
+  test("the points floor holds when penalties outweigh what was earned", () => {
+    const s = scoreInlineChoice({ response: { out: ["B"] }, validation: TWO });
+    expect(s).toMatchObject({ points: 0, rawPoints: -1 });
+  });
+
+  test("scoreInteraction dispatches to it structurally, not on a declared field", () => {
+    // Nothing in the key says "inline-choice": the interaction type does, and the scorer never
+    // sees it. What it sees is a mapping entry carrying a menu of its own.
+    const s = scoreInteraction({
+      interaction: { type: "inline-choice" },
+      validation: TWO,
+      response: { in: ["A"], out: ["A"] },
+    });
+    expect(s).toMatchObject({ points: 2, correct: true });
+  });
+
+  test("a choice key is still scored as a choice", () => {
+    const s = scoreInteraction({
+      interaction: { type: "choice" },
+      validation: VALIDATION,
+      response: ["B"],
+    });
+    expect(s).toMatchObject({ points: 2, correct: true });
   });
 });

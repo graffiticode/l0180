@@ -65,6 +65,15 @@ export function ItemView({
       ).length;
       return blanks > 0 && filled === blanks;
     }
+    // An inline-choice answers the same way, with a list of one per dropdown rather than typed
+    // text. Same reason it needs counting: an untouched menu is simply absent.
+    if (p.type === "inline-choice") {
+      const menus = (p.segments ?? []).filter((s: any) => s.choice).length;
+      const picked = Object.values(r ?? {}).filter(
+        (v) => (Array.isArray(v) ? v.length > 0 : typeof v === "string" && v.length > 0),
+      ).length;
+      return menus > 0 && picked === menus;
+    }
     return r !== undefined && r !== null;
   });
   const score = gradable && answered ? scoreItem({ response: given, validation }) : null;

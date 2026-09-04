@@ -90,6 +90,18 @@ const containers = {
     "<list record: record>",
     "The answers a blank recognizes, each with what it is worth.",
   ),
+  "inline-choice": fn(
+    "INLINE_CHOICE",
+    1,
+    "<list: record>",
+    "An inline-choice interaction: a sentence with dropdowns the candidate picks from.",
+  ),
+  dropdowns: fn(
+    "DROPDOWNS",
+    2,
+    "<list record: record>",
+    "The dropdowns in an inline-choice's sentence, each named by the marker that positions it.",
+  ),
   "extended-text": fn(
     "EXTENDED_TEXT",
     1,

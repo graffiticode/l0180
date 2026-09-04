@@ -8,6 +8,7 @@ export {
   scoreItem,
   scoreHuman,
   scoreTextEntry,
+  scoreInlineChoice,
   selectedIds,
   correctIds,
 } from "./scoring";

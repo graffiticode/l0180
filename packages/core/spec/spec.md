@@ -49,6 +49,8 @@ Two words depart from that, both deliberately:
 | `hottext` | `<list: record>` | A hottext interaction: clickable sentences or words |
 | `text-entry` | `<list: record>` | A sentence with blanks to type into |
 | `blanks` | `<list record: record>` | The blanks in a text-entry's sentence |
+| `inline-choice` | `<list: record>` | A sentence with dropdowns to pick from |
+| `dropdowns` | `<list record: record>` | The dropdowns in an inline-choice's sentence |
 | `responses` | `<list record: record>` | The answers a blank recognizes |
 | `response` | `<string: record>` | One answer a blank recognizes |
 | `case-sensitive` | `<boolean: record>` | Whether capitals must match |
@@ -293,6 +295,39 @@ text-entry [
   ] {}
 ]..
 ```
+
+### inline-choice
+
+The same sentence as `text-entry`, with a dropdown at each hole instead of a blank. `{{id}}`
+positions a dropdown and names it, and the matching entry in `dropdowns` says what its menu
+offers.
+
+A dropdown's `options` are a choice's options — the same `id`, `text` and `assess`, deriving the
+same A, B, C ids and meaning the same things. Option ids are scoped to their dropdown, so the
+same id in two holes names two different options.
+
+```
+inline-choice [
+  prompt "Complete the sentence."
+  text "Plants absorb {{in}} and release {{out}}."
+  dropdowns [
+    [ id "in"
+      options [
+        [ text "carbon dioxide" assess [ correct ] ]
+        [ text "oxygen" assess [ rationale "Oxygen is what plants release, not what they take in." ] ]
+      ] {} ]
+    [ id "out" options [ [ text "oxygen" assess [ correct ] ] [ text "nitrogen" ] ] {} ]
+  ] {}
+]..
+```
+
+A dropdown is worth its best correct option; the interaction is worth the sum of its dropdowns,
+so two holes are two points and half the sentence is half the marks. A conjunctive item around
+it makes the whole sentence worth one.
+
+Use `inline-choice` when the answer should be recognized and `text-entry` when it should be
+recalled — a menu gives the answer to anyone who reads it. The two do not mix in one sentence;
+a question needing both is two parts of an item.
 
 ### extended-text
 
