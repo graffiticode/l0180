@@ -15,7 +15,7 @@ import { test, describe, expect } from "vitest";
 import { readFileSync } from "fs";
 import { parser } from "@graffiticode/parser";
 import { lexicon as base } from "@graffiticode/l0000";
-import { compiler, lexicon, validAttributes } from "./index.js";
+import { attributeFields, compiler, lexicon, validAttributes, wordOf } from "./index.js";
 
 /** Files whose fenced blocks are programs. examples.md holds prompts and is checked separately. */
 const SPEC_FILES = ["spec/spec.md", "spec/instructions.md"];
@@ -252,5 +252,63 @@ describe("examples.md numbering is coherent", () => {
     const stated = text.match(/^(\d+) example prompts/m);
     expect(stated, "examples.md should open with 'N example prompts'").toBeTruthy();
     expect(Number(stated![1])).toBe(numbered.length);
+  });
+});
+
+describe("scope.json and language-info.json know which interactions exist", () => {
+  // scope.json was for a long time the one spec file nothing tested, and it drifted: its
+  // out_of_scope still ruled out multi-part items months after the `item` wrapper shipped.
+  // These two files are what an agent reads to decide whether a request routes here at all,
+  // so a stale one does not merely misinform — it sends the work somewhere else.
+  //
+  // The interaction set is derived, never listed: the dialect's own container words are the
+  // lexicon minus L0000's minus the generated attribute words, and an interaction is an
+  // arity-1 container. `item` is arity 1 too, and is a wrapper rather than an interaction.
+  const attributeWords = new Set(Object.keys(attributeFields).map(wordOf));
+  const containers = Object.keys(lexicon).filter((w) => !(w in base) && !attributeWords.has(w));
+  const interactions = containers.filter((w) => lexicon[w].arity === 1 && w !== "item").sort();
+
+  const scope = JSON.parse(readFileSync("spec/scope.json", "utf-8"));
+  const info = JSON.parse(readFileSync("spec/language-info.json", "utf-8"));
+
+  test("the interaction set is what these tests think it is", () => {
+    // A canary on the derivation itself. If a future container is arity 2, or `item` gains a
+    // sibling wrapper, the rest of this block would quietly check the wrong set.
+    expect(interactions.length).toBeGreaterThan(3);
+    expect(interactions).toContain("choice");
+    expect(containers).toContain("item");
+  });
+
+  test("scope.json's out_of_scope names exactly the interactions that do not exist", () => {
+    const entry = scope.out_of_scope.find((s: string) => s.includes("not implemented yet"));
+    expect(entry, "no out_of_scope entry names the unimplemented interaction types").toBeTruthy();
+    const m = entry.match(/^Interaction types other than (.+?) - (.+?) are not implemented yet/);
+    expect(m, `cannot read the interaction entry: ${entry}`).toBeTruthy();
+    const listed = (s: string) => s.split(/,|\band\b/).map((w) => w.trim()).filter(Boolean).sort();
+
+    expect(listed(m![1]), "scope.json disagrees with the lexicon about what exists").toEqual(
+      interactions,
+    );
+    for (const w of listed(m![2])) {
+      expect(lexicon[w], `scope.json calls \`${w}\` unimplemented, but it is in the lexicon`)
+        .toBeUndefined();
+    }
+  });
+
+  test("language-info.json's supported_item_types is the interaction set plus the wrapper", () => {
+    expect([...info.supported_item_types].sort()).toEqual([...interactions, "item"].sort());
+  });
+
+  test("every example prompt produces something the language supports", () => {
+    for (const ex of info.example_prompts) {
+      expect(info.supported_item_types, `example produces \`${ex.produces}\``).toContain(
+        ex.produces,
+      );
+    }
+  });
+
+  test("both spec files claim the same dialect", () => {
+    expect(scope.id).toBe(info.id);
+    expect(scope.id).toBe("0180");
   });
 });

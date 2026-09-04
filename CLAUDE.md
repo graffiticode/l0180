@@ -301,7 +301,7 @@ class; a new component tree that wants borders must sit inside it.
 
 ## Spec is tested, not decorative
 
-`docs.test.ts` is the gate on `spec/`, and it checks five separate things. A wrong example is
+`docs.test.ts` is the gate on `spec/`, and it checks six separate things. A wrong example is
 not a documentation nit — the generator writes from `instructions.md` and retrieves from
 `examples.md`, so it is reproduced verbatim into generated programs.
 
@@ -320,11 +320,18 @@ not a documentation nit — the generator writes from `instructions.md` and retr
   the compiler refuses.
 - `examples.md`'s numbering is coherent: prompts run `1..N` with no gaps, category ranges tile
   the whole list in order, and the count stated in the preamble is the count present.
+- **`scope.json` and `language-info.json` agree with the lexicon about which interactions
+  exist.** Both are copied to `dist/static` and read by an agent deciding whether a request
+  routes here at all, so a stale one does not merely misinform — it sends the work elsewhere.
+  Untested, `scope.json` had already drifted: it went on ruling out multi-part items — "one
+  interaction per program" — for two releases after the `item` wrapper shipped. The test
+  derives the interaction set (dialect containers of arity 1, less `item`), reads the
+  `out_of_scope` sentence naming what exists and what does not, and fails if either half
+  disagrees — so adding an interaction fails the suite until both files know about it.
 
-**`spec/scope.json` is the one spec file nothing tests.** It is copied verbatim by
-`build-static.js` and has already drifted: its `out_of_scope` still claims "Multi-part items …
-one interaction per program", which the `item` wrapper made false. Re-read it whenever the
-language gains a capability.
+Prose, though, is still prose. Nothing can check that an `in_scope` line describes a capability
+accurately, so **re-read `scope.json` whenever the language gains one**; the derived gate only
+catches a whole missing interaction.
 
 `spec/usage-guide.md`'s `## Overview` section is extracted into `dist/static/language-info.json`
 as `authoring_guide`, and the build **fails** if it is missing or under 100 chars. Edit the
@@ -347,8 +354,9 @@ Overview, not the JSON — `language-info.json` must not carry that key itself.
    table — both are asserted) and in `spec/spec.md`, each with a compiling example.
 8. Add prompts to `examples.md` as a new numbered category, updating the range in the category
    header and the count in the preamble.
-9. Extend `supported_item_types` in `spec/language-info.json`, and revisit `spec/scope.json` —
-   the type is probably listed there as out of scope.
+9. Extend `supported_item_types` in `spec/language-info.json`, and move the type out of
+   `spec/scope.json`'s `out_of_scope` sentence into `in_scope` — it is listed there as not
+   implemented, and `docs.test.ts` fails until both files agree with the lexicon.
 
 ## L0175 conformance
 
