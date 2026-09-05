@@ -26,6 +26,15 @@ export interface OptionValidation {
   /** What selecting it is worth. Negative penalizes. */
   points: number;
   /**
+   * Pairings only: why this pairing is right or wrong, shown once the candidate has made it.
+   *
+   * A `choice` keeps its rationales in the flat `validation.feedback` map, which works because
+   * its ids are unique across the interaction. A pairing's id names two things at once, so its
+   * explanation rides on the entry — the same answer text-entry and inline-choice gave to the
+   * same question.
+   */
+  rationale?: string;
+  /**
    * Typed answers only: what this blank recognizes, in authored order.
    *
    * Each is a mapping value plus the `response` that identifies it — QTI's mapKey. A recognized
@@ -87,7 +96,7 @@ export type ResponseProcessing = "map_response" | "match_correct" | "human";
  * one response variable per blank and they need not agree — a numeric blank can sit beside a
  * text one in the same sentence.
  */
-export type BaseType = "identifier" | "string" | "float" | "integer";
+export type BaseType = "identifier" | "string" | "float" | "integer" | "directedPair";
 
 /** The answer key half of a compiled item. */
 export interface Validation {
@@ -441,6 +450,62 @@ export function canonicalize(
 }
 
 /**
+ * Score pairings. The response is the pairs the candidate made, each `"<item> <target>"`.
+ *
+ * The arithmetic is a choice's — sum what each pairing is worth — but `correct` is NOT, and
+ * that difference is the whole reason this is its own case. A mapping over pairs enumerates
+ * only the right few out of every item × every target, so a candidate who makes all the correct
+ * pairings AND some wrong ones reaches the ceiling on points alone. `choice` never had to worry
+ * about it: its mapping lists every option, and `maxChoices` bounds the UI. Here, being correct
+ * means the pairings are exactly the correct set — no fewer, and no extra.
+ *
+ * Outcomes cover the pairs the candidate MADE as well as the ones the key names, so a wrong
+ * pairing has an entry for a renderer to mark rather than nothing at all.
+ */
+export function scorePairs({
+  response,
+  validation,
+}: {
+  response: unknown;
+  validation: Validation | null | undefined;
+}): Score {
+  const key = validation?.mapping || {};
+  const maxPoints = typeof validation?.points === "number" ? validation.points : 0;
+  const made = selectedIds(response);
+
+  const wanted =
+    validation?.responseProcessing === "match_correct"
+      ? validation?.correctResponse || []
+      : Object.keys(key).filter((id) => key[id]?.correct);
+
+  const options: Record<string, OptionOutcome> = {};
+  let rawPoints = 0;
+  for (const id of new Set([...Object.keys(key), ...made])) {
+    const entry = key[id];
+    const selected = made.includes(id);
+    options[id] = {
+      selected,
+      points: entry?.points ?? 0,
+      correct: entry?.correct === true,
+      ...(entry?.rationale ? { rationale: entry.rationale } : {}),
+    };
+    if (selected && entry) rawPoints += entry.points;
+  }
+
+  const exact =
+    wanted.length > 0 && made.length === wanted.length && wanted.every((id) => made.includes(id));
+
+  if (validation?.responseProcessing === "match_correct") {
+    const earned = exact ? maxPoints : 0;
+    return { points: earned, rawPoints: earned, maxPoints, correct: exact, options };
+  }
+  const points = Math.max(0, rawPoints);
+  // Points can reach the ceiling with extra wrong pairings alongside the right ones. Being
+  // correct is the exact set, not the arithmetic.
+  return { points, rawPoints, maxPoints, correct: exact, options };
+}
+
+/**
  * A written response: nothing here can score it.
  *
  * The points are real and are reported as the maximum, so a host can show "0 / 2, pending"
@@ -477,6 +542,9 @@ function scorePart(response: unknown, validation: Validation | null | undefined)
   // of the response variable, not of the interaction that collected it, and QTI branches on it
   // in the same place.
   if (validation?.cardinality === "ordered") return scoreOrder({ response, validation });
+  // A pair response is declared, not inferred: `directedPair` is QTI's own name for it, and it
+  // sits on the response declaration where QTI puts it.
+  if (validation?.baseType === "directedPair") return scorePairs({ response, validation });
   if (isTyped(validation)) return scoreTextEntry({ response, validation });
   if (isPicked(validation)) return scoreInlineChoice({ response, validation });
   return scoreChoice({ response, validation });

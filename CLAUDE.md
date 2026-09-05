@@ -589,6 +589,44 @@ the cursor mid-answer, which is worse than not shuffling at all.
 wrapper. `OrderItem` passes `correctResponse` as `avoid`, so a shuffle that lands on the answer
 is redrawn — possible only in a practice delivery, since a graded one withholds the key.
 
+### `match` and `classification` are one key with one rule between them
+
+Both ask the same question — which of these does each of those belong with — so both compile to
+a mapping over PAIRS of identifiers, `"<item> <place>"`, which is QTI's `directedPair` and its
+spelling. `pairing.ts` builds it for both, parameterized by vocabulary the way `cutMarkers` is,
+so nobody sorting animals is told about targets.
+
+**The one difference is checkable, which is what makes two words honest rather than
+decorative.** A match pairs each target with one item; a classification is the one where
+sharing is the point. Two items naming the same target is a compile error under `match`, and
+the message names `classification` as the fix.
+
+**A place carries an authored `id`; an item's derives.** Nothing the author writes refers to an
+item, while every item names a place — so an id nobody wrote is an id nobody can name, and it
+is refused rather than derived.
+
+**`scorePairs` exists because `correct` could not be reused.** The arithmetic is a choice's, but
+a mapping over pairs enumerates only the right few out of every item × every place, so a
+candidate who makes all the correct pairings AND some wrong ones sums to the ceiling. Being
+correct is the exact set, no fewer and no extra. `choice` never had to care: its mapping lists
+every option and `maxChoices` bounds the UI. Outcomes cover the pairs the candidate MADE as well
+as the ones the key names, so a wrong pairing has an entry for the renderer to mark rather than
+nothing at all.
+
+Dispatch is on `baseType === "directedPair"` — declared, like `order`'s `cardinality`, and on
+the response declaration where QTI puts it.
+
+**The member lists are `match-items` and `classification-items`, not a shared `items`.**
+Redundant inside a container that already says which it is, and deliberately so: `item` is the
+multi-part wrapper, a `match` is routinely a part inside one, and `items` nested two lines under
+`item` reads as though the two are related. It would also have shadowed the wrapper's own row in
+`validAttributes`, which is a duplicate object key that JavaScript resolves silently — found
+exactly that way.
+
+`PairingItem` renders both, a `<select>` per row. Two columns with lines, and buckets to drag
+into, are the pictures these eventually want; the select is what works for a keyboard and a
+screen reader, and is the base anything else layers over.
+
 ### A hottext resolves in two phases, and that is not optional
 
 Children transform before parents: `PARTS` visits each interaction, then `ITEM` merges. So when
@@ -617,7 +655,7 @@ so the candidate would watch a selection vanish for no stated reason.
 
 ## Not built yet
 
-Matching, classification, hotspot, sliders. Symbolic answer
+Hotspot, sliders. Symbolic answer
 matching — expressions, units and algebraic equivalence, and whether a fraction is in lowest
 terms; numbers themselves are compared as numbers. QTI export, which the `interaction`/`validation` split is deliberately shaped
 to allow later; now that the compiled shape carries QTI's own field names, that is a serializer

@@ -7,6 +7,7 @@ export {
   scoreTextEntry,
   scoreInlineChoice,
   scoreOrder,
+  scorePairs,
   canonicalize,
   selectedIds,
   correctIds,

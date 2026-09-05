@@ -235,6 +235,16 @@ export const attributeFields: Record<string, AttributeMeta> = {
     description:
       "`order` only: where this element belongs in the right sequence, counting from 1.",
   },
+  TARGET: {
+    field: "target",
+    expects: "string",
+    description: "`match` only: the id of the target this item is matched with.",
+  },
+  CATEGORY: {
+    field: "category",
+    expects: "string",
+    description: "`classification` only: the id of the category this item belongs in.",
+  },
 };
 
 /**
@@ -300,6 +310,20 @@ export const validAttributes: Record<string, string[]> = {
   // it belongs — see the ORDER transformer for why the key cannot be the authored order.
   order: ["prompt", "shuffle", "elements"],
   element: ["id", "text", "assess"],
+  // Pairing each thing with somewhere it belongs. `match` is one-to-one and `classification`
+  // is many-to-one — the difference is enforced in `pairing.ts`, not expressible here.
+  //
+  // The member lists are `match-items` and `classification-items` rather than a shared `items`:
+  // redundant inside a container that already says which it is, and unambiguous, which matters
+  // more. `item` is this language's multi-part wrapper and a `match` is routinely a part inside
+  // one, so `items` nested two lines under `item` — meaning something unrelated — is a program
+  // that reads wrong. It would also have shadowed the wrapper's own row in this very table.
+  match: ["prompt", "shuffle", "response-processing", "targets", "match-items"],
+  classification: ["prompt", "shuffle", "response-processing", "categories", "classification-items"],
+  target: ["id", "text"],
+  category: ["id", "text"],
+  "match-item": ["id", "text", "assess"],
+  "classification-item": ["id", "text", "assess"],
   blank: ["id", "responses", "case-sensitive", "base-type", "tolerance", "input-formats"],
   // The member container and its value word are both `response`, so an error reads
   // "It takes: response, assess". Repetitive, and accurate.
@@ -307,7 +331,7 @@ export const validAttributes: Record<string, string[]> = {
   "extended-text": ["prompt", "rubric", "exemplar"],
   band: ["points", "descriptor"],
   option: ["id", "text", "assess"],
-  assess: ["correct", "points", "rationale", "position"],
+  assess: ["correct", "points", "rationale", "position", "target", "category"],
 };
 
 /** Source spelling for a tag, so an error names the word the author wrote. */
@@ -447,6 +471,8 @@ const fieldToWord: Record<string, string> = Object.entries(attributeFields).redu
   {
     options: "options", parts: "parts", selections: "selections", rubric: "rubric",
     responses: "responses", blanks: "blanks", dropdowns: "dropdowns", elements: "elements",
+    targets: "targets", categories: "categories",
+    matchItems: "match-items", classificationItems: "classification-items",
   },
 );
 const fieldWord = (field: string): string => fieldToWord[field] || field;

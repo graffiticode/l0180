@@ -14,6 +14,7 @@
         { "$ref": "#/$defs/textEntryInteraction" },
         { "$ref": "#/$defs/inlineChoiceInteraction" },
         { "$ref": "#/$defs/orderInteraction" },
+        { "$ref": "#/$defs/pairingInteraction" },
         { "$ref": "#/$defs/extendedTextInteraction" },
         { "$ref": "#/$defs/itemInteraction" }
       ]
@@ -80,6 +81,10 @@
               "anchored": {
                 "description": "True on an option that must stay last however the rest is shuffled — \"All of the above\" and its kin. Presentation rather than key material, so it survives a graded delivery.",
                 "const": true
+              },
+              "rationale": {
+                "description": "Pairings only: why this pairing is right or wrong, shown once the candidate has made it. A pair id names two things at once, so its explanation rides here rather than in the flat `feedback` map a choice uses.",
+                "type": "string"
               }
             },
             "additionalProperties": false
@@ -255,6 +260,59 @@
       },
       "additionalProperties": false
     },
+    "pairingInteraction": {
+      "title": "Match / classification interaction",
+      "description": "Each item is paired with one of a list of places — targets to match with, or categories to sort into. The two types share this shape and differ in one rule the compiler enforces: a match pairs each target with one item, a classification lets several items share a category.",
+      "type": "object",
+      "required": ["type", "items"],
+      "properties": {
+        "id": {
+          "description": "Present only when this interaction is a part of an item, where it keys the response.",
+          "type": "string"
+        },
+        "type": { "enum": ["match", "classification"] },
+        "prompt": { "description": "The question stem.", "type": "string" },
+        "shuffle": { "description": "Present both lists in a random order, which is the default.", "type": "boolean" },
+        "items": {
+          "description": "The things to be placed. Ids are derived as A, B, C… — nothing the author writes refers to them, unlike a target's.",
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["id", "text"],
+            "properties": { "id": { "type": "string" }, "text": { "type": "string" } },
+            "additionalProperties": false
+          }
+        },
+        "targets": {
+          "description": "A match's places. Ids are authored, because an item's key names one.",
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "object",
+            "required": ["id", "text"],
+            "properties": { "id": { "type": "string" }, "text": { "type": "string" } },
+            "additionalProperties": false
+          }
+        },
+        "categories": {
+          "description": "A classification's places. Ids are authored, because an item's key names one.",
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "object",
+            "required": ["id", "text"],
+            "properties": { "id": { "type": "string" }, "text": { "type": "string" } },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false,
+      "oneOf": [
+        { "required": ["targets"], "not": { "required": ["categories"] } },
+        { "required": ["categories"], "not": { "required": ["targets"] } }
+      ]
+    },
     "extendedTextInteraction": {
       "title": "Extended-text interaction",
       "description": "A written response. Nothing scores it here — a person marks it against the rubric in `validation`, which is why its key is responseProcessing \"human\" rather than an unscored key.",
@@ -313,6 +371,7 @@
                   { "$ref": "#/$defs/textEntryInteraction" },
                   { "$ref": "#/$defs/inlineChoiceInteraction" },
                   { "$ref": "#/$defs/orderInteraction" },
+                  { "$ref": "#/$defs/pairingInteraction" },
                   { "$ref": "#/$defs/extendedTextInteraction" }
                 ]
               },
@@ -334,8 +393,8 @@
           "enum": ["single", "multiple", "ordered"]
         },
         "baseType": {
-          "description": "What the response is made of: identifiers the candidate selected, or the string they typed. Decides whether `mapping` keys name options or blanks, and whether entries carry the answers they recognize.",
-          "enum": ["identifier", "string"]
+          "description": "What the response is made of: identifiers the candidate selected, the string they typed, or — for a match or classification — `directedPair`, QTI's name for a pair of identifiers written with a space between them. Decides what a `mapping` key names.",
+          "enum": ["identifier", "string", "directedPair"]
         },
         "responseProcessing": {
           "description": "map_response scores each selected option and sums; match_correct awards the points for exactly the correct set and nothing otherwise.",

@@ -114,6 +114,42 @@ const containers = {
     "<list record: record>",
     "The things an order interaction sequences, in the order they are presented.",
   ),
+  match: fn(
+    "MATCH",
+    1,
+    "<list: record>",
+    "A match interaction: each item is paired with one of the targets.",
+  ),
+  targets: fn(
+    "TARGETS",
+    2,
+    "<list record: record>",
+    "The things a match's items are paired with, each named by an id.",
+  ),
+  "match-items": fn(
+    "MATCH_ITEMS",
+    2,
+    "<list record: record>",
+    "The things a match pairs off, each saying which target it belongs with.",
+  ),
+  classification: fn(
+    "CLASSIFICATION",
+    1,
+    "<list: record>",
+    "A classification interaction: each item is sorted into one of the categories.",
+  ),
+  categories: fn(
+    "CATEGORIES",
+    2,
+    "<list record: record>",
+    "The categories a classification sorts into, each named by an id.",
+  ),
+  "classification-items": fn(
+    "CLASSIFICATION_ITEMS",
+    2,
+    "<list record: record>",
+    "The things a classification sorts, each saying which category it belongs in.",
+  ),
   "extended-text": fn(
     "EXTENDED_TEXT",
     1,

@@ -1,11 +1,11 @@
 <!-- SPDX-License-Identifier: CC-BY-4.0 -->
 # L0180 RAG Training Examples
 
-131 example prompts for training a RAG model on L0180, the web-based assessment language —
+148 example prompts for training a RAG model on L0180, the web-based assessment language —
 covering multiple choice, true/false, multi-select, exact-set scoring, weighted scoring,
 penalized distractors, presentation and option order, unscored polls, per-option rationale, clicking
 sentences and words inside a passage, fill-in-the-blank including numeric answers and the form they must be written in, dropdown
-cloze, sequencing, written responses marked against a rubric, and multi-part items over a reading passage.
+cloze, sequencing, matching, classification, written responses marked against a rubric, and multi-part items over a reading passage.
 
 Each numbered line is a prompt in the author's own voice. Prompts describe WHAT to build,
 never how to write it: an author asks for a question, not for a `choice [...]` program. When
@@ -193,3 +193,26 @@ L0180 grows further interaction types, this file grows categories with them.
 129. Ask students to arrange the words into a correct sentence.
 130. A two-part item where the student first picks the right definition and then puts the steps in order, both required for the point.
 131. Put the stages of a butterfly's life cycle in the right sequence.
+
+## Category 18: Matching (132-140)
+
+132. Match each country to its capital: France to Paris, Japan to Tokyo, Peru to Lima.
+133. A matching question pairing three authors with the books they wrote, with one extra book nobody wrote as a distractor.
+134. Match each scientific term to its definition.
+135. Pair each element symbol with the element it stands for: Na, K, Fe.
+136. A vocabulary matching item where each Spanish word is matched to its English translation.
+137. Match each state to its capital, and explain the pairing students most often get wrong.
+138. Pair each historical event with the year it happened, all four required for the point.
+139. A matching question where one pairing is worth two points because it is the hardest.
+140. Match each shape to the number of sides it has.
+
+## Category 19: Classification (141-148)
+
+141. Sort these animals into mammals, reptiles and birds: blue whale, iguana, bat, eagle, python.
+142. A classification question sorting numbers into prime and composite.
+143. Sort each sentence into fact or opinion.
+144. Classify these foods as fruits or vegetables, where several go in each group.
+145. Sort the given words into nouns, verbs and adjectives.
+146. A sorting question that puts each material into solid, liquid or gas.
+147. Classify each shape as a polygon or not a polygon.
+148. Sort these historical figures by the century they lived in.

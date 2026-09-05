@@ -65,6 +65,12 @@ export function ItemView({
       ).length;
       return blanks > 0 && filled === blanks;
     }
+    // A pairing answers with one pair per item, so a half-finished one is a short array rather
+    // than an absent key — count against the items the part actually has.
+    if (p.type === "match" || p.type === "classification") {
+      const rows = (p.items ?? []).length;
+      return rows > 0 && Array.isArray(r) && r.length === rows;
+    }
     // An inline-choice answers the same way, with a list of one per dropdown rather than typed
     // text. Same reason it needs counting: an untouched menu is simply absent.
     if (p.type === "inline-choice") {

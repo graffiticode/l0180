@@ -13,6 +13,7 @@ import { ExtendedTextItem } from "./ExtendedTextItem";
 import { TextEntryItem } from "./TextEntryItem";
 import { InlineChoiceItem } from "./InlineChoiceItem";
 import { OrderItem } from "./OrderItem";
+import { PairingItem } from "./PairingItem";
 import { ErrorList } from "./itemKit";
 
 export interface InteractionProps {
@@ -31,6 +32,9 @@ const RENDERERS: Record<string, (p: InteractionProps) => JSX.Element> = {
   "text-entry": TextEntryItem as any,
   "inline-choice": InlineChoiceItem as any,
   order: OrderItem as any,
+  // One component for both: at this level they are the same question, one choice per row.
+  match: PairingItem as any,
+  classification: PairingItem as any,
 };
 
 export function InteractionView(props: InteractionProps) {

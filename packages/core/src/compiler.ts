@@ -28,6 +28,7 @@ import { optionLabel } from "./labels.js";
 import { cut } from "./textentry.js";
 import { cut as cutDropdowns, totalPoints } from "./inlinechoice.js";
 import { sequence } from "./order.js";
+import { pair, type PairWords } from "./pairing.js";
 
 /* ------------------------------------------------------------------ Checker */
 
@@ -70,6 +71,12 @@ Checker.prototype.INLINE_CHOICE = checkChild;
 Checker.prototype.DROPDOWNS = checkBoth;
 Checker.prototype.ORDER = checkChild;
 Checker.prototype.ELEMENTS = checkBoth;
+Checker.prototype.MATCH = checkChild;
+Checker.prototype.TARGETS = checkBoth;
+Checker.prototype.MATCH_ITEMS = checkBoth;
+Checker.prototype.CLASSIFICATION = checkChild;
+Checker.prototype.CATEGORIES = checkBoth;
+Checker.prototype.CLASSIFICATION_ITEMS = checkBoth;
 Checker.prototype.ITEM = checkChild;
 Checker.prototype.PARTS = checkBoth;
 
@@ -683,6 +690,142 @@ Transformer.prototype.ORDER = function (this: any, node: any, options: any, resu
     }
   });
 };
+
+/**
+ * A member list for one of the pairing interactions.
+ *
+ * Four of them — targets, categories, and the items of each — differing only in the word they
+ * are checked under and the field they resume. The same skeleton as `OPTIONS`.
+ */
+function memberList(container: string, field: string, example: string) {
+  return function (this: any, node: any, options: any, resume: any) {
+    this.visit(node.elts[0], options, (e0: any, v0: any) => {
+      this.visit(node.elts[1], options, (e1: any, v1: any) => {
+        const err = ([] as any[]).concat(e0 || [], e1 || []);
+        const raw = toPlainObject(v0);
+        if (!Array.isArray(raw)) {
+          resume(err.concat(`${wordOf(field)}: expected a list, e.g. ${example}`), {});
+          return;
+        }
+        try {
+          const list = raw.map((entry: any, i: number) => {
+            const merged = mergeAttributes(entry, `${container} ${i + 1}`);
+            assertKnownAttributes(container, merged);
+            return merged;
+          });
+          resume(err, { ...(toPlainObject(v1) || {}), [field]: list });
+        } catch (e: any) {
+          resume(err.concat(String((e && e.message) || e)), {});
+        }
+      });
+    });
+  };
+}
+
+Transformer.prototype.TARGETS = memberList(
+  "target",
+  "targets",
+  'targets [[id "paris" text "Paris"]] {}.',
+);
+Transformer.prototype.MATCH_ITEMS = memberList(
+  "match-item",
+  "matchItems",
+  'match-items [[text "France" assess [target "paris"]]] {}.',
+);
+Transformer.prototype.CATEGORIES = memberList(
+  "category",
+  "categories",
+  'categories [[id "mammal" text "Mammal"]] {}.',
+);
+Transformer.prototype.CLASSIFICATION_ITEMS = memberList(
+  "classification-item",
+  "classificationItems",
+  'classification-items [[text "Whale" assess [category "mammal"]]] {}.',
+);
+
+/**
+ * Pairing each thing with somewhere it belongs: QTI's match interaction, and the classification
+ * built on the same key.
+ *
+ * The response is a set of PAIRS — QTI's `directedPair`, serialized as the two identifiers with
+ * a space between them — so `mapping` is keyed by pairing rather than by option, and the
+ * existing `map-response` / `match-correct` dispatch carries over unchanged. What does not
+ * carry over is `correct`: the scorer has to require the pairings to be exactly the right ones,
+ * because a mapping over pairs enumerates only the correct few out of |items| × |targets|.
+ *
+ * Worth one point per item by default and summed, the rule `text-entry` uses over its blanks, so
+ * a four-item match gives partial credit and a conjunctive item around it does not.
+ */
+function pairingInteraction(type: string, words: PairWords, listField: string, itemField: string) {
+  return function (this: any, node: any, options: any, resume: any) {
+    this.visit(node.elts[0], options, (e0: any, v0: any) => {
+      const err = ([] as any[]).concat(e0 || []);
+      try {
+        const attrs = mergeAttributes(toPlainObject(v0), type);
+        assertKnownAttributes(type, attrs);
+
+        const places = Array.isArray(attrs[listField]) ? attrs[listField] : [];
+        const items = Array.isArray(attrs[itemField]) ? attrs[itemField] : [];
+        if (!places.length) {
+          throw new Error(
+            `${type}: needs its ${words.list}, e.g. ${words.list} [[id "a" text "A"] [id "b" text "B"]] {}.`,
+          );
+        }
+        if (!items.length) {
+          throw new Error(
+            `${type}: needs its ${words.itemList}, e.g. ` +
+              `${words.itemList} [[text "France" assess [${words.key} "a"]]] {}.`,
+          );
+        }
+
+        const paired = pair(items, places, words);
+        const template = attrs.responseProcessing !== undefined ? attrs.responseProcessing : "map-response";
+        const exactSet = template === "match-correct";
+
+        resume(err, {
+          interaction: {
+            type,
+            ...(attrs.prompt !== undefined ? { prompt: attrs.prompt } : {}),
+            shuffle: resolveShuffle(attrs.shuffle, paired.items),
+            items: paired.items,
+            [listField]: paired.places,
+          },
+          validation: {
+            responseProcessing: templateId(template),
+            // A response is a set of pairings, so cardinality is `multiple` however many there
+            // are, and the base type is QTI's own name for a pair of identifiers.
+            cardinality: "multiple",
+            baseType: "directedPair",
+            points: exactSet ? 1 : paired.points,
+            ...(exactSet ? { correctResponse: paired.correctResponse } : { mapping: paired.mapping }),
+          },
+        });
+      } catch (e: any) {
+        resume(err.concat(String((e && e.message) || e)), {});
+      }
+    });
+  };
+}
+
+Transformer.prototype.MATCH = pairingInteraction(
+  "match",
+  { container: "match", key: "target", list: "targets", itemList: "match-items", place: "target", oneToOne: true },
+  "targets",
+  "matchItems",
+);
+Transformer.prototype.CLASSIFICATION = pairingInteraction(
+  "classification",
+  {
+    container: "classification",
+    key: "category",
+    list: "categories",
+    itemList: "classification-items",
+    place: "category",
+    oneToOne: false,
+  },
+  "categories",
+  "classificationItems",
+);
 
 /**
  * A written response, scored by a person against a rubric.

@@ -46,6 +46,14 @@ to configure: `options [...] {}`. Every other word here takes exactly one argume
 | `inline-choice` | `<list: record>` | A sentence with dropdowns the candidate picks from |
 | `dropdowns` | `<list record: record>` | The dropdowns in an inline-choice's sentence, each named by its marker |
 | `order` | `<list: record>` | Elements the candidate puts into the right sequence |
+| `match` | `<list: record>` | Each item paired with one of the targets |
+| `targets` | `<list record: record>` | The things a match's items are paired with, each named by an id |
+| `match-items` | `<list record: record>` | The things a match pairs off, each naming its target |
+| `classification` | `<list: record>` | Each item sorted into one of the categories |
+| `categories` | `<list record: record>` | The categories a classification sorts into, each named by an id |
+| `classification-items` | `<list record: record>` | The things a classification sorts, each naming its category |
+| `target` | `<string: record>` | The id of the target an item is matched with |
+| `category` | `<string: record>` | The id of the category an item belongs in |
 | `elements` | `<list record: record>` | The things an order sequences, in the order they are presented |
 | `position` | `<number: record>` | Where an element belongs in the right sequence, counting from 1 |
 | `extended-text` | `<list: record>` | A written response, marked by a person against a rubric |
@@ -85,11 +93,17 @@ to configure: `options [...] {}`. Every other word here takes exactly one argume
 | `dropdown` | id, options |
 | `order` | prompt, shuffle, elements |
 | `element` | id, text, assess |
+| `match` | prompt, shuffle, response-processing, targets, match-items |
+| `classification` | prompt, shuffle, response-processing, categories, classification-items |
+| `target` | id, text |
+| `category` | id, text |
+| `match-item` | id, text, assess |
+| `classification-item` | id, text, assess |
 | `response` | response, assess |
 | `extended-text` | prompt, rubric, exemplar |
 | `band` | points, descriptor |
 | an option | id, text, assess |
-| `assess` | correct, points, rationale, position |
+| `assess` | correct, points, rationale, position, target, category |
 
 A word written in the wrong container is a compile error naming where it belongs, not a
 silent no-op.
@@ -542,6 +556,60 @@ list, `shuffle false` fixes an ordinary one.
 
 Hot text is never shuffled — it is a passage, and sentences in a random order are not prose —
 and neither are an item's parts, since Part A before Part B is the question's structure.
+
+## Pairing things up, and sorting them
+
+`match` pairs each item with one of a list of targets. Every target carries an `id`, because
+that is what an item names; the items' own ids derive, since nothing refers to them:
+
+```
+match [
+  prompt "Match each country to its capital."
+  targets [
+    [ id "paris" text "Paris" ]
+    [ id "tokyo" text "Tokyo" ]
+    [ id "lima" text "Lima" ]
+  ] {}
+  match-items [
+    [ text "France" assess [ target "paris" ] ]
+    [ text "Japan" assess [ target "tokyo" ] ]
+  ] {}
+]..
+```
+
+A target no item names is a **distractor** — Lima above. Nothing marks it as one.
+
+`classification` is the same thing with categories, and is the one where several items share:
+
+```
+classification [
+  prompt "Sort each animal into its class."
+  categories [
+    [ id "mammal" text "Mammal" ]
+    [ id "reptile" text "Reptile" ]
+  ] {}
+  classification-items [
+    [ text "Blue whale" assess [ category "mammal" ] ]
+    [ text "Iguana" assess [ category "reptile" ] ]
+    [ text "Bat" assess [ category "mammal" ] ]
+  ] {}
+]..
+```
+
+**A match is one-to-one and a classification is many-to-one.** Two items naming the same target
+is a compile error under `match`, and the message says that a shared target means the question
+is a `classification`. That is the only rule that separates the two words.
+
+Each item is worth one point by default, and the interaction is worth their sum, so a four-item
+match gives partial credit. `assess [ target "paris" points 2 ]` weights one pairing;
+`assess [ target "paris" rationale "…" ]` explains one, shown once the candidate makes it.
+`response-processing "match-correct"` makes the whole thing all-or-nothing at one point, as it
+does everywhere else.
+
+The lists are member lists named for their own container — `match-items`, not `items`. It is
+redundant inside a `match`, and it is unambiguous: `item` is the multi-part wrapper, a `match`
+is often a part inside one, and a program with `items` nested two lines under `item` reads as
+though the two are related.
 
 ## A written response
 

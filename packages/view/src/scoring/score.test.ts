@@ -11,6 +11,7 @@ import {
   scoreInlineChoice,
   scoreInteraction,
   scoreOrder,
+  scorePairs,
   scoreTextEntry,
   selectedIds,
   type Validation,
@@ -771,5 +772,96 @@ describe("scoreOrder when two elements read the same", () => {
     expect(scoreOrder({ response: ["E", "B", "C", "D", "A", "F"], validation: strict })).toMatchObject({
       correct: false,
     });
+  });
+});
+
+describe("scorePairs", () => {
+  /** The validation half of the country/capital match in core's match.test.ts. */
+  const CAPITALS: Validation = {
+    responseProcessing: "map_response",
+    cardinality: "multiple",
+    baseType: "directedPair",
+    points: 2,
+    mapping: {
+      "A paris": { correct: true, points: 1 },
+      "B tokyo": { correct: true, points: 1 },
+    },
+  };
+
+  test("every pairing right earns the ceiling", () => {
+    expect(scorePairs({ response: ["A paris", "B tokyo"], validation: CAPITALS })).toMatchObject({
+      points: 2,
+      maxPoints: 2,
+      correct: true,
+    });
+  });
+
+  test("the right pairings PLUS a wrong one is not correct, though the points reach the top", () => {
+    // The hole this function exists for. The mapping enumerates only the correct pairings out
+    // of every item × every target, so the arithmetic alone cannot tell this from a clean
+    // answer — it sums to 2 either way. Being correct is the exact set.
+    const s = scorePairs({
+      response: ["A paris", "B tokyo", "A tokyo"],
+      validation: CAPITALS,
+    });
+    expect(s.points).toBe(2);
+    expect(s.correct).toBe(false);
+  });
+
+  test("half the pairings is half the marks", () => {
+    expect(scorePairs({ response: ["A paris"], validation: CAPITALS })).toMatchObject({
+      points: 1,
+      correct: false,
+    });
+  });
+
+  test("a wrong pairing earns nothing and is not correct", () => {
+    expect(scorePairs({ response: ["A tokyo", "B paris"], validation: CAPITALS })).toMatchObject({
+      points: 0,
+      correct: false,
+    });
+  });
+
+  test("a pairing the author never enumerated still gets an outcome to mark", () => {
+    // Without an entry the renderer has nothing to hang a ✗ on, and the candidate sees a row
+    // that is neither right nor wrong.
+    const s = scorePairs({ response: ["A tokyo"], validation: CAPITALS });
+    expect(s.options?.["A tokyo"]).toMatchObject({ selected: true, points: 0, correct: false });
+  });
+
+  test("an empty response scores zero without throwing", () => {
+    expect(scorePairs({ response: undefined, validation: CAPITALS })).toMatchObject({
+      points: 0,
+      correct: false,
+      maxPoints: 2,
+    });
+  });
+
+  test("under match-correct the whole set earns one point, and anything else nothing", () => {
+    const exact: Validation = {
+      responseProcessing: "match_correct",
+      cardinality: "multiple",
+      baseType: "directedPair",
+      points: 1,
+      correctResponse: ["A paris", "B tokyo"],
+    };
+    expect(scorePairs({ response: ["B tokyo", "A paris"], validation: exact })).toMatchObject({
+      points: 1,
+      correct: true,
+    });
+    expect(scorePairs({ response: ["A paris"], validation: exact })).toMatchObject({ points: 0 });
+    expect(
+      scorePairs({ response: ["A paris", "B tokyo", "A tokyo"], validation: exact }),
+    ).toMatchObject({ points: 0 });
+  });
+
+  test("scoreInteraction dispatches on the declared baseType", () => {
+    expect(
+      scoreInteraction({
+        interaction: { type: "match" },
+        validation: CAPITALS,
+        response: ["A paris", "B tokyo", "A tokyo"],
+      }),
+    ).toMatchObject({ correct: false });
   });
 });

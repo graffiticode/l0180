@@ -52,6 +52,12 @@ Two words depart from that, both deliberately:
 | `inline-choice` | `<list: record>` | A sentence with dropdowns to pick from |
 | `dropdowns` | `<list record: record>` | The dropdowns in an inline-choice's sentence |
 | `order` | `<list: record>` | Elements to put in the right sequence |
+| `match` | `<list: record>` | Each item paired with one of the targets |
+| `targets` | `<list record: record>` | What a match's items are paired with |
+| `match-items` | `<list record: record>` | What a match pairs off |
+| `classification` | `<list: record>` | Each item sorted into one of the categories |
+| `categories` | `<list record: record>` | What a classification sorts into |
+| `classification-items` | `<list record: record>` | What a classification sorts |
 | `elements` | `<list record: record>` | The things an order sequences, as presented |
 | `responses` | `<list record: record>` | The answers a blank recognizes |
 | `response` | `<string: record>` | One answer a blank recognizes |
@@ -390,6 +396,53 @@ choice [
 Shuffling happens when the item is rendered, never in the compiled output — the elements of an
 `order` ship in the order they were authored, which is why the key is `position` and not that
 order. `hottext` and an item's `parts` are never shuffled.
+
+### match
+
+Each item is paired with one of the targets. Targets carry authored ids, because an item's
+`assess [ target "…" ]` names one; item ids derive as A, B, C.
+
+```
+match [
+  prompt "Match each country to its capital."
+  targets [ [ id "paris" text "Paris" ] [ id "tokyo" text "Tokyo" ] ] {}
+  match-items [
+    [ text "France" assess [ target "paris" ] ]
+    [ text "Japan" assess [ target "tokyo" ] ]
+  ] {}
+]..
+```
+
+The key is a mapping over PAIRS — `"A paris"`, QTI's `directedPair` and its spelling — with
+`baseType "directedPair"`. Worth one point per item and summed, so several pairings give partial
+credit; `response-processing "match-correct"` makes it all-or-nothing at one point.
+
+A target no item names is a distractor. Two items naming the same target is an error: a match
+pairs each target with one item, and a shared target means the question is a `classification`.
+
+### classification
+
+The same key with categories, and the one where sharing is the point.
+
+```
+classification [
+  prompt "Sort each animal into its class."
+  categories [ [ id "mammal" text "Mammal" ] [ id "reptile" text "Reptile" ] ] {}
+  classification-items [
+    [ text "Blue whale" assess [ category "mammal" ] ]
+    [ text "Bat" assess [ category "mammal" ] ]
+  ] {}
+]..
+```
+
+### target
+
+The id of the target an item is matched with, inside its `assess`. Refused in any other
+`assess`, and in a `classification`, which says `category`.
+
+### category
+
+The id of the category an item belongs in, inside its `assess`. Refused anywhere else.
 
 ### extended-text
 
