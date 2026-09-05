@@ -589,6 +589,29 @@ the cursor mid-answer, which is worse than not shuffling at all.
 wrapper. `OrderItem` passes `correctResponse` as `avoid`, so a shuffle that lands on the answer
 is redrawn — possible only in a practice delivery, since a graded one withholds the key.
 
+### `gap-match` is assembled, not invented
+
+The second interaction built by composing two halves that already existed, as `inline-choice`
+was. The sentence and its `{{id}}` markers are `text-entry`'s, through `cutMarkers`; the key is
+`match`'s, a mapping over pairs with `baseType "directedPair"`. That is not a shortcut — QTI
+models `gapMatchInteraction` with a `directedPair` response too — and the proof it was the right
+seam is that **`score.ts` needed no change at all**: `scorePairs` already sums per pairing and
+already requires the exact set.
+
+`pairing.ts` gave up `readPlaces` for it, the half that validates a bank of things with authored
+ids. Only that half: a gap has no `text`, being a hole in a sentence rather than a thing on the
+page, so its own loop stays in `gapmatch.ts`.
+
+**The bank is the whole difference from `inline-choice`, and the renderer has to show it.** A
+dropdown cloze gives every hole its own private menu and nothing is ever used up; here one bank
+is shared and a token placed in one gap is spent, so the last gap is partly answered by
+elimination. `GapMatchItem` renders the bank, strikes a token through once it is placed, and
+disables it in every other gap's menu. Two gaps naming the same token is a compile error whose
+message names `inline-choice` as the way to have an answer repeat.
+
+Moving a token from one gap to another MOVES it — the old pairing is dropped — because a token
+exists once. Cloning it would put the same word in two gaps and score both.
+
 ### `match` and `classification` are one key with one rule between them
 
 Both ask the same question — which of these does each of those belong with — so both compile to

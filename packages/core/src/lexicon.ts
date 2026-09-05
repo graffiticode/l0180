@@ -150,6 +150,24 @@ const containers = {
     "<list record: record>",
     "The things a classification sorts, each saying which category it belongs in.",
   ),
+  "gap-match": fn(
+    "GAP_MATCH",
+    1,
+    "<list: record>",
+    "A gap-match interaction: a sentence whose gaps are filled from a shared bank of tokens.",
+  ),
+  tokens: fn(
+    "TOKENS",
+    2,
+    "<list record: record>",
+    "The bank a gap-match's gaps are filled from, each token named by an id.",
+  ),
+  gaps: fn(
+    "GAPS",
+    2,
+    "<list record: record>",
+    "The gaps in a gap-match's sentence, each named by the marker that positions it.",
+  ),
   "extended-text": fn(
     "EXTENDED_TEXT",
     1,

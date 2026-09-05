@@ -14,6 +14,7 @@ import { TextEntryItem } from "./TextEntryItem";
 import { InlineChoiceItem } from "./InlineChoiceItem";
 import { OrderItem } from "./OrderItem";
 import { PairingItem } from "./PairingItem";
+import { GapMatchItem } from "./GapMatchItem";
 import { ErrorList } from "./itemKit";
 
 export interface InteractionProps {
@@ -35,6 +36,7 @@ const RENDERERS: Record<string, (p: InteractionProps) => JSX.Element> = {
   // One component for both: at this level they are the same question, one choice per row.
   match: PairingItem as any,
   classification: PairingItem as any,
+  "gap-match": GapMatchItem as any,
 };
 
 export function InteractionView(props: InteractionProps) {

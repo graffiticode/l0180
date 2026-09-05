@@ -1,11 +1,11 @@
 <!-- SPDX-License-Identifier: CC-BY-4.0 -->
 # L0180 RAG Training Examples
 
-148 example prompts for training a RAG model on L0180, the web-based assessment language —
+156 example prompts for training a RAG model on L0180, the web-based assessment language —
 covering multiple choice, true/false, multi-select, exact-set scoring, weighted scoring,
 penalized distractors, presentation and option order, unscored polls, per-option rationale, clicking
 sentences and words inside a passage, fill-in-the-blank including numeric answers and the form they must be written in, dropdown
-cloze, sequencing, matching, classification, written responses marked against a rubric, and multi-part items over a reading passage.
+cloze, word-bank cloze, sequencing, matching, classification, written responses marked against a rubric, and multi-part items over a reading passage.
 
 Each numbered line is a prompt in the author's own voice. Prompts describe WHAT to build,
 never how to write it: an author asks for a question, not for a `choice [...]` program. When
@@ -216,3 +216,14 @@ L0180 grows further interaction types, this file grows categories with them.
 146. A sorting question that puts each material into solid, liquid or gas.
 147. Classify each shape as a polygon or not a polygon.
 148. Sort these historical figures by the century they lived in.
+
+## Category 20: Word-Bank Cloze (149-156)
+
+149. Complete "The ___ orbits the ___" by dragging words from a bank of Moon, Earth and Sun.
+150. A sentence about photosynthesis with two gaps filled from a word bank, with one extra word nobody needs.
+151. Fill the gaps in a sentence about the water cycle by dragging the right terms into place.
+152. A grammar exercise where the student drags the correct verb forms into three gaps in a paragraph.
+153. Complete a definition of gravity by dragging two words from a bank of five.
+154. A Spanish sentence with two gaps filled from a bank of articles and adjectives.
+155. Drag the right dates into a sentence about the American Revolution, all gaps required for the point.
+156. A sentence about the parts of a cell with three gaps and a bank of four words.

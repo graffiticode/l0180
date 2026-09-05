@@ -245,6 +245,11 @@ export const attributeFields: Record<string, AttributeMeta> = {
     expects: "string",
     description: "`classification` only: the id of the category this item belongs in.",
   },
+  TOKEN: {
+    field: "token",
+    expects: "string",
+    description: "`gap-match` only: the id of the token that fills this gap.",
+  },
 };
 
 /**
@@ -324,6 +329,11 @@ export const validAttributes: Record<string, string[]> = {
   category: ["id", "text"],
   "match-item": ["id", "text", "assess"],
   "classification-item": ["id", "text", "assess"],
+  // A sentence filled from a shared bank: text-entry's markers over match's key. A gap has no
+  // `text` of its own — the sentence around it is the text.
+  "gap-match": ["prompt", "shuffle", "response-processing", "text", "tokens", "gaps"],
+  token: ["id", "text"],
+  gap: ["id", "assess"],
   blank: ["id", "responses", "case-sensitive", "base-type", "tolerance", "input-formats"],
   // The member container and its value word are both `response`, so an error reads
   // "It takes: response, assess". Repetitive, and accurate.
@@ -331,7 +341,7 @@ export const validAttributes: Record<string, string[]> = {
   "extended-text": ["prompt", "rubric", "exemplar"],
   band: ["points", "descriptor"],
   option: ["id", "text", "assess"],
-  assess: ["correct", "points", "rationale", "position", "target", "category"],
+  assess: ["correct", "points", "rationale", "position", "target", "category", "token"],
 };
 
 /** Source spelling for a tag, so an error names the word the author wrote. */
@@ -473,6 +483,7 @@ const fieldToWord: Record<string, string> = Object.entries(attributeFields).redu
     responses: "responses", blanks: "blanks", dropdowns: "dropdowns", elements: "elements",
     targets: "targets", categories: "categories",
     matchItems: "match-items", classificationItems: "classification-items",
+    tokens: "tokens", gaps: "gaps",
   },
 );
 const fieldWord = (field: string): string => fieldToWord[field] || field;

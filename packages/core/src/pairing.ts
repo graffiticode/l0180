@@ -70,10 +70,22 @@ export interface PairWords {
   oneToOne: boolean;
 }
 
-/** The `assess` words an item of this kind may carry. */
-const assessWords = (words: PairWords): string[] => [words.key, "points", "rationale"];
-
-export function pair(items: Item[], places: Place[], words: PairWords): Paired {
+/**
+ * Read the places things can go: a match's targets, a classification's categories, a
+ * gap-match's tokens.
+ *
+ * A place MUST be named by its author. Unlike an option, nothing derives usefully here: the id
+ * is what something else refers to — an item's `assess`, or a gap's — so an id nobody wrote is
+ * an id nobody can name.
+ *
+ * Shared with `gapmatch.ts`, whose bank is the same list under a different word. Its gaps are
+ * not, which is why only this half is extracted: a gap has no text, being a hole in a sentence
+ * rather than a thing on the page.
+ */
+export function readPlaces(
+  places: Place[],
+  words: PairWords,
+): { known: Map<string, string>; resolved: { id: string; text: string }[] } {
   if (!places.length) {
     throw new Error(
       `${words.container}: needs at least one ${words.place}, e.g. ` +
@@ -86,15 +98,7 @@ export function pair(items: Item[], places: Place[], words: PairWords): Paired {
         `between — every item would go in the only ${words.place} there is.`,
     );
   }
-  if (!items.length) {
-    throw new Error(
-      `${words.container}: needs at least one item, e.g. ` +
-        `${words.itemList} [[text "France" assess [${words.key} "a"]]] {}.`,
-    );
-  }
 
-  // A place MUST be named by its author. Unlike an option, nothing derives usefully here: the
-  // id is what an item's `assess` refers to, so an id nobody wrote is an id nobody can name.
   const known = new Map<string, string>();
   const resolved = places.map((p, i) => {
     const at = `${words.container}: ${words.place} ${i + 1}`;
@@ -115,6 +119,21 @@ export function pair(items: Item[], places: Place[], words: PairWords): Paired {
     known.set(id, text);
     return { id, text };
   });
+  return { known, resolved };
+}
+
+/** The `assess` words an item of this kind may carry. */
+const assessWords = (words: PairWords): string[] => [words.key, "points", "rationale"];
+
+export function pair(items: Item[], places: Place[], words: PairWords): Paired {
+  if (!items.length) {
+    throw new Error(
+      `${words.container}: needs at least one item, e.g. ` +
+        `${words.itemList} [[text "France" assess [${words.key} "a"]]] {}.`,
+    );
+  }
+
+  const { known, resolved } = readPlaces(places, words);
 
   const seenIds = new Map<string, number>();
   const taken = new Map<string, number>();

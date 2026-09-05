@@ -15,6 +15,7 @@
         { "$ref": "#/$defs/inlineChoiceInteraction" },
         { "$ref": "#/$defs/orderInteraction" },
         { "$ref": "#/$defs/pairingInteraction" },
+        { "$ref": "#/$defs/gapMatchInteraction" },
         { "$ref": "#/$defs/extendedTextInteraction" },
         { "$ref": "#/$defs/itemInteraction" }
       ]
@@ -313,6 +314,51 @@
         { "required": ["categories"], "not": { "required": ["targets"] } }
       ]
     },
+    "gapMatchInteraction": {
+      "title": "Gap-match interaction",
+      "description": "A sentence whose gaps are filled from one bank of tokens shared across all of them. Unlike an inline-choice, whose menus belong to their own holes, a token placed in one gap is spent and cannot fill another.",
+      "type": "object",
+      "required": ["type", "segments", "tokens"],
+      "properties": {
+        "id": {
+          "description": "Present only when this interaction is a part of an item, where it keys the response.",
+          "type": "string"
+        },
+        "type": { "const": "gap-match" },
+        "prompt": { "description": "The question stem.", "type": "string" },
+        "shuffle": { "description": "Present the bank in a random order, which is the default. The sentence is never shuffled.", "type": "boolean" },
+        "segments": {
+          "description": "The sentence in order: literal runs and the gaps between them.",
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "properties": {
+              "text": { "description": "A literal run of the sentence.", "type": "string" },
+              "id": { "description": "On a gap: the id its half of the pairing is keyed by.", "type": "string" },
+              "gap": { "description": "True on a gap.", "const": true }
+            },
+            "additionalProperties": false,
+            "oneOf": [
+              { "required": ["text"], "not": { "required": ["gap"] } },
+              { "required": ["id", "gap"], "not": { "required": ["text"] } }
+            ]
+          }
+        },
+        "tokens": {
+          "description": "The bank, shared by every gap. Ids are authored, because a gap's key names one. A token no gap names is a distractor.",
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "object",
+            "required": ["id", "text"],
+            "properties": { "id": { "type": "string" }, "text": { "type": "string" } },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
     "extendedTextInteraction": {
       "title": "Extended-text interaction",
       "description": "A written response. Nothing scores it here — a person marks it against the rubric in `validation`, which is why its key is responseProcessing \"human\" rather than an unscored key.",
@@ -372,6 +418,7 @@
                   { "$ref": "#/$defs/inlineChoiceInteraction" },
                   { "$ref": "#/$defs/orderInteraction" },
                   { "$ref": "#/$defs/pairingInteraction" },
+                  { "$ref": "#/$defs/gapMatchInteraction" },
                   { "$ref": "#/$defs/extendedTextInteraction" }
                 ]
               },

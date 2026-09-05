@@ -29,6 +29,7 @@ import { cut } from "./textentry.js";
 import { cut as cutDropdowns, totalPoints } from "./inlinechoice.js";
 import { sequence } from "./order.js";
 import { pair, type PairWords } from "./pairing.js";
+import { fill } from "./gapmatch.js";
 
 /* ------------------------------------------------------------------ Checker */
 
@@ -77,6 +78,9 @@ Checker.prototype.MATCH_ITEMS = checkBoth;
 Checker.prototype.CLASSIFICATION = checkChild;
 Checker.prototype.CATEGORIES = checkBoth;
 Checker.prototype.CLASSIFICATION_ITEMS = checkBoth;
+Checker.prototype.GAP_MATCH = checkChild;
+Checker.prototype.TOKENS = checkBoth;
+Checker.prototype.GAPS = checkBoth;
 Checker.prototype.ITEM = checkChild;
 Checker.prototype.PARTS = checkBoth;
 
@@ -826,6 +830,71 @@ Transformer.prototype.CLASSIFICATION = pairingInteraction(
   "categories",
   "classificationItems",
 );
+
+Transformer.prototype.TOKENS = memberList("token", "tokens", 'tokens [[id "moon" text "Moon"]] {}.');
+Transformer.prototype.GAPS = memberList("gap", "gaps", 'gaps [[id "a" assess [token "moon"]]] {}.');
+
+/**
+ * A sentence filled from a shared bank: QTI's gap-match interaction.
+ *
+ * Assembled rather than invented. The sentence and its markers are `text-entry`'s and the key is
+ * `match`'s — a mapping over pairs, `baseType "directedPair"` — so `scorePairs` scores it with
+ * no case of its own. What makes it a separate word from `inline-choice` is the bank: one pool
+ * shared across every gap, and a token spent in one gap is gone from the others.
+ *
+ * Worth a point per gap and summed, as text-entry is over its blanks.
+ */
+Transformer.prototype.GAP_MATCH = function (this: any, node: any, options: any, resume: any) {
+  this.visit(node.elts[0], options, (e0: any, v0: any) => {
+    const err = ([] as any[]).concat(e0 || []);
+    try {
+      const attrs = mergeAttributes(toPlainObject(v0), "gap-match");
+      assertKnownAttributes("gap-match", attrs);
+
+      if (typeof attrs.text !== "string" || !attrs.text.trim()) {
+        throw new Error(
+          'gap-match: needs the sentence its gaps sit in, e.g. text "The {{a}} orbits the ' +
+            '{{b}}." Put {{<id>}} where each gap goes.',
+        );
+      }
+      if (!Array.isArray(attrs.tokens) || !attrs.tokens.length) {
+        throw new Error(
+          'gap-match: needs the bank its gaps are filled from, e.g. tokens [[id "moon" text "Moon"]] {}.',
+        );
+      }
+      if (!Array.isArray(attrs.gaps) || !attrs.gaps.length) {
+        throw new Error(
+          'gap-match: needs at least one gap, e.g. gaps [[id "a" assess [token "moon"]]] {}.',
+        );
+      }
+
+      const filled = fill(attrs.text, attrs.gaps, attrs.tokens);
+      const template = attrs.responseProcessing !== undefined ? attrs.responseProcessing : "map-response";
+      const exactSet = template === "match-correct";
+
+      resume(err, {
+        interaction: {
+          type: "gap-match",
+          ...(attrs.prompt !== undefined ? { prompt: attrs.prompt } : {}),
+          // The bank shuffles like every other list a candidate reads. The sentence does not —
+          // it is a sentence.
+          shuffle: resolveShuffle(attrs.shuffle, filled.tokens),
+          segments: filled.segments,
+          tokens: filled.tokens,
+        },
+        validation: {
+          responseProcessing: templateId(template),
+          cardinality: "multiple",
+          baseType: "directedPair",
+          points: exactSet ? 1 : filled.points,
+          ...(exactSet ? { correctResponse: filled.correctResponse } : { mapping: filled.mapping }),
+        },
+      });
+    } catch (e: any) {
+      resume(err.concat(String((e && e.message) || e)), {});
+    }
+  });
+};
 
 /**
  * A written response, scored by a person against a rubric.

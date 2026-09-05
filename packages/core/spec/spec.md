@@ -58,6 +58,9 @@ Two words depart from that, both deliberately:
 | `classification` | `<list: record>` | Each item sorted into one of the categories |
 | `categories` | `<list record: record>` | What a classification sorts into |
 | `classification-items` | `<list record: record>` | What a classification sorts |
+| `gap-match` | `<list: record>` | A sentence filled from a shared bank |
+| `tokens` | `<list record: record>` | The bank a gap-match draws from |
+| `gaps` | `<list record: record>` | The gaps in a gap-match's sentence |
 | `elements` | `<list record: record>` | The things an order sequences, as presented |
 | `responses` | `<list record: record>` | The answers a blank recognizes |
 | `response` | `<string: record>` | One answer a blank recognizes |
@@ -443,6 +446,31 @@ The id of the target an item is matched with, inside its `assess`. Refused in an
 ### category
 
 The id of the category an item belongs in, inside its `assess`. Refused anywhere else.
+
+### gap-match
+
+A sentence whose gaps are filled from one bank shared across all of them.
+
+```
+gap-match [
+  prompt "Complete the sentence."
+  text "The {{a}} orbits the {{b}}."
+  tokens [ [ id "moon" text "Moon" ] [ id "earth" text "Earth" ] [ id "sun" text "Sun" ] ] {}
+  gaps [ [ id "a" assess [ token "moon" ] ] [ id "b" assess [ token "earth" ] ] ] {}
+]..
+```
+
+The sentence is cut at its markers as a `text-entry`'s is, and the key is a `match`'s — a
+mapping over pairs, `"<gap> <token>"`, with `baseType "directedPair"`. Worth a point per gap and
+summed.
+
+A token no gap names is a distractor. A token is spent once placed, so two gaps naming the same
+one is a compile error: an answer that really does repeat belongs in an `inline-choice`, where
+each hole has its own menu.
+
+### token
+
+The id of the token that fills a gap, inside its `assess`. Refused in any other `assess`.
 
 ### extended-text
 

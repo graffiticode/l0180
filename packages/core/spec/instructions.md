@@ -52,8 +52,12 @@ to configure: `options [...] {}`. Every other word here takes exactly one argume
 | `classification` | `<list: record>` | Each item sorted into one of the categories |
 | `categories` | `<list record: record>` | The categories a classification sorts into, each named by an id |
 | `classification-items` | `<list record: record>` | The things a classification sorts, each naming its category |
+| `gap-match` | `<list: record>` | A sentence whose gaps are filled from a shared bank |
+| `tokens` | `<list record: record>` | The bank a gap-match's gaps are filled from, each named by an id |
+| `gaps` | `<list record: record>` | The gaps in a gap-match's sentence, each named by its marker |
 | `target` | `<string: record>` | The id of the target an item is matched with |
 | `category` | `<string: record>` | The id of the category an item belongs in |
+| `token` | `<string: record>` | The id of the token that fills a gap |
 | `elements` | `<list record: record>` | The things an order sequences, in the order they are presented |
 | `position` | `<number: record>` | Where an element belongs in the right sequence, counting from 1 |
 | `extended-text` | `<list: record>` | A written response, marked by a person against a rubric |
@@ -99,11 +103,14 @@ to configure: `options [...] {}`. Every other word here takes exactly one argume
 | `category` | id, text |
 | `match-item` | id, text, assess |
 | `classification-item` | id, text, assess |
+| `gap-match` | prompt, shuffle, response-processing, text, tokens, gaps |
+| `token` | id, text |
+| `gap` | id, assess |
 | `response` | response, assess |
 | `extended-text` | prompt, rubric, exemplar |
 | `band` | points, descriptor |
 | an option | id, text, assess |
-| `assess` | correct, points, rationale, position, target, category |
+| `assess` | correct, points, rationale, position, target, category, token |
 
 A word written in the wrong container is a compile error naming where it belongs, not a
 silent no-op.
@@ -610,6 +617,42 @@ The lists are member lists named for their own container — `match-items`, not 
 redundant inside a `match`, and it is unambiguous: `item` is the multi-part wrapper, a `match`
 is often a part inside one, and a program with `items` nested two lines under `item` reads as
 though the two are related.
+
+## Filling a sentence from a word bank
+
+`gap-match` puts gaps in a sentence and fills them from one bank of tokens shared across all of
+them:
+
+```
+gap-match [
+  prompt "Complete the sentence."
+  text "The {{a}} orbits the {{b}}."
+  tokens [
+    [ id "moon" text "Moon" ]
+    [ id "earth" text "Earth" ]
+    [ id "sun" text "Sun" ]
+  ] {}
+  gaps [
+    [ id "a" assess [ token "moon" ] ]
+    [ id "b" assess [ token "earth" ] ]
+  ] {}
+]..
+```
+
+**Use `gap-match` when the words come from one shared bank, and `inline-choice` when each hole
+has its own menu.** That is the whole difference, and it changes the question: a token placed in
+one gap is spent and cannot fill another, so the last gap is partly answered by elimination. An
+`inline-choice` never uses anything up, and the same word may be the answer to two holes.
+
+Sun above is a **distractor** — a token no gap names. Two gaps naming the same token is a
+compile error, because a token is dragged rather than copied; if an answer really does repeat,
+the question is an `inline-choice`.
+
+A gap carries no `text`: it is a hole, and the sentence around it is the text. Both ids are
+authored — a gap's is the marker that positions it, and a token's is what a gap names.
+
+Each gap is worth a point by default, summed, so a three-gap sentence gives partial credit;
+`response-processing "match-correct"` makes the whole sentence one point.
 
 ## A written response
 

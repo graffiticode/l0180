@@ -71,6 +71,11 @@ export function ItemView({
       const rows = (p.items ?? []).length;
       return rows > 0 && Array.isArray(r) && r.length === rows;
     }
+    // The same, counted against the gaps in the sentence.
+    if (p.type === "gap-match") {
+      const holes = (p.segments ?? []).filter((s: any) => s.gap).length;
+      return holes > 0 && Array.isArray(r) && r.length === holes;
+    }
     // An inline-choice answers the same way, with a list of one per dropdown rather than typed
     // text. Same reason it needs counting: an untouched menu is simply absent.
     if (p.type === "inline-choice") {

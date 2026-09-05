@@ -17,6 +17,7 @@
     "Click-the-word vocabulary items via granularity \"word\", where the candidate words are authored",
     "Select any N of several correct answers via upper-bound, rather than requiring all of them",
     "Written responses via extended-text - collected, held with their rubric and an optional exemplar, and marked by a person; never auto-scored",
+    "Word-bank cloze via gap-match - a sentence whose gaps are filled from one bank shared across all of them, each token spent once, with unnamed tokens left as distractors; use inline-choice instead when each hole has its own menu and an answer may repeat",
     "Matching via match - each item is paired with one of a list of targets, one target to one item, with unpaired targets left as distractors; scored per pairing so several give partial credit",
     "Sorting into categories via classification - the same pairing where several items share a category, which is what tells it apart from a match",
     "Sequencing via order - the candidate puts elements in the right sequence, scored all or nothing; the elements are presented in a random order and each says where it belongs, so the answer never ships with the question",
@@ -27,7 +28,7 @@
     "Refusing a repeating answer such as 1/3 that no decimal can reach, unless the blank asks for a fraction or carries a tolerance"
   ],
   "out_of_scope": [
-    "Interaction types other than choice, hottext, text-entry, inline-choice, order, match, classification and extended-text - hotspot and sliders are not implemented yet",
+    "Interaction types other than choice, hottext, text-entry, inline-choice, gap-match, order, match, classification and extended-text - hotspot and sliders are not implemented yet",
     "Test packages, sections, navigation and sequencing — L0180 authors single items",
     "Delivery policy — timing, attempt limits, feedback timing, gradebooks",
     "Vendor-specific formats — name the vendor and use that vendor's dialect instead",
