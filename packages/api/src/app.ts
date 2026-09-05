@@ -66,7 +66,20 @@ export const createApp = ({ authUrl }: { authUrl?: string } = {}) => {
   // language-info.json, usage-guide.md, scope.json, template.gc, and the /form bundle's
   // hashed assets. Mounted BEFORE auth so they require no token. `index: false` keeps
   // GET / as a health check rather than serving the embed index.html.
-  app.use(express.static(STATIC_DIR, { index: false }));
+  //
+  // The bundle's filenames carry a content hash, so those may be cached hard and forever: a
+  // new build is a new name. Everything else is served under its own name and must not be,
+  // which is what the default here is for.
+  app.use(
+    express.static(STATIC_DIR, {
+      index: false,
+      setHeaders: (res, filePath) => {
+        if (filePath.includes(`${path.sep}assets${path.sep}`)) {
+          res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+        }
+      },
+    }),
+  );
 
   // Authentication: attaches req.auth (does not reject anonymous requests).
   const validateToken = buildValidateToken({ authUrl });
@@ -75,7 +88,13 @@ export const createApp = ({ authUrl }: { authUrl?: string } = {}) => {
   // Routes
   app.use("/", routes.root());
   app.use("/compile", routes.compile({ compile }));
+  // The embed HTML names the hashed bundle it loads, so caching it is caching the whole
+  // deploy. It went out with a one-hour TTL, and a CDN in front of the custom domain held it:
+  // for an hour after every deploy, a host embedding /form kept running the previous build
+  // while the new assets sat there unreferenced. Nothing was broken, and nothing was live
+  // either — a failure that looks exactly like a successful deploy.
   app.get("/form", (_req: Request, res: Response) => {
+    res.setHeader("Cache-Control", "no-cache");
     res.sendFile(path.join(STATIC_DIR, "index.html"));
   });
 
