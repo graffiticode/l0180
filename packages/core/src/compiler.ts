@@ -651,7 +651,7 @@ Transformer.prototype.ORDER = function (this: any, node: any, options: any, resu
         );
       }
 
-      const { elements, correctResponse } = sequence(attrs.elements, "order");
+      const { elements, correctResponse, interchangeable } = sequence(attrs.elements, "order");
 
       resume(err, {
         interaction: {
@@ -672,6 +672,10 @@ Transformer.prototype.ORDER = function (this: any, node: any, options: any, resu
           baseType: "identifier",
           points: 1,
           correctResponse,
+          // Two elements reading the same thing are the same answer wherever each of them
+          // lands. Without this the candidate who builds the identical sentence with the two
+          // "the"s the other way round earns nothing, and is told nothing about why.
+          ...(interchangeable ? { interchangeable } : {}),
         },
       });
     } catch (e: any) {

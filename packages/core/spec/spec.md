@@ -352,7 +352,10 @@ compiled `interaction` is the half a graded delivery ships, and elements in thei
 would be the answer key sitting inside it. The key is `responseProcessing "match_correct"` with
 `cardinality "ordered"` and a `correctResponse` listing the ids in sequence.
 
-All or nothing, worth one point. One pair swapped earns zero.
+All or nothing, worth one point. One pair swapped earns zero — unless the two read the same
+thing, in which case they are one answer. Repeated text (the two "the"s of *the cat sat on the
+mat*) produces an `interchangeable` group in the key, and either arrangement scores; the field
+is absent when every element reads differently.
 
 ### position
 

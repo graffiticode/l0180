@@ -490,6 +490,13 @@ part; put it in an additive item to have it scored beside one.
 Positions count from 1 and each element holds one. A repeat, a gap, a fraction, a position past
 the end, or an element with no position at all is a compile error naming the fix.
 
+**Two elements that read the same thing are one answer.** A sentence-building item —
+*the / cat / sat / on / the / mat* — has two elements reading "the", and a candidate who builds
+the identical sentence with the other one first is right. The compiler works that out and the
+key carries an `interchangeable` group, so both arrangements score. Nothing needs writing for
+it, and the field appears only when a text actually repeats. Case matters: "The" and "the" are
+not interchangeable, because swapping them would capitalize the wrong word.
+
 `position` is the only thing an order element's `assess` takes: it is the answer, so `correct`
 would say nothing further and `points` would disagree with the item's own. It is equally an
 error anywhere else — on a choice option, a hottext selection or a typed response — rather than

@@ -30,6 +30,20 @@ export interface Sequenced {
   elements: { id: string; text: string }[];
   /** The ids in the right order. QTI's correctResponse for an ordered response variable. */
   correctResponse: string[];
+  /**
+   * Groups of ids that say the same thing, and so are interchangeable in the answer.
+   *
+   * "Put the words in order to make a sentence" over *the / cat / sat / on / the / mat* has two
+   * elements reading "the". They are different ids, so a candidate who happens to drag the
+   * second one into first place builds the identical sentence and, compared id by id, gets
+   * nothing for it — a right answer marked wrong in silence, which is the failure this language
+   * spends most of its rules avoiding.
+   *
+   * Present only when a text repeats, so the common key is unchanged and this appears exactly
+   * when it means something. Matching is exact after trimming, and case matters: "The" and
+   * "the" are NOT interchangeable, because swapping them would capitalize the wrong word.
+   */
+  interchangeable?: string[][];
 }
 
 export function sequence(elements: Element[], where: string): Sequenced {
@@ -95,5 +109,16 @@ export function sequence(elements: Element[], where: string): Sequenced {
     .sort((a, b) => a[0] - b[0])
     .map(([, at]) => presented[at - 1].id);
 
-  return { elements: presented, correctResponse };
+  const byText = new Map<string, string[]>();
+  for (const el of presented) {
+    const key = el.text.trim();
+    byText.set(key, [...(byText.get(key) ?? []), el.id]);
+  }
+  const interchangeable = [...byText.values()].filter((ids) => ids.length > 1);
+
+  return {
+    elements: presented,
+    correctResponse,
+    ...(interchangeable.length ? { interchangeable } : {}),
+  };
 }

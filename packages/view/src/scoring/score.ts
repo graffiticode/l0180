@@ -115,6 +115,14 @@ export interface Validation {
   upperBound?: number;
   /** `match_correct` only: the set that must be selected exactly. */
   correctResponse?: string[];
+  /**
+   * `ordered` only: groups of identifiers that say the same thing.
+   *
+   * Two elements reading "the" are one answer wherever each of them lands, so the comparison
+   * runs over a canonical id per group rather than over the ids themselves. Absent unless a
+   * text repeats, which is the only time it means anything.
+   */
+  interchangeable?: string[][];
   /** Why an option is right or wrong, keyed as the options are. Shown once it is selected. */
   feedback?: Record<string, string>;
   /** `human` only: the bands a person marks the response against, highest first. */
@@ -396,15 +404,40 @@ export function scoreOrder({
   const want = validation?.correctResponse ?? [];
   const maxPoints = typeof validation?.points === "number" ? validation.points : 0;
   const given = selectedIds(response);
+  const same = canonicalize(validation);
 
   const options: Record<string, OptionOutcome> = {};
   want.forEach((id, i) => {
-    options[id] = { selected: given.includes(id), points: 0, correct: given[i] === id };
+    options[id] = {
+      selected: given.includes(id),
+      points: 0,
+      correct: same(given[i]) === same(id),
+    };
   });
 
-  const correct = want.length > 0 && given.length === want.length && want.every((id, i) => given[i] === id);
+  const correct =
+    want.length > 0 && given.length === want.length && want.every((id, i) => same(given[i]) === same(id));
   const points = correct ? maxPoints : 0;
   return { points, rawPoints: points, maxPoints, correct, options };
+}
+
+/**
+ * Map an id to the one that stands for everything reading the same as it.
+ *
+ * Comparing ids directly would mark a candidate wrong for building the identical sentence with
+ * two identical words the other way round. The compiler works out which ids those are, because
+ * it is the half that can see the text; the scorer only applies it.
+ */
+export function canonicalize(
+  validation: Validation | null | undefined,
+): (id: string | undefined) => string | undefined {
+  const groups = validation?.interchangeable;
+  if (!groups?.length) return (id) => id;
+  const canon = new Map<string, string>();
+  for (const group of groups) {
+    for (const id of group) canon.set(id, group[0]);
+  }
+  return (id) => (id === undefined ? undefined : (canon.get(id) ?? id));
 }
 
 /**

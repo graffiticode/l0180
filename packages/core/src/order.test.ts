@@ -245,3 +245,57 @@ describe("`position` belongs to order alone", () => {
     expect(msg).toContain("It takes: position");
   });
 });
+
+describe("two elements that read the same are one answer", () => {
+  // The sentence-building item: "the cat sat on the mat" has two elements reading "the". They
+  // are different ids, so an id-by-id comparison marks a candidate wrong for building the
+  // identical sentence with the other "the" first — right answer, no mark, no explanation.
+  const SENTENCE = `
+    order [
+      prompt "Put the words in order to make a correct sentence."
+      elements [
+        [ text "the" assess [ position 1 ] ]
+        [ text "cat" assess [ position 2 ] ]
+        [ text "sat" assess [ position 3 ] ]
+        [ text "on" assess [ position 4 ] ]
+        [ text "the" assess [ position 5 ] ]
+        [ text "mat" assess [ position 6 ] ]
+      ] {}
+    ]`;
+
+  test("the key names the ids that stand for each other", async () => {
+    const { validation } = await compile(SENTENCE);
+    expect(validation.correctResponse).toEqual(["A", "B", "C", "D", "E", "F"]);
+    expect(validation.interchangeable).toEqual([["A", "E"]]);
+  });
+
+  test("the field is absent when every element reads differently", async () => {
+    const { validation } = await compile(CYCLE);
+    expect(validation.interchangeable).toBeUndefined();
+  });
+
+  test("case matters — swapping The and the would capitalize the wrong word", async () => {
+    const { validation } = await compile(`
+      order [
+        elements [
+          [ text "The" assess [ position 1 ] ]
+          [ text "cat" assess [ position 2 ] ]
+          [ text "the" assess [ position 3 ] ]
+        ] {}
+      ]`);
+    expect(validation.interchangeable).toBeUndefined();
+  });
+
+  test("three of a kind are one group", async () => {
+    const { validation } = await compile(`
+      order [
+        elements [
+          [ text "na" assess [ position 1 ] ]
+          [ text "na" assess [ position 2 ] ]
+          [ text "na" assess [ position 3 ] ]
+          [ text "batman" assess [ position 4 ] ]
+        ] {}
+      ]`);
+    expect(validation.interchangeable).toEqual([["A", "B", "C"]]);
+  });
+});

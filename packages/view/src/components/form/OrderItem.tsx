@@ -22,7 +22,7 @@ import { useRef, useState, type ReactNode } from "react";
 import { cx, Stem } from "./itemKit";
 import { reorder } from "./reorder";
 import { useShuffled } from "./shuffling";
-import { scoreOrder } from "../../scoring";
+import { canonicalize, scoreOrder } from "../../scoring";
 import type { Validation } from "../../scoring";
 
 interface Element {
@@ -59,7 +59,17 @@ export function OrderItem({
   // shuffle that lands on the right sequence would hand the candidate the point for doing
   // nothing. In a graded delivery `validation` is withheld, so there it is 1-in-n! and cannot
   // be helped from here.
-  const start = useShuffled(elements, interaction.shuffle === true, validation?.correctResponse);
+  //
+  // Canonicalized, so a sentence that is already correct with two identical words the other way
+  // round counts as already-solved too — the scorer would mark it right, so presenting it is
+  // the same gift.
+  const same = canonicalize(validation);
+  const start = useShuffled(
+    elements,
+    interaction.shuffle === true,
+    validation?.correctResponse?.map((id) => same(id) as string),
+    (id) => same(id) as string,
+  );
 
   // The candidate's order if they have moved anything, the starting one until then. Ids the
   // interaction no longer has are dropped and missing ones appended, so an order that outlived

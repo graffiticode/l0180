@@ -10,6 +10,7 @@ export {
   scoreTextEntry,
   scoreInlineChoice,
   scoreOrder,
+  canonicalize,
   selectedIds,
   correctIds,
 } from "./scoring";

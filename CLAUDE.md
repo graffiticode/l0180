@@ -507,6 +507,16 @@ Shuffling at compile time is not a way out either. A deterministic scramble is i
 anyone who knows the rule, and a random one would reshuffle under the candidate on every
 recompile, because `PROG` recompiles on each response.
 
+**Two elements reading the same text are one answer**, and the key says so with an
+`interchangeable` group of ids. Without it, *the cat sat on the mat* — which has two elements
+reading "the" — marks a candidate wrong for building the identical sentence with the other one
+first: a right answer, no mark, no explanation, which is the failure this language spends most
+of its rules avoiding. Derived by the compiler, because it is the half that can see the text;
+`canonicalize` in `score.ts` only applies it, and `OrderItem` uses the same canonical form for
+its already-solved check, since a sentence that is correct either way is correct either way.
+Absent unless a text repeats, and case-sensitive: "The" and "the" are not the same word in
+position 1.
+
 `cardinality "ordered"` is the third value of a field that only ever said `single` or
 `multiple`, and it is the one thing the scorer dispatches on — deliberately, because it is a
 property of the response variable rather than of the interaction that collected it, and QTI

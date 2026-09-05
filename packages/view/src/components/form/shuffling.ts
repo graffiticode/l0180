@@ -53,13 +53,16 @@ export function useShuffled<T extends Listed>(
   items: T[],
   shuffle: boolean,
   avoid?: string[] | null,
+  /** How an id is compared against `avoid` — identity, unless some ids stand for each other. */
+  canonical: (id: string) => string = (id) => id,
 ): T[] {
   const key = items.map((i) => i.id).join(" ");
   const forbidden = avoid && avoid.length ? avoid.join(" ") : "";
   return useMemo(() => {
     if (!shuffle) return items;
+    const asForbidden = (list: T[]) => list.map((i) => canonical(i.id)).join(" ");
     let out = shuffled(items);
-    for (let n = 0; n < 8 && forbidden && out.map((i) => i.id).join(" ") === forbidden; n++) {
+    for (let n = 0; n < 8 && forbidden && asForbidden(out) === forbidden; n++) {
       out = shuffled(items);
     }
     return out;

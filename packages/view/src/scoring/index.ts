@@ -7,6 +7,7 @@ export {
   scoreTextEntry,
   scoreInlineChoice,
   scoreOrder,
+  canonicalize,
   selectedIds,
   correctIds,
 } from "./score.js";

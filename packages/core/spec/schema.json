@@ -435,6 +435,12 @@
           "minItems": 1,
           "items": { "type": "string" }
         },
+        "interchangeable": {
+          "description": "`ordered` only, and only when a text repeats: groups of identifiers that say the same thing. Two elements reading \"the\" are one answer wherever each of them lands, so the comparison runs over a canonical id per group — without which a candidate who builds the identical sentence with the two swapped would score zero.",
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "array", "minItems": 2, "items": { "type": "string" } }
+        },
         "feedback": {
           "description": "Why an option is wrong, keyed by option id. Shown only once that option is selected, so it never reveals an unpicked answer.",
           "type": "object",

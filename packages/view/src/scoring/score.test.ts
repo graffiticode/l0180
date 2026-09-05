@@ -721,3 +721,55 @@ describe("scoreOrder", () => {
     ).toMatchObject({ points: 0, correct: false });
   });
 });
+
+describe("scoreOrder when two elements read the same", () => {
+  /** "the cat sat on the mat" — A and E both read "the", per core's order.test.ts. */
+  const SENTENCE: Validation = {
+    responseProcessing: "match_correct",
+    cardinality: "ordered",
+    baseType: "identifier",
+    points: 1,
+    correctResponse: ["A", "B", "C", "D", "E", "F"],
+    interchangeable: [["A", "E"]],
+  };
+
+  test("the key itself is correct, as ever", () => {
+    expect(scoreOrder({ response: ["A", "B", "C", "D", "E", "F"], validation: SENTENCE })).toMatchObject({
+      points: 1,
+      correct: true,
+    });
+  });
+
+  test("the two identical words the other way round is the same sentence, and scores", () => {
+    // The whole point: this builds "the cat sat on the mat" exactly, and used to earn zero.
+    expect(scoreOrder({ response: ["E", "B", "C", "D", "A", "F"], validation: SENTENCE })).toMatchObject({
+      points: 1,
+      correct: true,
+    });
+  });
+
+  test("a genuinely wrong order still earns nothing", () => {
+    expect(scoreOrder({ response: ["B", "A", "C", "D", "E", "F"], validation: SENTENCE })).toMatchObject({
+      points: 0,
+      correct: false,
+    });
+    // "the cat sat the on mat" — swapping two words that do NOT read alike.
+    expect(scoreOrder({ response: ["A", "B", "C", "E", "D", "F"], validation: SENTENCE })).toMatchObject({
+      points: 0,
+      correct: false,
+    });
+  });
+
+  test("per element, a twin standing in its sibling's place is marked right", () => {
+    const s = scoreOrder({ response: ["E", "B", "C", "D", "A", "F"], validation: SENTENCE });
+    expect(s.options?.A.correct).toBe(true);
+    expect(s.options?.E.correct).toBe(true);
+  });
+
+  test("a key with no interchangeable groups compares ids exactly, as before", () => {
+    const strict: Validation = { ...SENTENCE, interchangeable: undefined };
+    expect(scoreOrder({ response: ["E", "B", "C", "D", "A", "F"], validation: strict })).toMatchObject({
+      correct: false,
+    });
+  });
+});
