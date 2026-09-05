@@ -523,9 +523,25 @@ choice option. `assertAssessWords` is the check, called from all five readers, a
 because `assess [position 2]` on a choice option would otherwise merge, be read by nobody, and
 compile clean — the silent no-op the attribute table exists to prevent.
 
-The renderer moves elements with buttons rather than drag-and-drop: a candidate on a phone, a
-keyboard or a screen reader has to be able to answer the question, and up/down works for all
-three with no library.
+The renderer offers two ways to move a row, and both are load-bearing. Dragging is what a mouse
+expects. **The up/down buttons stay**, because dragging reaches nobody else: the HTML5 drag
+events do not fire on touch, and there is no keyboard path through them at all. A candidate on
+a phone, a keyboard or a screen reader has to be able to answer the question, so the buttons
+are the accessible path and dragging is layered on top — not a fallback to be removed once
+dragging works. Native drag events rather than a library, so the view's dependency list does
+not grow for one interaction.
+
+`reorder.ts` holds the move itself, pure and tested, because it is the half that can be wrong
+without looking wrong: dropping an item BELOW its old position shifts every index between them,
+and an off-by-one there mis-scores an ordering item without throwing or rendering oddly. It is
+a move, not a swap — the buttons are adjacent moves, where the two coincide, but a drag across
+three places is not a swap with whatever happens to be there.
+
+**The dragged index lives in a ref as well as in state**, and the duplication is deliberate.
+State is what the rendering reads; the ref is what the drop reads, because a `dragstart` state
+update has not necessarily committed when `drop` fires. With real frames between them it always
+has — but a drop batched with its own dragstart read `null` and silently did nothing, which is
+exactly how it was found.
 
 ### Every list is randomized, and two kinds are not
 

@@ -2,10 +2,15 @@
 /**
  * Put these in the right order.
  *
- * Moves are buttons rather than drag-and-drop, deliberately. Dragging needs a library or a
- * mouse-only implementation, and neither is worth what it costs here: a candidate on a phone,
- * a keyboard or a screen reader has to be able to answer the question. Up and down are
- * operable by all three and need nothing.
+ * Two ways to move a row, and both are load-bearing. **Dragging** is what a mouse expects, and
+ * it is the whole interaction for most candidates. **Up and down buttons stay**, because
+ * dragging reaches nobody else: the HTML5 drag events do not fire on touch, and there is no
+ * keyboard path through them at all. A candidate on a phone, a keyboard or a screen reader has
+ * to be able to answer the question, so the buttons are not a fallback to be removed later —
+ * they are the accessible path, and dragging is the one layered on top.
+ *
+ * Native drag events rather than a library, so the view's dependency list does not grow for
+ * one interaction. What that costs is touch, and the buttons already cover it.
  *
  * Fully controlled, like every interaction that takes clicks: a move is discrete, so the new
  * order is reported and read straight back off the model.
@@ -13,8 +18,9 @@
  * The elements arrive in PRESENTATION order — the compiler never emits them in the right one,
  * because that half of the compiled item is what a graded delivery ships.
  */
-import type { ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { cx, Stem } from "./itemKit";
+import { reorder } from "./reorder";
 import { useShuffled } from "./shuffling";
 import { scoreOrder } from "../../scoring";
 import type { Validation } from "../../scoring";
@@ -61,11 +67,29 @@ export function OrderItem({
   const given = Array.isArray(response) ? (response as string[]).filter((id) => byId.has(id)) : [];
   const order = [...given, ...start.map((e) => e.id).filter((id) => !given.includes(id))];
 
+  // Which row is being dragged, and which one the pointer is over. Local because it is pointer
+  // bookkeeping and nothing else: the moment a drop lands, the new order goes through `respond`
+  // like a button press and comes back down as the model's, same as every other interaction.
+  //
+  // The dragged index is held in BOTH a ref and state, and the duplication is deliberate. State
+  // is what the rendering reads. The ref is what the drop reads, because a state update from
+  // `dragstart` has not necessarily committed by the time `drop` fires — with real frames in
+  // between it always has, but a drop batched with its own dragstart would otherwise read
+  // `null` and silently do nothing.
+  const from = useRef<number | null>(null);
+  const [dragging, setDragging] = useState<number | null>(null);
+  const [over, setOver] = useState<number | null>(null);
+
   const move = (from: number, to: number) => {
-    if (to < 0 || to >= order.length) return;
-    const next = [...order];
-    [next[from], next[to]] = [next[to], next[from]];
-    respond(next);
+    const next = reorder(order, from, to);
+    if (next !== order) respond(next);
+  };
+
+  const drop = (to: number) => {
+    if (from.current !== null) move(from.current, to);
+    from.current = null;
+    setDragging(null);
+    setOver(null);
   };
 
   const answered = given.length > 0;
@@ -89,8 +113,36 @@ export function OrderItem({
           return (
             <li
               key={id}
+              draggable
+              onDragStart={(e) => {
+                from.current = i;
+                setDragging(i);
+                // Firefox refuses to start a drag unless something is set.
+                e.dataTransfer.setData("text/plain", id);
+                e.dataTransfer.effectAllowed = "move";
+              }}
+              onDragOver={(e) => {
+                // Without preventDefault the drop never fires — the default is "reject".
+                e.preventDefault();
+                e.dataTransfer.dropEffect = "move";
+                if (over !== i) setOver(i);
+              }}
+              onDragLeave={() => setOver((o) => (o === i ? null : o))}
+              onDrop={(e) => {
+                e.preventDefault();
+                drop(i);
+              }}
+              onDragEnd={() => {
+                from.current = null;
+                setDragging(null);
+                setOver(null);
+              }}
               className={cx(
                 "flex items-center gap-2 rounded border px-3 py-2 text-sm",
+                // The row being dragged fades; the row it would land on shows the line it
+                // would land above, so the drop target is never a guess.
+                dragging === i && "opacity-40",
+                over === i && dragging !== null && dragging !== i && "border-t-2 border-t-blue-500",
                 right
                   ? "border-green-400 bg-green-50"
                   : wrong
@@ -98,6 +150,8 @@ export function OrderItem({
                     : "border-zinc-300 bg-white",
               )}
             >
+              {/* A grip, so it is visible that the row can be dragged at all. */}
+              <span aria-hidden="true" className="cursor-grab select-none text-zinc-400">⠿</span>
               <span className="w-5 text-xs text-zinc-500 tabular-nums">{i + 1}.</span>
               <span className="flex-1">{el.text}</span>
               {right && <span aria-hidden="true">✓</span>}
