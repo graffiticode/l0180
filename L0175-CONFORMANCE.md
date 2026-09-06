@@ -240,7 +240,7 @@ EBSR came back conjunctive; the multi-select and the hot text both came back
 `response-processing "match-correct"` with the choice counts set; the hot text used
 `within "stimulus"` and quoted three sentences. Every option aligned — 4/4, 6/6, 8/8, 8/8.
 
-**The fifth never reached L0180.** `create_item("0180", …)` for the short-text item was
+**The fifth still does not reach L0180, and the failure has changed shape rather than closing.** `create_item("0180", …)` for the short-text item was
 re-routed by the platform to **L0175**, which returned a claims-and-evidence program. The prompt
 is a passage plus a written-response question and a rubric — the shape L0175 authors — so the
 composer read it as content to compose rather than an item to deliver. Nothing about L0180's
@@ -248,6 +248,15 @@ expressiveness is implicated: `conformance.test.ts` scores that same shape as an
 and `port.ts` does it mechanically. It is a routing failure, reported as `ROUTED` rather than as
 a compile error so nobody goes looking in the compiler, and it belongs with the other open
 items in §6.
+
+Retested on 2026-09-05, once the console catalog had learned about the newer interaction types:
+the request now **stays on L0180** and is refused at the scope gate rather than re-routed, with a
+message that argues against itself — *"This request doesn't fit any available Graffiticode
+language. This is a written-response assessment item with a rubric for hand-scoring, which is
+explicitly in scope for L0180's extended-text interaction type."* The verdict contradicts its own
+rationale, so the gate votes against what it has just described. This shape has therefore never
+made it through the hand-off; what moved is which way it breaks, and both ways are the console's
+routing rather than anything here.
 
 ---
 
