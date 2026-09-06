@@ -215,7 +215,7 @@ L0180 grows further interaction types, this file grows categories with them.
 145. Sort the given words into nouns, verbs and adjectives.
 146. A sorting question that puts each material into solid, liquid or gas.
 147. Classify each shape as a polygon or not a polygon.
-148. Sort these historical figures by the century they lived in.
+148. Sort each of these inventions into the category it belongs to: transport, communication or medicine.
 
 ## Category 20: Word-Bank Cloze (149-156)
 
