@@ -13,6 +13,7 @@
     "Saying how many selections a question wants via min-choices and max-choices — the candidate is told \"Select exactly 2\" or \"Select up to 3, at least 1\"",
     "Unscored polls — an item that collects a response without grading it",
     "Multi-part items over a reading passage with numbered paragraphs, scored additively or conjunctively (both parts right for the point)",
+    "Activities via items - several items delivered together and scored independently, which is what a quiz or a test is; members mix bare interactions and multi-part items freely, and QTI's navigation (linear or nonlinear) and submission (individual or simultaneous) say how the candidate moves through them",
     "Hot text - clicking a sentence inside the passage, as a part of an item or standing alone",
     "Click-the-word vocabulary items via granularity \"word\", where the candidate words are authored",
     "Select any N of several correct answers via upper-bound, rather than requiring all of them",
@@ -29,7 +30,7 @@
   ],
   "out_of_scope": [
     "Interaction types other than choice, hottext, text-entry, inline-choice, gap-match, order, match, classification and extended-text - hotspot and sliders are not implemented yet",
-    "Test packages, sections, navigation and sequencing — L0180 authors single items",
+    "Sections and item banks — an activity is a flat list of authored items, so there is no way to group items under a shared rule or draw 10 of 200 from a bank",
     "Delivery policy — timing, attempt limits, feedback timing, gradebooks",
     "Vendor-specific formats — name the vendor and use that vendor's dialect instead",
     "Images, audio and video — a stimulus is a title and paragraphs of text and every prompt is a plain string, so nothing here places a diagram, a chart or a clip",

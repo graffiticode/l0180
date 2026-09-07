@@ -80,7 +80,59 @@ export const BASE_TYPES = ["string", "float", "integer"] as const;
 export const INPUT_FORMATS = ["numeric", "decimal", "fraction", "scientific"] as const;
 
 /** Authored spelling -> the QTI template identifier emitted in `validation`. */
+/**
+ * QTI's `navigationMode`. `linear` means a candidate cannot return to an item they have left.
+ *
+ * L0180 defaults to `nonlinear` because that is what its delivery already does: every item is
+ * laid out on one screen and nothing stops anyone scrolling back. Declaring the mode does not
+ * by itself build a paged player — it records what the author asked for, so a delivery that
+ * pages can honour it.
+ */
+export const NAVIGATION_MODES = ["linear", "nonlinear"] as const;
+
+/**
+ * QTI's `submissionMode`. `individual` submits each item as it is answered; `simultaneous`
+ * holds everything until the end.
+ *
+ * L0180 defaults to `simultaneous`, again because that is what it already does: an item scores
+ * when the candidate has answered it, and nothing is sent anywhere in between.
+ */
+export const SUBMISSION_MODES = ["individual", "simultaneous"] as const;
+
 export const templateId = (word: string): string => word.replace(/-/g, "_");
+
+/** An activity-level word: same metadata, but chained at arity 2. */
+export type ConfigMeta = Omit<AttributeMeta, "flag" | "shape">;
+
+/**
+ * One row per activity-level word.
+ *
+ * These are the only arity-2 attribute words in the language. Each takes its value AND the rest
+ * of the chain, returning the chain's record with its own key added — L0166's shape — so the
+ * tail of `items [...] navigation "linear" {}` computes the configuration record the member
+ * list takes as its second argument.
+ *
+ * Deliberately small. There is no `title` here: `title` is already an arity-1 word inside
+ * `stimulus`, and the lexicon gives a word exactly one arity, so taking it for the activity
+ * would break every stimulus in the corpus. An activity that needs a name can gain its own word
+ * later; naming is not what the activity level is for.
+ */
+export const configFields: Record<string, ConfigMeta> = {
+  NAVIGATION: {
+    field: "navigation",
+    expects: "string",
+    oneOf: NAVIGATION_MODES,
+    description:
+      "QTI's navigationMode. `linear` means the candidate cannot return to an item they have left; `nonlinear` (the default) lets them move freely.",
+  },
+  SUBMISSION: {
+    field: "submission",
+    expects: "string",
+    oneOf: SUBMISSION_MODES,
+    description:
+      "QTI's submissionMode. `individual` submits each item as it is answered; `simultaneous` (the default) holds everything until the end.",
+  },
+};
 
 export const attributeFields: Record<string, AttributeMeta> = {
   // Item-level
@@ -276,6 +328,10 @@ export function assertAssessWords(
   );
 }
 
+/** An arity-2 config word takes its value AND the rest of the chain. */
+export const configTypeOf = (meta: ConfigMeta): string =>
+  meta.expects === "strings" ? "<list record: record>" : `<${meta.expects || "any"} record: record>`;
+
 /** The signature string the generated spec renders, derived so it cannot drift from the row. */
 export const typeOf = (meta: AttributeMeta): string => {
   if (meta.flag) return "<: record>";
@@ -295,6 +351,9 @@ export const typeOf = (meta: AttributeMeta): string => {
  * container for this purpose and its contents are checked under that name.
  */
 export const validAttributes: Record<string, string[]> = {
+  // `activity` is not a word — the activity is the program. Naming it here is what lets a
+  // misplaced `navigation` be told where it belongs.
+  activity: ["navigation", "submission", "items"],
   item: ["stimulus", "scoring", "points", "parts"],
   stimulus: ["title", "paragraphs"],
   choice: [
@@ -346,6 +405,9 @@ export const validAttributes: Record<string, string[]> = {
 
 /** Source spelling for a tag, so an error names the word the author wrote. */
 export const wordOf = (name: string): string => name.toLowerCase().replace(/_/g, "-");
+
+/** The activity-level words, in source spelling — the ones that chain outside the brackets. */
+export const configWords: string[] = Object.keys(configFields).map(wordOf);
 
 /** Containers that legitimately own each word, for the "belongs inside" hint. */
 const wordOwners: Record<string, string[]> = Object.entries(validAttributes).reduce(
@@ -471,9 +533,12 @@ export function mergeAttributes(attrs: any, where: string): Record<string, any> 
 }
 
 /** Map an emitted field back to its source spelling (minChoices -> min-choices). */
-const fieldToWord: Record<string, string> = Object.entries(attributeFields).reduce(
+const fieldToWord: Record<string, string> = Object.entries({
+  ...attributeFields,
+  ...configFields,
+}).reduce(
   (acc: Record<string, string>, [name, meta]) => {
-    acc[meta.field] = wordOf(name);
+    acc[(meta as AttributeMeta).field] = wordOf(name);
     return acc;
   },
   // Container words are not rows in the table, but they must still be nameable when a
@@ -483,7 +548,7 @@ const fieldToWord: Record<string, string> = Object.entries(attributeFields).redu
     responses: "responses", blanks: "blanks", dropdowns: "dropdowns", elements: "elements",
     targets: "targets", categories: "categories",
     matchItems: "match-items", classificationItems: "classification-items",
-    tokens: "tokens", gaps: "gaps",
+    tokens: "tokens", gaps: "gaps", items: "items",
   },
 );
 const fieldWord = (field: string): string => fieldToWord[field] || field;
@@ -505,7 +570,15 @@ export function assertKnownAttributes(container: string, attrs: Record<string, a
   if (!unknown.length) return;
   const hints = unknown
     .map((w) => {
-      const owners = (wordOwners[w] || []).filter((o) => o !== container);
+      // An activity setting gets its own hint: "belongs inside `activity`" would be actively
+      // misleading, because there is no `activity [...]` to put it in. It goes AFTER the list.
+      if (container !== "activity" && configWords.includes(w)) {
+        return (
+          ` \`${w}\` configures the whole activity, so it goes after the items list rather than` +
+          ` inside an item: items [ … ] ${w} "…" {}.`
+        );
+      }
+      const owners = (wordOwners[w] || []).filter((o) => o !== container && o !== "activity");
       return owners.length ? ` \`${w}\` belongs inside \`${owners[0]}\`.` : "";
     })
     .join("");

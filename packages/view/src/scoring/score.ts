@@ -626,3 +626,65 @@ export function scoreInteraction({
   if (interaction?.type === "item") return scoreItem({ response, validation });
   return scorePart(response, validation);
 }
+
+/** One member of a compiled activity, as `buildActivity` numbers them. */
+export interface ActivityItem {
+  id: number;
+  interaction?: { type?: string } | null;
+  validation?: any;
+}
+
+/**
+ * Score a whole activity: each item on its own, then summed.
+ *
+ * Independence is the point of the level. `conjunctive` binds the PARTS of one item together;
+ * nothing binds items to each other, so an activity is always the sum — there is no activity-
+ * level scoring mode and adding one would be a second answer to what the items already say.
+ *
+ * `pending` propagates: an activity holding a written response is not finished being marked,
+ * and reporting a settled total over it would tell a candidate they earned nothing on work
+ * nobody has read. `correct` means every item earned everything available, which is why an
+ * activity with an unmarked part is never correct.
+ *
+ * `parts` is keyed by item id as a string, matching what `scoreItem` does one level down, so a
+ * host walking a result does not need a different accessor per level.
+ */
+export function scoreActivity({
+  activity,
+  response,
+}: {
+  activity: { items?: ActivityItem[] } | null | undefined;
+  response: unknown;
+}): Score {
+  const items = activity?.items ?? [];
+  const given = response !== null && typeof response === "object" ? (response as any) : {};
+
+  const parts: Record<string, Score> = {};
+  let rawPoints = 0;
+  let maxPoints = 0;
+  let pending = false;
+  let everyItemCorrect = items.length > 0;
+  for (const item of items) {
+    const s = scoreInteraction({
+      interaction: item.interaction,
+      validation: item.validation,
+      response: given[String(item.id)],
+    });
+    parts[String(item.id)] = s;
+    // The floored `points`, not `rawPoints`: a penalty inside one item must not subtract from
+    // what the candidate earned on another.
+    rawPoints += s.points;
+    maxPoints += s.maxPoints;
+    if (s.pending) pending = true;
+    if (!s.correct) everyItemCorrect = false;
+  }
+
+  return {
+    points: Math.max(0, rawPoints),
+    rawPoints,
+    maxPoints,
+    correct: everyItemCorrect && !pending,
+    pending,
+    parts,
+  };
+}

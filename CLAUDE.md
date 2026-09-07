@@ -126,6 +126,57 @@ standing alone or nested.
 Only the item reports a score — parts render with `showResult={false}`. A per-part "Correct"
 while a conjunctive item earns nothing is actively misleading. Option-level ✓/✗ still show.
 
+### The activity level, back-ported from L0182
+
+`items [ … ] navigation "linear" submission "individual" {}` is the level ABOVE `item`. An
+`item` groups interactions over one stimulus and scores them **together**; an activity groups
+several of those, scored independently — which is what a quiz or a test actually is. L0176
+already establishes the family's shape (an activity IS a list of items) and QTI supplies the
+delivery vocabulary, so nothing here was invented for L0180.
+
+L0182 built it first and this is a port, not a shared module — the two languages stay
+independent on purpose. `activity.ts` is kept free of L0180's own concepts for the same reason
+it was kept free of L0182's: that is what let it move, and what will let it move again.
+
+**One word from the contract could not come.** The back-port surface named `title` at arity 2
+for the activity. L0180 already has `title` at arity 1 inside `stimulus`, and the lexicon gives
+a word exactly one arity, so taking it would have broken every stimulus in the corpus. It was
+left out rather than renamed; an activity that needs a name can gain its own word later, and
+naming is not what the level is for. `items`, `navigation` and `submission` were all free.
+
+**The defaults are what L0180 already does, not what reads best on paper**: `nonlinear` and
+`simultaneous`, because every item is laid out on one screen and nothing is submitted anywhere
+in between. L0182 defaults the other way — `linear`, `individual` — because its delivery
+genuinely is a per-item flow with a server behind it. A default that contradicts the renderer
+would be a statement the language cannot keep.
+
+Which is also why `submission` changes nothing in the renderer and says so. There is no server
+in this loop, so every answer is already submitted the moment it is given; the word is carried
+in the compiled output for a delivery host to act on. `navigation` **is** honoured — `linear`
+shows one item at a time with no Back control, because QTI's word means the candidate cannot
+return to one they have left, and offering the button only to refuse it is worse than not
+offering it. The last item has no Next either: a control that cannot advance is a dead button.
+
+**The activity cursor is local React state, unlike L0182's.** There it must survive a reload,
+because a participation lives on a server and a participant may come back to it. Here nothing
+is persisted mid-activity, so the cursor has no reason to enter the model — and keeping it out
+means answering an item cannot move it. This is *not* the shuffling hazard that `order` and
+`shuffling.ts` document: that is about a value the COMPILER would recompute on every response,
+and nothing recomputes a cursor.
+
+**`isAnswered` was extracted rather than copied.** `ItemView` needed it per part and
+`ActivityView` needs the same question one level up. A second copy would have drifted, and the
+drift would show as a result banner appearing at one level and not the other for the same
+response. The rule is not "the key is present": a text-entry, a pairing and a gap-match all
+answer with a container that exists from the first click, so a half-finished response is short
+rather than absent and has to be counted against the holes the interaction actually has.
+
+`scoreActivity` sums the items and there is deliberately no activity-level scoring mode.
+`conjunctive` binds the PARTS of one item together; nothing binds items to each other, so an
+authored mode would be a second, disagreeing answer to what the items already say. It sums the
+FLOORED per-item scores, so a penalized distractor in one item cannot subtract from another —
+which is the case `Score.points` was already floored for.
+
 ### Every choice needs its own radio group
 
 `ChoiceItem` takes its group name from `useId()`. A fixed name put both parts of a two-part
@@ -344,9 +395,13 @@ Overview, not the JSON — `language-info.json` must not carry that key itself.
 3. Write the container's Transformer method; assemble `interaction` and `validation`.
 4. Add a scorer case, keeping the module DOM-free.
 5. Add a renderer and register it in the `RENDERERS` map in `interactions.tsx` — not in
-   `Form.tsx`, which only chooses between an item and a bare interaction.
-6. Extend `spec/schema.json` — a `$defs` entry plus the `oneOf` in `interaction`, **and the
+   `Form.tsx`, which only chooses between an activity, an item and a bare interaction.
+   **If its response is a container rather than a value** — a map of holes, a list of pairings —
+   give it a case in `answered.ts`, or a half-finished answer counts as done and a result shows
+   over it, at both the item and the activity level.
+6. Extend `spec/schema.json` — a `$defs` entry plus the `oneOf` in `anyInteraction`, **and the
    one inside `itemInteraction.parts`**, which is a separate union and the easy one to miss.
+   An activity's members reference `anyInteraction`, so they need no third edit.
    `validation` needs nothing: `responseValidation` is interaction-agnostic, keyed by
    identifier, and already shared. `docs.test.ts` validates every spec program's output against
    the schema, so a new type fails the suite until it knows about it.
@@ -678,7 +733,9 @@ so the candidate would watch a selection vanish for no stated reason.
 
 ## Not built yet
 
-Hotspot, sliders. Symbolic answer
+Sections — QTI's `assessmentSection`, the level between an activity and its items, where a rule
+over a GROUP of items belongs: drawing 10 items from a bank of 200, an ordering, a shared
+rubric. An activity is a flat list of authored items until then. Hotspot, sliders. Symbolic answer
 matching — expressions, units and algebraic equivalence, and whether a fraction is in lowest
 terms; numbers themselves are compared as numbers. QTI export, which the `interaction`/`validation` split is deliberately shaped
 to allow later; now that the compiled shape carries QTI's own field names, that is a serializer

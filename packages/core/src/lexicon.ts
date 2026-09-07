@@ -6,7 +6,7 @@
  * with the handlers generated from the same table. Only containers are declared by hand.
  */
 import { lexicon as base, mergeLexicon } from "@graffiticode/l0000";
-import { attributeFields, typeOf, wordOf } from "./attributes.js";
+import { attributeFields, configFields, configTypeOf, typeOf, wordOf } from "./attributes.js";
 
 const fn = (name: string, arity: 0 | 1 | 2, type: string, description: string) => ({
   tk: 1,
@@ -35,7 +35,28 @@ const attributeWords = Object.fromEntries(
  * style guide: `options [...] {}` reads as "these children, no configuration", and a word
  * that sometimes takes the slot is a rule the generator has to remember rather than apply.
  */
+/**
+ * Activity-level words: arity 2, chaining.
+ *
+ * Each takes its value and the rest of the chain, so the tail of
+ * `items [...] navigation "linear" {}` builds the configuration record the member list takes as
+ * its second argument. This is the whole arity-2 attribute set — keep it small, and name it in
+ * instructions.md, per style guide §3.
+ */
+const configWords = Object.fromEntries(
+  Object.entries(configFields).map(([name, meta]) => [
+    wordOf(name),
+    fn(name, 2, configTypeOf(meta), meta.description),
+  ]),
+);
+
 const containers = {
+  items: fn(
+    "ITEMS",
+    2,
+    "<list record: record>",
+    "An activity: the items a candidate works through, in order, then the activity's configuration.",
+  ),
   item: fn(
     "ITEM",
     1,
@@ -184,6 +205,6 @@ const containers = {
 
 export const lexicon = mergeLexicon(
   base,
-  { ...attributeWords, ...containers },
+  { ...attributeWords, ...configWords, ...containers },
   { langID: "L0180" },
 );

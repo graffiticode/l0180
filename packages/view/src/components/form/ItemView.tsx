@@ -11,6 +11,7 @@
  * nothing is not a thing a learner should be told.
  */
 import { InteractionView } from "./interactions";
+import { isAnswered } from "./answered";
 import { HottextPassage, HottextPrompt } from "./HottextItem";
 import { ResultBanner } from "./itemKit";
 import { scoreItem } from "../../scoring";
@@ -50,43 +51,7 @@ export function ItemView({
     respond({ ...given, [id]: partResponse });
 
   const gradable = !!validation && (validation.points ?? 0) > 0;
-  const answered = parts.every((p: any) => {
-    const r = given[p.id];
-    if (Array.isArray(r)) return r.length > 0;
-    // A written response that is only whitespace has not been answered.
-    if (typeof r === "string") return r.trim().length > 0;
-    // A text-entry part answers with a map of blank id to typed text. The response alone cannot
-    // say whether it is complete — an untouched blank is simply absent — so count against the
-    // blanks the part actually has.
-    if (p.type === "text-entry") {
-      const blanks = (p.segments ?? []).filter((s: any) => s.blank).length;
-      const filled = Object.values(r ?? {}).filter(
-        (v) => typeof v === "string" && v.trim().length > 0,
-      ).length;
-      return blanks > 0 && filled === blanks;
-    }
-    // A pairing answers with one pair per item, so a half-finished one is a short array rather
-    // than an absent key — count against the items the part actually has.
-    if (p.type === "match" || p.type === "classification") {
-      const rows = (p.items ?? []).length;
-      return rows > 0 && Array.isArray(r) && r.length === rows;
-    }
-    // The same, counted against the gaps in the sentence.
-    if (p.type === "gap-match") {
-      const holes = (p.segments ?? []).filter((s: any) => s.gap).length;
-      return holes > 0 && Array.isArray(r) && r.length === holes;
-    }
-    // An inline-choice answers the same way, with a list of one per dropdown rather than typed
-    // text. Same reason it needs counting: an untouched menu is simply absent.
-    if (p.type === "inline-choice") {
-      const menus = (p.segments ?? []).filter((s: any) => s.choice).length;
-      const picked = Object.values(r ?? {}).filter(
-        (v) => (Array.isArray(v) ? v.length > 0 : typeof v === "string" && v.length > 0),
-      ).length;
-      return menus > 0 && picked === menus;
-    }
-    return r !== undefined && r !== null;
-  });
+  const answered = parts.every((p: any) => isAnswered(p, given[p.id]));
   const score = gradable && answered ? scoreItem({ response: given, validation }) : null;
 
   return (

@@ -20,13 +20,19 @@ depth. Lists are space-separated (`[1 2 3]`, not `[1, 2, 3]`). Every program end
 **One word takes no value at all: `correct`.** It stands alone inside `assess`, and its
 presence is what it asserts. Write `assess [correct points 2]`, never `correct true`.
 
-**`options` takes a configuration record after its list**, written `{}` when there is nothing
-to configure: `options [...] {}`. Every other word here takes exactly one argument.
+**Four words take a configuration record after their argument**, written `{}` when there is
+nothing to configure. `options [...] {}` and `parts [...] {}` are member lists — homogeneous
+children plus the container's own settings. `navigation` and `submission` chain onto an
+activity's `items [...]` list and end in that same record:
+`items [ … ] navigation "linear" {}`. Every other word here takes exactly one argument.
 
 ## L0180 Functions
 
 | Function | Signature | Description |
 | :------- | :-------- | :---------- |
+| `items` | `<list record: record>` | An activity: the items a candidate works through, in order, then the activity's configuration |
+| `navigation` | `<string record: record>` | QTI's navigationMode. `linear` means the candidate cannot return to an item they have left; `nonlinear` (the default) lets them move freely |
+| `submission` | `<string record: record>` | QTI's submissionMode. `individual` submits each item as it is answered; `simultaneous` (the default) holds everything until the end |
 | `item` | `<list: record>` | An item: an optional stimulus and one or more parts scored together |
 | `parts` | `<list record: record>` | The interactions an item is made of, in order |
 | `stimulus` | `<list: record>` | The passage the item's parts are about |
@@ -86,6 +92,7 @@ to configure: `options [...] {}`. Every other word here takes exactly one argume
 
 | Container | Takes |
 | :-------- | :---- |
+| an activity | navigation, submission, items |
 | `item` | stimulus, scoring, points, parts |
 | `stimulus` | title, paragraphs |
 | `choice` | prompt, shuffle, min-choices, max-choices, response-processing, upper-bound, options |
@@ -747,6 +754,57 @@ item [
   ] {}
 ]..
 ```
+
+## Several questions in one activity
+
+An `item` groups parts that are scored **together**. An **activity** is the level above: a list
+of items, each scored on its own — which is what a quiz or a test actually is. Write the items
+in the order they are presented, then the activity's settings, ending in a record:
+
+```
+items [
+  choice [
+    prompt "What is the capital of France?"
+    options [ [ text "Paris" assess [ correct ] ] [ text "Lyon" ] [ text "Marseille" ] ] {}
+  ]
+  choice [
+    prompt "Which river runs through it?"
+    options [ [ text "The Seine" assess [ correct ] ] [ text "The Rhone" ] ] {}
+  ]
+] {}..
+```
+
+Each member is a whole item — a bare interaction, or an `item [ … ]` with a passage and several
+parts. They mix freely, and each keeps its own key.
+
+Two settings govern the delivery, both QTI's:
+
+- **`navigation`** — `nonlinear` (the default) lets the candidate move freely between items;
+  `linear` means they cannot return to one they have left.
+- **`submission`** — `simultaneous` (the default) holds every answer until the end;
+  `individual` submits each item as it is answered.
+
+```
+items [
+  choice [
+    prompt "Which word is a noun?"
+    options [ [ text "river" assess [ correct ] ] [ text "quickly" ] ] {}
+  ]
+  item [
+    stimulus [ paragraphs [ "The tide went out further than anyone remembered." ] ]
+    parts [
+      choice [
+        prompt "What does the sentence describe?"
+        options [ [ text "An unusually low tide." assess [ correct ] ] [ text "A storm." ] ] {}
+      ]
+    ] {}
+  ]
+] navigation "linear" submission "individual" {}..
+```
+
+Items are numbered by position, from 0, and a response is keyed by that number. Write `{}` when
+there is nothing to configure — the record is not optional, and a settings word with nothing
+after it is a parse error rather than a helpful one.
 
 ## L0180 Examples
 

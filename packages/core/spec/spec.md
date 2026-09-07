@@ -39,6 +39,9 @@ Two words depart from that, both deliberately:
 
 | Function | Signature | Description |
 | :------- | :-------- | :---------- |
+| `items` | `<list record: record>` | An activity: several items delivered together |
+| `navigation` | `<string record: record>` | How a candidate moves between items — linear or nonlinear |
+| `submission` | `<string record: record>` | When answers are sent — individual or simultaneous |
 | `item` | `<list: record>` | An item: a stimulus and one or more parts |
 | `parts` | `<list record: record>` | The interactions an item is made of |
 | `stimulus` | `<list: record>` | The passage the parts are about |
@@ -89,6 +92,47 @@ Two words depart from that, both deliberately:
 | `max-choices` | `<number: record>` | Most options selectable |
 | `response-processing` | `<string: record>` | How the response scores — map-response or match-correct |
 | `upper-bound` | `<number: record>` | Cap on what the answers earn — "any N of them" |
+
+### items
+
+An activity: several items delivered together, each scored on its own. `item` is the level
+below — parts scored *together* over one stimulus; `items` is a quiz or a test made of those.
+The list comes first, then the activity's settings, ending in a record.
+
+Members mix freely: a bare interaction is an item, and so is an `item [ … ]` with a passage and
+several parts. Each keeps its own key. Items are numbered by position from 0, and a response is
+keyed by that number.
+
+```
+items [
+  choice [
+    prompt "What is the capital of France?"
+    options [ [ text "Paris" assess [ correct ] ] [ text "Lyon" ] ] {}
+  ]
+  item [
+    stimulus [ paragraphs [ "The Seine runs west across the city and out to the sea." ] ]
+    parts [
+      choice [
+        prompt "Which direction does the river run?"
+        options [ [ text "West." assess [ correct ] ] [ text "North." ] ] {}
+      ]
+    ] {}
+  ]
+] navigation "linear" submission "individual" {}..
+```
+
+### navigation
+
+QTI's `navigationMode`, set on an activity. `nonlinear` (the default) lets the candidate move
+freely between items; `linear` means they cannot return to one they have left. The default is
+what L0180 already does — every item is laid out on one screen — rather than what reads best on
+paper.
+
+### submission
+
+QTI's `submissionMode`, set on an activity. `simultaneous` (the default) holds every answer
+until the candidate finishes; `individual` submits each item as it is answered, which is what a
+delivery that can be resumed needs.
 
 ### item
 

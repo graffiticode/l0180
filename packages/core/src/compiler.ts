@@ -13,6 +13,7 @@ import {
 
 import {
   attributeFields,
+  configFields,
   assertAssessWords,
   assertKnownAttributes,
   checkValue,
@@ -21,6 +22,7 @@ import {
   toPlainObject,
   wordOf,
 } from "./attributes.js";
+import { buildActivity, resolveConfig } from "./activity.js";
 import { resolveSelections, sentenceUnits, wordUnits } from "./hottext.js";
 import type { Paragraph, Unit } from "./hottext.js";
 import { isAnchored, keepsOrder } from "./anchors.js";
@@ -81,6 +83,12 @@ Checker.prototype.CLASSIFICATION_ITEMS = checkBoth;
 Checker.prototype.GAP_MATCH = checkChild;
 Checker.prototype.TOKENS = checkBoth;
 Checker.prototype.GAPS = checkBoth;
+// A config word is arity 2, and `elts[1]` is the rest of the chain — a method that walked only
+// `elts[0]` would silently drop every error below it.
+for (const name of Object.keys(configFields)) {
+  Checker.prototype[name] = checkBoth;
+}
+Checker.prototype.ITEMS = checkBoth;
 Checker.prototype.ITEM = checkChild;
 Checker.prototype.PARTS = checkBoth;
 
@@ -1293,6 +1301,120 @@ Transformer.prototype.ITEM = function (this: any, node: any, options: any, resum
     } catch (e: any) {
       resume(err.concat(String((e && e.message) || e)), {});
     }
+  });
+};
+
+/**
+ * Activity-level attributes: arity 2, chaining.
+ *
+ * Takes its value AND the rest of the chain, and returns the chain's record with its own key
+ * added — L0166's shape. That is what lets `items [...] navigation "linear" {}` build a
+ * configuration record without brackets, terminating in the record literal.
+ */
+for (const [name, meta] of Object.entries(configFields)) {
+  Transformer.prototype[name] = function (this: any, node: any, options: any, resume: any) {
+    this.visit(node.elts[0], options, (e0: any, v0: any) => {
+      this.visit(node.elts[1], options, (e1: any, v1: any) => {
+        const err = ([] as any[]).concat(e0 || [], e1 || []);
+        const raw = toPlainObject(v0);
+        const typeError = checkValue(name, meta as any, raw);
+        if (typeError) {
+          resume(err.concat(typeError), {});
+          return;
+        }
+        const rest = toPlainObject(v1);
+        if (rest !== null && typeof rest === "object" && !Array.isArray(rest)) {
+          if (Object.prototype.hasOwnProperty.call(rest, meta.field)) {
+            resume(
+              err.concat(`${wordOf(name)}: is given twice. Each activity setting may appear once.`),
+              {},
+            );
+            return;
+          }
+          resume(err, { ...rest, [meta.field]: raw });
+          return;
+        }
+        // The chain must terminate in a record — `{}` when there is nothing more to say.
+        resume(
+          err.concat(
+            `${wordOf(name)}: the activity's settings must end in a record, e.g. ` +
+              `items [ … ] ${wordOf(name)} … {}.`,
+          ),
+          {},
+        );
+      });
+    });
+  };
+}
+
+/**
+ * The activity: a member list of items plus its own configuration record.
+ *
+ * A member is anything that compiled to an `interaction` — a bare `choice`, or an `item`
+ * wrapping several parts over a stimulus. Nothing merges them; each was already assembled by
+ * its own handler, and each keeps its own `validation`, so the split that lets a graded delivery
+ * withhold the answer key survives one level up.
+ */
+Transformer.prototype.ITEMS = function (this: any, node: any, options: any, resume: any) {
+  this.visit(node.elts[0], options, (e0: any, v0: any) => {
+    this.visit(node.elts[1], options, (e1: any, v1: any) => {
+      const err = ([] as any[]).concat(e0 || [], e1 || []);
+      const raw = toPlainObject(v0);
+      if (!Array.isArray(raw)) {
+        resume(
+          err.concat(
+            'items: expected a list of items, e.g. items [ choice [prompt "…" options [[text "A"]] {}] ] {}.',
+          ),
+          {},
+        );
+        return;
+      }
+      if (!raw.length) {
+        resume(err.concat("items: an activity needs at least one item."), {});
+        return;
+      }
+      const config = toPlainObject(v1);
+      if (config === null || typeof config !== "object" || Array.isArray(config)) {
+        resume(
+          err.concat(
+            "items: needs the activity's settings after the list, ending in a record — " +
+              'e.g. items [ … ] navigation "linear" {}. Write `{}` when there are none.',
+          ),
+          {},
+        );
+        return;
+      }
+      const pending = raw.findIndex((i: any) => i.pending);
+      if (pending >= 0) {
+        resume(
+          err.concat(
+            'hottext: `within "stimulus"` needs the hottext to be a part of an item that has one. ' +
+              "Wrap it in `item [ stimulus [ … ] parts [ … ] {} ]`, or give it its own `text`.",
+          ),
+          {},
+        );
+        return;
+      }
+      const bad = raw.findIndex(
+        (i: any) => i === null || typeof i !== "object" || Array.isArray(i) || !i.interaction,
+      );
+      if (bad >= 0) {
+        resume(
+          err.concat(
+            `items: entry ${bad + 1} is not an item. Each entry must be an interaction or an ` +
+              '`item [ … ]`, e.g. items [ choice [prompt "…" options [[text "A"]] {}] ] {}.',
+          ),
+          {},
+        );
+        return;
+      }
+      try {
+        resolveConfig(config);
+        resume(err, buildActivity(raw, config));
+      } catch (e: any) {
+        resume(err.concat(String((e && e.message) || e)), {});
+      }
+    });
   });
 };
 

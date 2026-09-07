@@ -1,11 +1,11 @@
 <!-- SPDX-License-Identifier: CC-BY-4.0 -->
 # L0180 RAG Training Examples
 
-156 example prompts for training a RAG model on L0180, the web-based assessment language —
+164 example prompts for training a RAG model on L0180, the web-based assessment language —
 covering multiple choice, true/false, multi-select, exact-set scoring, weighted scoring,
 penalized distractors, presentation and option order, unscored polls, per-option rationale, clicking
 sentences and words inside a passage, fill-in-the-blank including numeric answers and the form they must be written in, dropdown
-cloze, word-bank cloze, sequencing, matching, classification, written responses marked against a rubric, and multi-part items over a reading passage.
+cloze, word-bank cloze, sequencing, matching, classification, written responses marked against a rubric, multi-part items over a reading passage, and activities that deliver several items together.
 
 Each numbered line is a prompt in the author's own voice. Prompts describe WHAT to build,
 never how to write it: an author asks for a question, not for a `choice [...]` program. When
@@ -227,3 +227,14 @@ L0180 grows further interaction types, this file grows categories with them.
 154. A Spanish sentence with two gaps filled from a bank of articles and adjectives.
 155. Drag the right dates into a sentence about the American Revolution, all gaps required for the point.
 156. A sentence about the parts of a cell with three gaps and a bank of four words.
+
+## Category 21: Activities (157-164)
+
+157. A five-question quiz on the water cycle, all multiple choice.
+158. Build a short test with three questions: one multiple choice, one fill-in-the-blank and one ordering task.
+159. A practice set of four questions about fractions that a student can move back and forth between.
+160. Make a quiz the student cannot go back through once they have answered a question.
+161. A ten-question vocabulary test that submits each answer as it is given.
+162. Put these three reading questions together into one activity, each scored on its own.
+163. A mixed quiz with a passage-based two-part item and two standalone questions after it.
+164. An end-of-unit test on the American Revolution with six questions of different kinds.
