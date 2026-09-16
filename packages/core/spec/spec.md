@@ -11,7 +11,8 @@ semantics and base library can be found here:
 
 ## Overview
 
-An L0180 program is one interaction. It compiles to two siblings:
+An L0180 program is one item — an interaction, or an `item` wrapping several parts — or an
+activity of several items, written `items [ … ] {}`. Each item compiles to two siblings:
 
 - `interaction` — everything the candidate sees. Safe to send to a browser.
 - `validation` — the answer key and the points available.

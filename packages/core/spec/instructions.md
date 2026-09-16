@@ -2,7 +2,9 @@
 # L0180 Dialect Extensions
 
 L0180 authors **web-based assessment items**. A program compiles to one interaction plus its
-answer key, ready to render and score with no vendor platform behind it.
+answer key, ready to render and score with no vendor platform behind it. **A quiz or a test —
+any request for several questions — is one program too:** wrap the questions in
+`items [ … ] {}`. Several questions side by side, bracketed or not, are a compile error.
 
 ## Writing an attribute
 

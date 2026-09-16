@@ -1442,6 +1442,24 @@ Transformer.prototype.PROG = function (this: any, node: any, options: any, resum
       );
       return;
     }
+    // Several questions written without `items` both compile clean and deliver wrong: bracketed,
+    // to an array no renderer reads; unbracketed, to the last question alone. A generator asked
+    // for a quiz writes exactly these, and only an error naming `items` gets it to try again.
+    const isQuestion = (v: any) =>
+      v !== null && typeof v === "object" && !Array.isArray(v) && (v.interaction || v.pending || v.activity);
+    const dropped = Array.isArray(v0) ? v0.filter(isQuestion).length : 0;
+    if ((Array.isArray(val) && val.some(isQuestion)) || (dropped && isQuestion(val))) {
+      const count = Array.isArray(val) ? val.length : dropped + 1;
+      resume(
+        ([] as any[]).concat(e0 || [], [
+          `A program is one item, and this one has ${count} questions side by side. ` +
+            "Several questions are an activity: wrap them in `items [ … ] {}`, e.g. " +
+            'items [ choice [prompt "…" options [[text "A"]] {}] choice [prompt "…" options [[text "B"]] {}] ] {}.',
+        ]),
+        {},
+      );
+      return;
+    }
     const isObject = typeof val === "object" && val !== null && !Array.isArray(val);
     resume(e0, isObject ? { ...data, ...val } : val);
   });

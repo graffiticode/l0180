@@ -217,3 +217,24 @@ describe("an activity scores item by item", () => {
     expect(whole).toMatchObject({ points: 1, correct: true });
   });
 });
+
+describe("several questions written without `items`", () => {
+  // Both shapes used to compile clean: the bracketed one to an array no renderer reads, the bare
+  // one to its last question alone. A generator asked for a five-question quiz wrote the first.
+  test("in a list, are told to become an activity", async () => {
+    const msg = await errorOf(`[ ${Q("One?")} ${Q("Two?")} ${Q("Three?")} ]`);
+    expect(msg).toContain("3 questions side by side");
+    expect(msg).toContain("items [ … ] {}");
+  });
+
+  test("side by side, are refused rather than keeping only the last", async () => {
+    const msg = await errorOf(`${Q("One?")} ${Q("Two?")}`);
+    expect(msg).toContain("2 questions side by side");
+    expect(msg).toContain("items [ … ] {}");
+  });
+
+  test("do not catch a single question or an activity", async () => {
+    await expect(compile(Q("One?"))).resolves.toHaveProperty("interaction");
+    await expect(compile(`items [ ${Q("One?")} ${Q("Two?")} ] {}`)).resolves.toHaveProperty("activity");
+  });
+});
