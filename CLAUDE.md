@@ -177,6 +177,16 @@ authored mode would be a second, disagreeing answer to what the items already sa
 FLOORED per-item scores, so a penalized distractor in one item cannot subtract from another —
 which is the case `Score.points` was already floored for.
 
+**Several questions without `items` are refused in `PROG`, bracketed or not.** Both shapes used
+to compile clean and deliver wrong: `[ choice … choice … ]` to a bare array no renderer reads,
+and `choice … choice …` to the LAST question alone, the rest dropped by `v0.pop()`. It was found
+live — asked for a five-question quiz before the activity level was deployed, the generator
+wrote the bracketed form and got no error to retry from. The refusal names `items [ … ] {}`
+because that message is the generator's only route to the fix. A "question" here is anything
+carrying `interaction`, `pending` or `activity`, so a single item and a real activity pass
+untouched. The spec says the same thing up front, in `instructions.md`'s opening paragraph,
+because a quiz is the request most likely to arrive and least likely to look like one program.
+
 ### Every choice needs its own radio group
 
 `ChoiceItem` takes its group name from `useId()`. A fixed name put both parts of a two-part
