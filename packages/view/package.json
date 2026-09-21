@@ -3,7 +3,7 @@
     "access": "public"
   },
   "name": "@graffiticode/l0180-view",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "L0180 view — native React renderers and scorer for L0180 assessment items",
   "type": "module",
   "main": "./dist/index.js",
