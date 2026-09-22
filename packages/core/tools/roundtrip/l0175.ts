@@ -30,6 +30,7 @@ export async function compileExample(name: string): Promise<any> {
     throw new Error(
       `cannot load L0175 from ${dist} — clone it beside this repo and run its build, or set ` +
         `L0175_DIR. (${e?.message ?? e})`,
+      { cause: e },
     );
   }
   const src = readFileSync(join(examplesDir(), name.endsWith(".gc") ? name : `${name}.gc`), "utf-8");
