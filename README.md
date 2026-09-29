@@ -1,3 +1,9 @@
+> **Archived — moved.** This repository is archived and read-only. L0180 now lives in the
+> Graffiticode monorepo at
+> [`languages/l0180`](https://github.com/graffiticode/graffiticode/tree/main/languages/l0180),
+> with this repository's history. Make changes there; the `l0180` service is released with
+> the monorepo's deploy CLI (`npm run deploy -- l0180`).
+
 # L0180
 
 [![License: MIT](https://img.shields.io/badge/Code-MIT-blue.svg)](packages/LICENSE)
